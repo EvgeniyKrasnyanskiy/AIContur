@@ -33,6 +33,7 @@ import math
 import argparse
 import shutil
 import logging
+import subprocess
 from pathlib import Path
 from typing import Dict, List, Optional, Callable
 
@@ -270,7 +271,7 @@ def run_pipeline(
     existing_rtstruct_path: Optional[str] = None,
     step_callback: Optional[Callable[[str], None]] = None,
     is_cancelled_cb: Optional[Callable[[], bool]] = None,
-    register_process_cb: Optional[Callable[[Any], None]] = None
+    register_process_cb: Optional[Callable[[subprocess.Popen], None]] = None
 ) -> None:
     """
     Основной пайплайн выполнения автооконтурирования органов риска на КТ.
