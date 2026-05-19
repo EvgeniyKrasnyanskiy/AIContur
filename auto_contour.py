@@ -66,53 +66,60 @@ logging.basicConfig(
     handlers=[logging.StreamHandler(sys.stdout)]
 )
 logger = logging.getLogger("AutoContour")
-
-# Пресеты органов риска (OAR) для оптимизации экспорта (системные)
 PRESETS: Dict[str, List[str]] = {
     "head_neck_oar": [
-        "brain",             # Головной мозг
-        "spinal_cord",       # Спинной мозг
-        "thyroid_gland",     # Щитовидная железа
-        "skull",             # Череп
-        "trachea",           # Трахея
-        "esophagus"          # Пищевод
+        "brain",                           # Головной мозг
+        "spinal_cord",                     # Спинной мозг
+        "thyroid_gland",                   # Щитовидная железа
+        "skull",                           # Череп
+        "trachea",                         # Трахея
+        "esophagus",                       # Пищевод
+        "common_carotid_artery_left",      # Левая сонная артерия
+        "common_carotid_artery_right"      # Правая сонная артерия
     ],
     "abdominal_oar": [
-        "spleen",            # Селезенка
-        "kidney_right",      # Правая почка
-        "kidney_left",       # Левая почка
-        "gallbladder",       # Желчный пузырь
-        "liver",             # Печень
-        "stomach",           # Желудок
-        "aorta",             # Аорта
-        "inferior_vena_cava",# Нижняя полая вена
-        "urinary_bladder",   # Мочевой пузырь
-        "heart",             # Сердце
-        "pancreas",          # Поджелудочная железа
-        "duodenum",          # Двенадцатиперстная кишка
-        "adrenal_gland_left",# Левый надпочечник
-        "adrenal_gland_right"# Правый надпочечник
+        "spleen",                          # Селезенка
+        "kidney_right",                    # Правая почка
+        "kidney_left",                     # Левая почка
+        "gallbladder",                     # Желчный пузырь
+        "liver",                           # Печень
+        "stomach",                         # Желудок
+        "aorta",                           # Аорта
+        "inferior_vena_cava",              # Нижняя полая вена
+        "urinary_bladder",                 # Мочевой пузырь
+        "heart",                           # Сердце
+        "pancreas",                        # Поджелудочная железа
+        "duodenum",                        # Двенадцатиперстная кишка
+        "adrenal_gland_left",              # Левый надпочечник
+        "adrenal_gland_right",             # Правый надпочечник
+        "portal_vein_and_splenic_vein"     # Воротная/селезеночная вена
     ],
     "thoracic_oar": [
-        "heart",             # Сердце
-        "lung_left",         # Левое легкое
-        "lung_right",        # Правое легкое
-        "trachea",           # Трахея
-        "aorta",             # Аорта
-        "esophagus",         # Пищевод
-        "pulmonary_artery"   # Легочная артерия
+        "heart",                           # Сердце
+        "lung_left",                       # Левое легкое
+        "lung_right",                      # Правое легкое
+        "trachea",                         # Трахея
+        "aorta",                           # Аорта
+        "esophagus",                       # Пищевод
+        "pulmonary_artery",                # Легочная артерия
+        "superior_vena_cava",              # Верхняя полая вена
+        "sternum",                         # Грудина
+        "clavicula_left",                  # Левая ключица
+        "clavicula_right"                  # Правая ключица
     ],
     "pelvis_oar": [
-        "urinary_bladder",   # Мочевой пузырь
-        "prostate",          # Предстательная железа
-        "rectum",            # Прямая кишка
-        "colon",             # Кишечник
-        "small_bowel",       # Тонкая кишка
-        "femur_left",        # Левая бедренная кость
-        "femur_right",       # Правая бедренная кость
-        "hip_left",          # Левая тазовая кость
-        "hip_right",         # Правая тазовая кость
-        "sacrum"             # Крестец
+        "urinary_bladder",                 # Мочевой пузырь
+        "prostate",                        # Предстательная железа
+        "rectum",                          # Прямая кишка
+        "colon",                           # Кишечник
+        "small_bowel",                     # Тонкая кишка
+        "femur_left",                      # Левая бедренная кость
+        "femur_right",                     # Правая бедренная кость
+        "hip_left",                        # Левая тазовая кость
+        "hip_right",                       # Правая тазовая кость
+        "sacrum",                          # Крестец
+        "iliac_artery_left",               # Левая подвздошная артерия
+        "iliac_artery_right"               # Правая подвздошная артерия
     ]
 }
 
@@ -150,7 +157,16 @@ ORGAN_COLORS: Dict[str, List[int]] = {
     "spinal_cord": [0, 255, 0],        # Зеленый
     "thyroid_gland": [255, 105, 180],  # Розовый
     "skull": [255, 228, 196],          # Бежевый
-    "brain": [135, 206, 250]           # Небесно-голубой
+    "brain": [135, 206, 250],          # Небесно-голубой
+    "common_carotid_artery_left": [220, 20, 60],      # Малиновый
+    "common_carotid_artery_right": [220, 20, 60],     # Малиновый
+    "superior_vena_cava": [70, 130, 180],              # Стальной синий
+    "portal_vein_and_splenic_vein": [0, 139, 139],     # Темно-бирюзовый
+    "clavicula_left": [244, 164, 96],                  # Песочно-коричневый
+    "clavicula_right": [244, 164, 96],                 # Песочно-коричневый
+    "sternum": [222, 184, 135],                        # Древесный
+    "iliac_artery_left": [255, 99, 71],                # Томатный
+    "iliac_artery_right": [255, 99, 71]                # Томатный
 }
 
 # Полный перечень всех OAR, доступных в интерфейсе
@@ -161,7 +177,10 @@ ALL_ORGANS = [
     "duodenum", "adrenal_gland_left", "adrenal_gland_right", "pulmonary_artery",
     "small_bowel", "prostate", "rectum", "colon", "femur_left", "femur_right",
     "hip_left", "hip_right", "sacrum", "spinal_cord", "thyroid_gland", "skull",
-    "brain"
+    "brain", "common_carotid_artery_left", "common_carotid_artery_right",
+    "superior_vena_cava", "portal_vein_and_splenic_vein",
+    "clavicula_left", "clavicula_right", "sternum",
+    "iliac_artery_left", "iliac_artery_right"
 ]
 
 # Отображаемые на русском языке имена для списка интерфейса
@@ -197,7 +216,16 @@ ORGAN_RU_NAMES = {
     "spinal_cord": "Спинной мозг (Spinal Cord)",
     "thyroid_gland": "Щитовидная железа (Thyroid Gland)",
     "skull": "Череп (Skull)",
-    "brain": "Головной мозг (Brain)"
+    "brain": "Головной мозг (Brain)",
+    "common_carotid_artery_left": "Левая сонная артерия (Carotid A L)",
+    "common_carotid_artery_right": "Правая сонная артерия (Carotid A R)",
+    "superior_vena_cava": "Верхняя полая вена (Vena Cava Sup)",
+    "portal_vein_and_splenic_vein": "Воротная вена (Portal/Splenic V)",
+    "clavicula_left": "Левая ключица (Clavicle L)",
+    "clavicula_right": "Правая ключица (Clavicle R)",
+    "sternum": "Грудина (Sternum)",
+    "iliac_artery_left": "Левая подвздошная артерия (Iliac A L)",
+    "iliac_artery_right": "Правая подвздошная артерия (Iliac A R)"
 }
 
 # Карта пресетов для GUI
@@ -987,16 +1015,18 @@ if PYQT_AVAILABLE:
             # Заполнение списка с группировкой по анатомическим областям (по протоколам QUANTEC/TG-263)
             ORGAN_GROUPS = {
                 "--- ГОЛОВА И ШЕЯ ---": [
-                    "brain", "spinal_cord", "thyroid_gland", "skull", "trachea", "esophagus"
+                    "brain", "spinal_cord", "thyroid_gland", "skull", "trachea", "esophagus",
+                    "common_carotid_artery_left", "common_carotid_artery_right"
                 ],
                 "--- ГРУДНАЯ КЛЕТКА ---": [
-                    "heart", "lung_left", "lung_right", "trachea", "esophagus", "aorta", "pulmonary_artery"
+                    "heart", "lung_left", "lung_right", "trachea", "esophagus", "aorta", "pulmonary_artery",
+                    "superior_vena_cava", "sternum", "clavicula_left", "clavicula_right"
                 ],
                 "--- БРЮШНАЯ ПОЛОСТЬ ---": [
-                    "spleen", "kidney_right", "kidney_left", "gallbladder", "liver", "stomach", "inferior_vena_cava", "pancreas", "duodenum", "adrenal_gland_left", "adrenal_gland_right"
+                    "spleen", "kidney_right", "kidney_left", "gallbladder", "liver", "stomach", "inferior_vena_cava", "pancreas", "duodenum", "adrenal_gland_left", "adrenal_gland_right", "portal_vein_and_splenic_vein"
                 ],
                 "--- МАЛЫЙ ТАЗ ---": [
-                    "urinary_bladder", "prostate", "rectum", "colon", "small_bowel", "femur_left", "femur_right", "hip_left", "hip_right", "sacrum"
+                    "urinary_bladder", "prostate", "rectum", "colon", "small_bowel", "femur_left", "femur_right", "hip_left", "hip_right", "sacrum", "iliac_artery_left", "iliac_artery_right"
                 ]
             }
 
