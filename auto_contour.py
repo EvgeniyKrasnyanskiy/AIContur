@@ -53,7 +53,7 @@ try:
         QMessageBox, QFrame, QSplitter, QCheckBox
     )
     from PyQt6.QtCore import QThread, pyqtSignal, Qt, QObject
-    from PyQt6.QtGui import QTextCursor
+    from PyQt6.QtGui import QTextCursor, QBrush, QColor, QFont
     PYQT_AVAILABLE = True
 except ImportError:
     PYQT_AVAILABLE = False
@@ -69,6 +69,13 @@ logger = logging.getLogger("AutoContour")
 
 # Пресеты органов риска (OAR) для оптимизации экспорта (системные)
 PRESETS: Dict[str, List[str]] = {
+    "head_neck_oar": [
+        "spinal_cord",       # Спинной мозг
+        "thyroid_gland",     # Щитовидная железа
+        "skull",             # Череп
+        "trachea",           # Трахея
+        "esophagus"          # Пищевод
+    ],
     "abdominal_oar": [
         "spleen",            # Селезенка
         "kidney_right",      # Правая почка
@@ -91,7 +98,7 @@ PRESETS: Dict[str, List[str]] = {
     ],
     "pelvis_oar": [
         "urinary_bladder",   # Мочевой пузырь
-        "prostate",          # Предстательная железа (если есть)
+        "prostate",          # Предстательная железа
         "rectum",            # Прямая кишка
         "colon",             # Кишечник
         "femur_left",        # Левая бедренная кость
@@ -126,7 +133,10 @@ ORGAN_COLORS: Dict[str, List[int]] = {
     "femur_right": [255, 224, 178],    # Светло-оранжевый
     "hip_left": [230, 238, 156],       # Салатово-желтый
     "hip_right": [230, 238, 156],      # Салатово-желтый
-    "sacrum": [141, 110, 99]           # Серо-коричневый
+    "sacrum": [141, 110, 99],          # Серо-коричневый
+    "spinal_cord": [0, 255, 0],        # Зеленый
+    "thyroid_gland": [255, 105, 180],  # Розовый
+    "skull": [255, 228, 196]           # Бежевый
 }
 
 # Полный перечень всех OAR, доступных в интерфейсе
@@ -134,7 +144,8 @@ ALL_ORGANS = [
     "spleen", "kidney_right", "kidney_left", "gallbladder", "liver",
     "stomach", "aorta", "inferior_vena_cava", "urinary_bladder", "heart",
     "lung_left", "lung_right", "trachea", "esophagus", "prostate",
-    "rectum", "colon", "femur_left", "femur_right", "hip_left", "hip_right", "sacrum"
+    "rectum", "colon", "femur_left", "femur_right", "hip_left", "hip_right", "sacrum",
+    "spinal_cord", "thyroid_gland", "skull"
 ]
 
 # Отображаемые на русском языке имена для списка интерфейса
@@ -160,13 +171,17 @@ ORGAN_RU_NAMES = {
     "femur_right": "Правое бедро (Femur R)",
     "hip_left": "Левый таз (Hip L)",
     "hip_right": "Правый таз (Hip R)",
-    "sacrum": "Крестец (Sacrum)"
+    "sacrum": "Крестец (Sacrum)",
+    "spinal_cord": "Спинной мозг (Spinal Cord)",
+    "thyroid_gland": "Щитовидная железа (Thyroid Gland)",
+    "skull": "Череп (Skull)"
 }
 
 # Карта пресетов для GUI
 PRESETS_MAP = {
-    "Брюшная полость (Abdomen)": PRESETS["abdominal_oar"],
+    "Голова и шея (Head & Neck)": PRESETS["head_neck_oar"],
     "Грудная клетка (Thorax)": PRESETS["thoracic_oar"],
+    "Брюшная полость (Abdomen)": PRESETS["abdominal_oar"],
     "Малый таз (Pelvis)": PRESETS["pelvis_oar"],
     "Пользовательский (Custom)": []
 }
@@ -858,14 +873,45 @@ if PYQT_AVAILABLE:
             self.organs_list = QListWidget()
             self.organs_list.itemChanged.connect(self.on_organ_item_changed)
 
-            # Заполнение списка чек-боксов
-            for org in ALL_ORGANS:
-                ru_name = ORGAN_RU_NAMES.get(org, org)
-                item = QListWidgetItem(ru_name)
-                item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-                item.setCheckState(Qt.CheckState.Unchecked)
-                item.setData(Qt.ItemDataRole.UserRole, org)
-                self.organs_list.addItem(item)
+            # Заполнение списка с группировкой по анатомическим областям
+            ORGAN_GROUPS = {
+                "--- ГОЛОВА И ШЕЯ ---": [
+                    "spinal_cord", "thyroid_gland", "skull", "trachea", "esophagus"
+                ],
+                "--- ГРУДНАЯ КЛЕТКА ---": [
+                    "heart", "lung_left", "lung_right", "trachea", "esophagus", "aorta"
+                ],
+                "--- БРЮШНАЯ ПОЛОСТЬ ---": [
+                    "spleen", "kidney_right", "kidney_left", "gallbladder", "liver", "stomach", "inferior_vena_cava"
+                ],
+                "--- МАЛЫЙ ТАЗ ---": [
+                    "urinary_bladder", "prostate", "rectum", "colon", "femur_left", "femur_right", "hip_left", "hip_right", "sacrum"
+                ]
+            }
+
+            for group_title, organs in ORGAN_GROUPS.items():
+                # Элемент-заголовок группы
+                header_item = QListWidgetItem(group_title)
+                header_item.setFlags(Qt.ItemFlag.NoItemFlags)  # Невыбираемый, без чекбокса
+                header_item.setData(Qt.ItemDataRole.UserRole, "header")
+                
+                # Стилизация заголовка
+                font = header_item.font()
+                font.setBold(True)
+                header_item.setFont(font)
+                header_item.setForeground(QBrush(QColor("#007acc")))  # Фирменный синий цвет
+                header_item.setBackground(QBrush(QColor("#242424")))  # Чуть светлее фона списка для контраста
+                
+                self.organs_list.addItem(header_item)
+
+                # Добавление органов группы
+                for org in organs:
+                    ru_name = ORGAN_RU_NAMES.get(org, org)
+                    item = QListWidgetItem(f"   {ru_name}")  # Отступ для визуального выделения иерархии
+                    item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+                    item.setCheckState(Qt.CheckState.Unchecked)
+                    item.setData(Qt.ItemDataRole.UserRole, org)
+                    self.organs_list.addItem(item)
 
             left_layout.addWidget(organs_header)
             left_layout.addWidget(self.organs_list)
@@ -987,6 +1033,8 @@ if PYQT_AVAILABLE:
             for i in range(self.organs_list.count()):
                 item = self.organs_list.item(i)
                 organ_name = item.data(Qt.ItemDataRole.UserRole)
+                if organ_name == "header":
+                    continue
                 if organ_name in target_organs:
                     item.setCheckState(Qt.CheckState.Checked)
                 else:
@@ -999,12 +1047,29 @@ if PYQT_AVAILABLE:
             if self.is_updating_presets:
                 return
                 
-            # Собираем все выбранные органы
+            organ_name = item.data(Qt.ItemDataRole.UserRole)
+            if organ_name == "header":
+                return
+                
+            self.is_updating_presets = True
+            # Синхронизируем состояние чекбоксов для одинаковых органов в других анатомических группах
+            state = item.checkState()
+            for i in range(self.organs_list.count()):
+                itm = self.organs_list.item(i)
+                if itm != item and itm.data(Qt.ItemDataRole.UserRole) == organ_name:
+                    itm.setCheckState(state)
+            self.is_updating_presets = False
+                
+            # Собираем все выбранные органы (только уникальные)
             checked_organs = []
             for i in range(self.organs_list.count()):
                 itm = self.organs_list.item(i)
+                org = itm.data(Qt.ItemDataRole.UserRole)
+                if org == "header":
+                    continue
                 if itm.checkState() == Qt.CheckState.Checked:
-                    checked_organs.append(itm.data(Qt.ItemDataRole.UserRole))
+                    if org not in checked_organs:
+                        checked_organs.append(org)
                     
             # Проверяем на соответствие пресетам
             matched_preset = "Пользовательский (Custom)"
@@ -1041,8 +1106,12 @@ if PYQT_AVAILABLE:
             selected_organs = []
             for i in range(self.organs_list.count()):
                 item = self.organs_list.item(i)
+                org = item.data(Qt.ItemDataRole.UserRole)
+                if org == "header":
+                    continue
                 if item.checkState() == Qt.CheckState.Checked:
-                    selected_organs.append(item.data(Qt.ItemDataRole.UserRole))
+                    if org not in selected_organs:
+                        selected_organs.append(org)
                     
             if not selected_organs:
                 QMessageBox.warning(self, "Предупреждение", "Не выбрано ни одного органа для сегментирования!")
@@ -1057,10 +1126,12 @@ if PYQT_AVAILABLE:
             preset_name = self.preset_combo.currentText()
             
             preset_key = "abdominal_oar"
-            if "Thorax" in preset_name:
+            if "Thorax" in preset_name or "Грудная" in preset_name:
                 preset_key = "thoracic_oar"
-            elif "Pelvis" in preset_name:
+            elif "Pelvis" in preset_name or "Малый" in preset_name:
                 preset_key = "pelvis_oar"
+            elif "Head & Neck" in preset_name or "Голова" in preset_name:
+                preset_key = "head_neck_oar"
             else:
                 preset_key = "all"
                 
