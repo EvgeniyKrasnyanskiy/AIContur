@@ -33,7 +33,7 @@ import argparse
 import shutil
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Callable
 
 # Предварительный импорт необходимых библиотек на главном потоке
 import numpy as np
@@ -52,7 +52,7 @@ try:
         QRadioButton, QButtonGroup, QTextEdit, QProgressBar, QFileDialog,
         QMessageBox, QFrame, QSplitter, QCheckBox
     )
-    from PyQt6.QtCore import QThread, pyqtSignal, Qt, QObject
+    from PyQt6.QtCore import QThread, pyqtSignal, Qt, QObject, QSettings
     from PyQt6.QtGui import QTextCursor, QBrush, QColor, QFont
     PYQT_AVAILABLE = True
 except ImportError:
@@ -213,7 +213,8 @@ def run_pipeline(
     highres: bool = False,
     selected_organs: Optional[List[str]] = None,
     merge_mode: bool = False,
-    existing_rtstruct_path: Optional[str] = None
+    existing_rtstruct_path: Optional[str] = None,
+    step_callback: Optional[Callable[[str], None]] = None
 ) -> None:
     """
     Основной пайплайн выполнения автооконтурирования органов риска на КТ.
@@ -233,9 +234,26 @@ def run_pipeline(
         # Проверка DICOM-файлов
         verify_dicom_directory(dicom_dir)
         
+        # Считывание PatientID из первого DICOM-файла для динамического именования
+        patient_id = "Unknown"
+        try:
+            dicom_files = list(dicom_dir.glob("*.dcm")) + list(dicom_dir.glob("*.DCM"))
+            if not dicom_files:
+                dicom_files = [f for f in dicom_dir.iterdir() if f.is_file() and not f.name.startswith('.')]
+            if dicom_files:
+                import pydicom
+                ds = pydicom.dcmread(str(dicom_files[0]), stop_before_pixels=True)
+                patient_id = getattr(ds, "PatientID", "Unknown")
+                logger.info(f"Успешно считан PatientID из DICOM: {patient_id}")
+        except Exception as de:
+            logger.debug(f"Не удалось считать PatientID из DICOM: {de}")
+
+        
         # ----------------------------------------------------------------------
         # Шаг 1: Конвертация DICOM -> NIfTI
         # ----------------------------------------------------------------------
+        if step_callback:
+            step_callback("Шаг 1 из 5: Конвертация DICOM в NIfTI 3D объем...")
         logger.info("--- Шаг 1 из 5: Конвертация DICOM в 3D NIfTI объем ---")
         
         settings.disable_validate_slice_increment()
@@ -256,6 +274,8 @@ def run_pipeline(
         # ----------------------------------------------------------------------
         # Шаг 2: ИИ-сегментация (TotalSegmentator на CPU с оптимизацией)
         # ----------------------------------------------------------------------
+        if step_callback:
+            step_callback("Шаг 2 из 5: Сегментация органов нейросетью TotalSegmentator...")
         logger.info("--- Шаг 2 из 5: ИИ-сегментация с помощью TotalSegmentator ---")
         
         step_start = time.time()
@@ -350,6 +370,8 @@ def run_pipeline(
         # ----------------------------------------------------------------------
         # Шаг 3: Очистка временных файлов
         # ----------------------------------------------------------------------
+        if step_callback:
+            step_callback("Шаг 3 из 5: Удаление временных файлов и очистка ОЗУ...")
         logger.info("--- Шаг 3 из 5: Удаление временного NIfTI КТ и очистка ОЗУ ---")
         step_start = time.time()
         
@@ -362,6 +384,8 @@ def run_pipeline(
         # ----------------------------------------------------------------------
         # Шаг 4: Сборка масок в DICOM RTSTRUCT
         # ----------------------------------------------------------------------
+        if step_callback:
+            step_callback("Шаг 4 из 5: Сборка RTSTRUCT и привязка к геометрии DICOM...")
         logger.info("--- Шаг 4 из 5: Сборка RTSTRUCT и привязка к геометрии DICOM ---")
         
         step_start = time.time()
@@ -432,13 +456,34 @@ def run_pipeline(
         # ----------------------------------------------------------------------
         # Шаг 5: Сохранение итогового файла
         # ----------------------------------------------------------------------
+        if step_callback:
+            step_callback("Шаг 5 из 5: Запись итогового DICOM RTSTRUCT...")
         logger.info("--- Шаг 5 из 5: Запись итогового DICOM RTSTRUCT ---")
         output_dir.mkdir(parents=True, exist_ok=True)
-        rtstruct_file_path = output_dir / "rtstruct.dcm"
+        
+        # Очистка PatientID для безопасного имени файла
+        clean_patient_id = "".join([c for c in str(patient_id) if c.isalnum() or c in ("_", "-")]).strip()
+        if not clean_patient_id:
+            clean_patient_id = "Unknown"
+
+        if merge_mode and existing_rtstruct_path:
+            orig_name = Path(existing_rtstruct_path).parent.name if Path(existing_rtstruct_path).stem == "rtstruct" else Path(existing_rtstruct_path).stem
+            # Если имя rtstruct, лучше взять имя родительской папки для уникальности, иначе stem
+            if orig_name.lower() == "rtstruct":
+                orig_name = Path(existing_rtstruct_path).parent.name
+            rtstruct_filename = f"RTSTRUCT_{orig_name}_merged.dcm"
+        else:
+            rtstruct_filename = f"RTSTRUCT_AI_{clean_patient_id}.dcm"
+
+        rtstruct_file_path = output_dir / rtstruct_filename
         
         rtstruct.save(str(rtstruct_file_path))
         logger.info(f"Шаг 5 успешно завершен за {time.time() - step_start:.2f} сек.")
-        logger.info(f"Итоговый файл RTSTRUCT успешно записан: {rtstruct_file_path}")
+        if merge_mode and existing_rtstruct_path:
+            logger.info("Слияние успешно завершено! Исходный файл врача во входной папке КТ не изменен.")
+            logger.info(f"Результат слияния успешно записан в выходную папку: {rtstruct_file_path}")
+        else:
+            logger.info(f"Итоговый файл RTSTRUCT успешно записан: {rtstruct_file_path}")
         
     except Exception as e:
         logger.error(f"Произошел критический сбой во время выполнения пайплайна: {e}", exc_info=True)
@@ -521,6 +566,7 @@ if PYQT_AVAILABLE:
     class SegmentationWorker(QThread):
         """Поток для вычислений сегментации TotalSegmentator, чтобы GUI не зависал."""
         finished_signal = pyqtSignal(bool, str)
+        step_signal = pyqtSignal(str)
 
         def __init__(
             self,
@@ -543,6 +589,9 @@ if PYQT_AVAILABLE:
 
         def run(self):
             try:
+                def callback(step_text: str):
+                    self.step_signal.emit(step_text)
+
                 run_pipeline(
                     dicom_dir_path=self.dicom_dir,
                     output_dir_path=self.output_dir,
@@ -550,7 +599,8 @@ if PYQT_AVAILABLE:
                     highres=self.highres,
                     selected_organs=self.selected_organs,
                     merge_mode=self.merge_mode,
-                    existing_rtstruct_path=self.existing_rtstruct_path
+                    existing_rtstruct_path=self.existing_rtstruct_path,
+                    step_callback=callback
                 )
                 self.finished_signal.emit(True, "Автооконтурирование успешно завершено!")
             except Exception as e:
@@ -757,6 +807,7 @@ if PYQT_AVAILABLE:
             self.existing_rtstruct_path = None
             self.is_updating_presets = False
             self.worker = None
+            self.settings = QSettings("AIContourCorp", "AIContour")
 
             # Настройка перенаправления логов в реальном времени
             self.log_signaler = LogSignaler()
@@ -765,6 +816,7 @@ if PYQT_AVAILABLE:
             logger.addHandler(self.log_handler)
 
             self.init_ui()
+            self.load_settings()
 
         def init_ui(self):
             self.setStyleSheet(DARK_QSS)
@@ -790,11 +842,13 @@ if PYQT_AVAILABLE:
 
             # Сплиттер
             splitter = QSplitter(Qt.Orientation.Horizontal)
-            main_layout.addWidget(splitter)
+            main_layout.addWidget(splitter, 1)
 
             # --- ЛЕВАЯ КОЛОНКА (Настройки и параметры) ---
             left_card = QFrame()
             left_card.setObjectName("card")
+            left_card.setMinimumWidth(380)
+            left_card.setMaximumWidth(460)
             left_layout = QVBoxLayout(left_card)
             left_layout.setSpacing(12)
 
@@ -937,6 +991,8 @@ if PYQT_AVAILABLE:
 
             progress_header = QLabel("Индикатор прогресса:")
             progress_header.setStyleSheet("font-weight: bold; color: #ffffff;")
+            self.status_step_label = QLabel("Текущий шаг: Ожидание запуска...")
+            self.status_step_label.setStyleSheet("color: #007acc; font-weight: bold; font-style: italic;")
             self.progress_bar = QProgressBar()
             self.progress_bar.setRange(0, 100)
             self.progress_bar.setValue(0)
@@ -948,14 +1004,31 @@ if PYQT_AVAILABLE:
             right_layout.addWidget(logs_header)
             right_layout.addWidget(self.log_edit)
             right_layout.addWidget(progress_header)
+            right_layout.addWidget(self.status_step_label)
             right_layout.addWidget(self.progress_bar)
             right_layout.addWidget(self.btn_run)
 
             splitter.addWidget(right_card)
+            splitter.setStretchFactor(0, 0)
+            splitter.setStretchFactor(1, 1)
 
             # Установка пресета по умолчанию
             self.preset_combo.setCurrentText("Брюшная полость (Abdomen)")
             splitter.setSizes([400, 520])
+
+        def load_settings(self):
+            """Загружает сохраненные пути к папкам."""
+            input_dir = self.settings.value("input_dir", "")
+            output_dir = self.settings.value("output_dir", "")
+            if input_dir:
+                self.input_edit.setText(input_dir)
+            if output_dir:
+                self.output_edit.setText(output_dir)
+
+        def save_settings(self):
+            """Сохраняет пути к папкам в реестр / конфиг."""
+            self.settings.setValue("input_dir", self.input_edit.text().strip())
+            self.settings.setValue("output_dir", self.output_edit.text().strip())
 
         def select_input_dir(self):
             dir_path = QFileDialog.getExistingDirectory(self, "Выберите папку с КТ-снимками DICOM")
@@ -963,11 +1036,13 @@ if PYQT_AVAILABLE:
                 self.input_edit.setText(dir_path)
                 if not self.output_edit.text():
                     self.output_edit.setText(os.path.join(dir_path, "output"))
+                self.save_settings()
 
         def select_output_dir(self):
             dir_path = QFileDialog.getExistingDirectory(self, "Выберите папку сохранения результатов")
             if dir_path:
                 self.output_edit.setText(dir_path)
+                self.save_settings()
 
         def check_for_rtstruct(self, directory: str):
             """Автоматически сканирует папку КТ на наличие существующего RTSTRUCT файла."""
@@ -1146,6 +1221,8 @@ if PYQT_AVAILABLE:
                 existing_rtstruct_path=self.existing_rtstruct_path
             )
             self.worker.finished_signal.connect(self.on_segmentation_finished)
+            self.worker.step_signal.connect(self.on_step_changed)
+            self.status_step_label.setText("Текущий шаг: Подготовка пайплайна...")
             self.worker.start()
 
         def set_ui_enabled(self, enabled: bool):
@@ -1168,10 +1245,16 @@ if PYQT_AVAILABLE:
             
             if success:
                 self.progress_bar.setValue(100)
+                self.status_step_label.setText("Текущий шаг: Готово!")
                 QMessageBox.information(self, "Успех", "Автоматическое оконтурирование завершено успешно!")
             else:
                 self.progress_bar.setValue(0)
+                self.status_step_label.setText("Текущий шаг: Ошибка во время расчетов!")
                 QMessageBox.critical(self, "Критическая ошибка", f"Произошел сбой при сегментации:\n{message}")
+
+        def on_step_changed(self, step_text: str):
+            """Слот изменения текущего текстового шага пайплайна."""
+            self.status_step_label.setText(step_text)
 
         def closeEvent(self, event):
             event.accept()
