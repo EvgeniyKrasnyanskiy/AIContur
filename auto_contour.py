@@ -693,16 +693,16 @@ if PYQT_AVAILABLE:
             self.log_handler = QTextEditLogHandler(self.log_signaler)
             logger.addHandler(self.log_handler)
 
-            # Перехват stdout/stderr
+            self.init_ui()
+
+            # Перехват stdout/stderr (делаем в самом конце, чтобы не проглотить ошибки инициализации)
             self.old_stdout = sys.stdout
             self.old_stderr = sys.stderr
             sys.stdout = StreamToSignaler(self.log_signaler, "INFO")
             sys.stderr = StreamToSignaler(self.log_signaler, "ERROR")
 
-            self.init_ui()
-
         def init_ui(self):
-            self.setStyleSheet(self.DARK_QSS)
+            self.setStyleSheet(DARK_QSS)
 
             # Главный виджет
             main_widget = QWidget()
