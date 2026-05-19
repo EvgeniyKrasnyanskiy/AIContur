@@ -86,7 +86,11 @@ PRESETS: Dict[str, List[str]] = {
         "aorta",             # Аорта
         "inferior_vena_cava",# Нижняя полая вена
         "urinary_bladder",   # Мочевой пузырь
-        "heart"              # Сердце
+        "heart",             # Сердце
+        "pancreas",          # Поджелудочная железа
+        "duodenum",          # Двенадцатиперстная кишка
+        "adrenal_gland_left",# Левый надпочечник
+        "adrenal_gland_right"# Правый надпочечник
     ],
     "thoracic_oar": [
         "heart",             # Сердце
@@ -94,13 +98,15 @@ PRESETS: Dict[str, List[str]] = {
         "lung_right",        # Правое легкое
         "trachea",           # Трахея
         "aorta",             # Аорта
-        "esophagus"          # Пищевод
+        "esophagus",         # Пищевод
+        "pulmonary_artery"   # Легочная артерия
     ],
     "pelvis_oar": [
         "urinary_bladder",   # Мочевой пузырь
         "prostate",          # Предстательная железа
         "rectum",            # Прямая кишка
         "colon",             # Кишечник
+        "small_bowel",       # Тонкая кишка
         "femur_left",        # Левая бедренная кость
         "femur_right",       # Правая бедренная кость
         "hip_left",          # Левая тазовая кость
@@ -108,6 +114,7 @@ PRESETS: Dict[str, List[str]] = {
         "sacrum"             # Крестец
     ]
 }
+
 
 # Гармоничные цвета для отображения контуров в TPS (формат RGB)
 ORGAN_COLORS: Dict[str, List[int]] = {
@@ -126,6 +133,11 @@ ORGAN_COLORS: Dict[str, List[int]] = {
     "trachea": [121, 85, 72],         # Коричневый
     "esophagus": [158, 158, 158],     # Серый
     "pancreas": [255, 193, 7],         # Янтарный
+    "duodenum": [173, 20, 87],         # Темно-розовый
+    "adrenal_gland_left": [255, 87, 34], # Ярко-оранжевый
+    "adrenal_gland_right": [255, 112, 67], # Светло-оранжевый
+    "pulmonary_artery": [0, 150, 255], # Ярко-голубой
+    "small_bowel": [103, 58, 183],     # Темно-фиолетовый
     "prostate": [233, 30, 99],         # Розовый
     "rectum": [121, 85, 72],           # Коричневый
     "colon": [0, 121, 107],            # Темно-бирюзовый
@@ -143,9 +155,10 @@ ORGAN_COLORS: Dict[str, List[int]] = {
 ALL_ORGANS = [
     "spleen", "kidney_right", "kidney_left", "gallbladder", "liver",
     "stomach", "aorta", "inferior_vena_cava", "urinary_bladder", "heart",
-    "lung_left", "lung_right", "trachea", "esophagus", "prostate",
-    "rectum", "colon", "femur_left", "femur_right", "hip_left", "hip_right", "sacrum",
-    "spinal_cord", "thyroid_gland", "skull"
+    "lung_left", "lung_right", "trachea", "esophagus", "pancreas",
+    "duodenum", "adrenal_gland_left", "adrenal_gland_right", "pulmonary_artery",
+    "small_bowel", "prostate", "rectum", "colon", "femur_left", "femur_right",
+    "hip_left", "hip_right", "sacrum", "spinal_cord", "thyroid_gland", "skull"
 ]
 
 # Отображаемые на русском языке имена для списка интерфейса
@@ -164,6 +177,12 @@ ORGAN_RU_NAMES = {
     "lung_right": "Правое легкое (Lung R)",
     "trachea": "Трахея (Trachea)",
     "esophagus": "Пищевод (Esophagus)",
+    "pancreas": "Поджелудочная железа (Pancreas)",
+    "duodenum": "Двенадцатиперстная кишка (Duodenum)",
+    "adrenal_gland_left": "Левый надпочечник (Adrenal Gland L)",
+    "adrenal_gland_right": "Правый надпочечник (Adrenal Gland R)",
+    "pulmonary_artery": "Легочная артерия (Pulmonary Artery)",
+    "small_bowel": "Тонкая кишка (Small Bowel)",
     "prostate": "Предстательная железа (Prostate)",
     "rectum": "Прямая кишка (Rectum)",
     "colon": "Кишечник (Colon)",
@@ -183,8 +202,10 @@ PRESETS_MAP = {
     "Грудная клетка (Thorax)": PRESETS["thoracic_oar"],
     "Брюшная полость (Abdomen)": PRESETS["abdominal_oar"],
     "Малый таз (Pelvis)": PRESETS["pelvis_oar"],
+    "Все органы (All)": ALL_ORGANS,
     "Пользовательский (Custom)": []
 }
+
 
 
 def verify_dicom_directory(dicom_dir: Path) -> int:
@@ -703,6 +724,22 @@ if PYQT_AVAILABLE:
         color: #888888;
     }
 
+    QPushButton#btnAction {
+        background-color: #2b2b2b;
+        border: 1px solid #3d3d3d;
+        font-size: 12px;
+        padding: 6px 12px;
+        border-radius: 4px;
+        color: #e0e0e0;
+    }
+
+    QPushButton#btnAction:hover {
+        background-color: #3d3d3d;
+        border: 1px solid #007acc;
+        color: #ffffff;
+    }
+
+
     QComboBox {
         background-color: #2d2d2d;
         border: 1px solid #3c3c3c;
@@ -921,25 +958,41 @@ if PYQT_AVAILABLE:
             left_layout.addWidget(preset_label)
             left_layout.addWidget(self.preset_combo)
 
+            # Кнопки быстрого выделения органов риска
+            selection_layout = QHBoxLayout()
+            btn_select_all = QPushButton("Выбрать все")
+            btn_select_all.setObjectName("btnAction")
+            btn_select_all.setToolTip("Отметить абсолютно все органы риска во всех группах")
+            btn_select_all.clicked.connect(self.select_all_organs)
+            
+            btn_deselect_all = QPushButton("Снять все")
+            btn_deselect_all.setObjectName("btnAction")
+            btn_deselect_all.setToolTip("Снять выделение со всех органов риска")
+            btn_deselect_all.clicked.connect(self.deselect_all_organs)
+            
+            selection_layout.addWidget(btn_select_all)
+            selection_layout.addWidget(btn_deselect_all)
+            left_layout.addLayout(selection_layout)
+
             # Список OAR с чек-боксами
             organs_header = QLabel("Органы для автооконтурирования:")
             organs_header.setStyleSheet("font-weight: bold; color: #ffffff;")
             self.organs_list = QListWidget()
             self.organs_list.itemChanged.connect(self.on_organ_item_changed)
 
-            # Заполнение списка с группировкой по анатомическим областям
+            # Заполнение списка с группировкой по анатомическим областям (по протоколам QUANTEC/TG-263)
             ORGAN_GROUPS = {
                 "--- ГОЛОВА И ШЕЯ ---": [
                     "spinal_cord", "thyroid_gland", "skull", "trachea", "esophagus"
                 ],
                 "--- ГРУДНАЯ КЛЕТКА ---": [
-                    "heart", "lung_left", "lung_right", "trachea", "esophagus", "aorta"
+                    "heart", "lung_left", "lung_right", "trachea", "esophagus", "aorta", "pulmonary_artery"
                 ],
                 "--- БРЮШНАЯ ПОЛОСТЬ ---": [
-                    "spleen", "kidney_right", "kidney_left", "gallbladder", "liver", "stomach", "inferior_vena_cava"
+                    "spleen", "kidney_right", "kidney_left", "gallbladder", "liver", "stomach", "inferior_vena_cava", "pancreas", "duodenum", "adrenal_gland_left", "adrenal_gland_right"
                 ],
                 "--- МАЛЫЙ ТАЗ ---": [
-                    "urinary_bladder", "prostate", "rectum", "colon", "femur_left", "femur_right", "hip_left", "hip_right", "sacrum"
+                    "urinary_bladder", "prostate", "rectum", "colon", "small_bowel", "femur_left", "femur_right", "hip_left", "hip_right", "sacrum"
                 ]
             }
 
@@ -1012,23 +1065,85 @@ if PYQT_AVAILABLE:
             splitter.setStretchFactor(0, 0)
             splitter.setStretchFactor(1, 1)
 
-            # Установка пресета по умолчанию
-            self.preset_combo.setCurrentText("Брюшная полость (Abdomen)")
+            # Подключаем сохранение настроек при смене флага точности
+            self.highres_check.stateChanged.connect(self.save_settings)
             splitter.setSizes([400, 520])
 
         def load_settings(self):
-            """Загружает сохраненные пути к папкам."""
-            input_dir = self.settings.value("input_dir", "")
-            output_dir = self.settings.value("output_dir", "")
-            if input_dir:
-                self.input_edit.setText(input_dir)
-            if output_dir:
-                self.output_edit.setText(output_dir)
+            """Загружает сохраненное состояние интерфейса."""
+            # Блокируем сигналы, чтобы избежать автовызовов и лишних циклов обновлений при инициализации
+            self.preset_combo.blockSignals(True)
+            self.organs_list.blockSignals(True)
+            self.is_updating_presets = True
+            
+            try:
+                input_dir = self.settings.value("input_dir", "")
+                output_dir = self.settings.value("output_dir", "")
+                if input_dir:
+                    self.input_edit.setText(input_dir)
+                if output_dir:
+                    self.output_edit.setText(output_dir)
+                
+                # Загружаем пресет
+                preset = self.settings.value("preset", "Брюшная полость (Abdomen)")
+                self.preset_combo.setCurrentText(preset)
+                
+                # Загружаем точность
+                highres = self.settings.value("highres", False, type=bool)
+                self.highres_check.setChecked(highres)
+                
+                # Загружаем отмеченные органы
+                checked_organs = self.settings.value("checked_organs", None)
+                
+                if checked_organs is not None:
+                    # Если есть сохраненный список органов
+                    if not isinstance(checked_organs, list):
+                        checked_organs = [checked_organs] # На случай, если QSettings вернул одиночную строку
+                    
+                    for i in range(self.organs_list.count()):
+                        item = self.organs_list.item(i)
+                        organ_name = item.data(Qt.ItemDataRole.UserRole)
+                        if organ_name == "header":
+                            continue
+                        if organ_name in checked_organs:
+                            item.setCheckState(Qt.CheckState.Checked)
+                        else:
+                            item.setCheckState(Qt.CheckState.Unchecked)
+                else:
+                    # Если это первый запуск, отмечаем структуры по пресету по умолчанию
+                    target_organs = PRESETS_MAP.get(preset, [])
+                    for i in range(self.organs_list.count()):
+                        item = self.organs_list.item(i)
+                        organ_name = item.data(Qt.ItemDataRole.UserRole)
+                        if organ_name == "header":
+                            continue
+                        if organ_name in target_organs:
+                            item.setCheckState(Qt.CheckState.Checked)
+                        else:
+                            item.setCheckState(Qt.CheckState.Unchecked)
+            finally:
+                self.is_updating_presets = False
+                self.organs_list.blockSignals(False)
+                self.preset_combo.blockSignals(False)
 
         def save_settings(self):
-            """Сохраняет пути к папкам в реестр / конфиг."""
+            """Сохраняет состояние интерфейса в реестр / конфиг."""
             self.settings.setValue("input_dir", self.input_edit.text().strip())
             self.settings.setValue("output_dir", self.output_edit.text().strip())
+            self.settings.setValue("preset", self.preset_combo.currentText())
+            self.settings.setValue("highres", self.highres_check.isChecked())
+            
+            # Собираем список всех выбранных органов
+            checked_organs = []
+            for i in range(self.organs_list.count()):
+                item = self.organs_list.item(i)
+                organ_name = item.data(Qt.ItemDataRole.UserRole)
+                if organ_name == "header":
+                    continue
+                if item.checkState() == Qt.CheckState.Checked:
+                    if organ_name not in checked_organs:
+                        checked_organs.append(organ_name)
+            self.settings.setValue("checked_organs", checked_organs)
 
         def select_input_dir(self):
             dir_path = QFileDialog.getExistingDirectory(self, "Выберите папку с КТ-снимками DICOM")
@@ -1097,6 +1212,42 @@ if PYQT_AVAILABLE:
                 self.radio_new.setEnabled(False)
                 self.radio_new.setChecked(True)
 
+        def select_all_organs(self):
+            """Отмечает все органы в списке."""
+            self.is_updating_presets = True
+            for i in range(self.organs_list.count()):
+                item = self.organs_list.item(i)
+                organ_name = item.data(Qt.ItemDataRole.UserRole)
+                if organ_name == "header":
+                    continue
+                item.setCheckState(Qt.CheckState.Checked)
+            self.is_updating_presets = False
+            
+            # Обновляем комбобокс пресетов
+            self.preset_combo.blockSignals(True)
+            self.preset_combo.setCurrentText("Все органы (All)")
+            self.preset_combo.blockSignals(False)
+            
+            self.save_settings()
+
+        def deselect_all_organs(self):
+            """Снимает выбор со всех органов в списке."""
+            self.is_updating_presets = True
+            for i in range(self.organs_list.count()):
+                item = self.organs_list.item(i)
+                organ_name = item.data(Qt.ItemDataRole.UserRole)
+                if organ_name == "header":
+                    continue
+                item.setCheckState(Qt.CheckState.Unchecked)
+            self.is_updating_presets = False
+            
+            # Обновляем комбобокс пресетов
+            self.preset_combo.blockSignals(True)
+            self.preset_combo.setCurrentText("Пользовательский (Custom)")
+            self.preset_combo.blockSignals(False)
+            
+            self.save_settings()
+
         def on_preset_changed(self, text: str):
             """Слот изменения выбранного пресета."""
             if text == "Пользовательский (Custom)":
@@ -1116,6 +1267,7 @@ if PYQT_AVAILABLE:
                     item.setCheckState(Qt.CheckState.Unchecked)
                     
             self.is_updating_presets = False
+            self.save_settings()
 
         def on_organ_item_changed(self, item: QListWidgetItem):
             """Слот изменения состояния чекбокса органа пользователем."""
@@ -1159,6 +1311,7 @@ if PYQT_AVAILABLE:
             self.preset_combo.blockSignals(True)
             self.preset_combo.setCurrentText(matched_preset)
             self.preset_combo.blockSignals(False)
+            self.save_settings()
 
         def append_log(self, message: str, color: str):
             """Потокобезопасное добавление логов в текстовое окно."""
