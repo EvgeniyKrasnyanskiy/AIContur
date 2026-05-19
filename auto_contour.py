@@ -369,11 +369,23 @@ def run_pipeline(
         if not totalseg_exe.exists():
             totalseg_exe = Path("TotalSegmentator")
             
+        # Автоматическое определение лучшего вычислительного устройства (GPU CUDA или CPU)
+        device = "cpu"
+        try:
+            import torch
+            if torch.cuda.is_available():
+                device = "gpu"
+                logger.info("Обнаружена видеокарта с поддержкой CUDA. Сегментация будет запущена на GPU!")
+            else:
+                logger.info("Видеокарта с поддержкой CUDA не обнаружена. Сегментация будет запущена на CPU.")
+        except Exception as e:
+            logger.debug(f"Не удалось проверить доступность CUDA через PyTorch: {e}. Запуск на CPU.")
+
         cmd = [
             str(totalseg_exe),
             "-i", str(nifti_ct_path),
             "-o", str(segmentation_dir),
-            "--device", "cpu"
+            "--device", device
         ]
         
         if not highres:
