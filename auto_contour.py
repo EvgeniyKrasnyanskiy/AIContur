@@ -210,12 +210,18 @@ def run_pipeline(dicom_dir_path: str, output_dir_path: str, preset_name: str, hi
         
         segmentation_dir.mkdir(parents=True, exist_ok=True)
         
+        # Получаем выбранный пресет органов для оптимизации скачивания весов и сегментации
+        target_organs = PRESETS.get(preset_name)
+        if target_organs:
+            logger.info(f"ИИ сегментирует только выбранные OAR из пресета '{preset_name}': {target_organs}")
+        
         # Запуск TotalSegmentator через официальный Python API
         totalsegmentator(
             input=str(nifti_ct_path),
             output=str(segmentation_dir),
             device="cpu",
-            fast=not highres
+            fast=not highres,
+            roi_subset=target_organs
         )
         
         logger.info(f"Шаг 2 успешно завершен за {time.time() - step_start:.2f} сек.")
