@@ -748,12 +748,6 @@ if PYQT_AVAILABLE:
 
             self.init_ui()
 
-            # Перехват stdout/stderr (делаем в самом конце, чтобы не проглотить ошибки инициализации)
-            self.old_stdout = sys.stdout
-            self.old_stderr = sys.stderr
-            sys.stdout = StreamToSignaler(self.log_signaler, "INFO")
-            sys.stderr = StreamToSignaler(self.log_signaler, "ERROR")
-
         def init_ui(self):
             self.setStyleSheet(DARK_QSS)
 
@@ -1106,9 +1100,6 @@ if PYQT_AVAILABLE:
                 QMessageBox.critical(self, "Критическая ошибка", f"Произошел сбой при сегментации:\n{message}")
 
         def closeEvent(self, event):
-            # Восстанавливаем оригинальные потоки при выходе
-            sys.stdout = self.old_stdout
-            sys.stderr = self.old_stderr
             event.accept()
 
 
