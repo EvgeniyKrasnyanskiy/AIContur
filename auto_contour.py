@@ -427,12 +427,15 @@ def run_pipeline(
         
     except Exception as e:
         logger.error(f"Произошел критический сбой во время выполнения пайплайна: {e}", exc_info=True)
+        logger.warning(f"ВНИМАНИЕ: Временная папка с данными сохранена для отладки: {temp_dir}")
         raise e
         
-    finally:
+    else:
         logger.info("Очистка временных папок и файлов...")
         if temp_dir.exists():
             shutil.rmtree(temp_dir)
+            
+    finally:
         logger.info(f"Пайплайн завершен. Общее время работы: {time.time() - start_time:.2f} сек.")
 
 
