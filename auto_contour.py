@@ -13,7 +13,7 @@
 2. Защищен от утечек памяти с помощью принудительного вызова сборщика мусора.
 3. Имеет гибкую систему пресетов для выбора OAR.
 4. Выполняет нейросетевую обработку в отдельном потоке (GUI не зависает).
-5. Сканирует КТ на наличие существующей разметки врача и позволяет слить контуры.
+5. Сканирует КТ на наличие существующей разметки и позволяет слить контуры.
 
 --------------------------------------------------------------------------------
 Инструкция по установке зависимостей (Windows PowerShell):
@@ -608,7 +608,7 @@ def run_pipeline(
                         rt_struct_path=str(rt_path)
                     )
                     existing_rois = rtstruct.get_roi_names()
-                    logger.info(f"Существующие структуры врача в файле: {existing_rois}")
+                    logger.info(f"Существующие структуры в файле: {existing_rois}")
                 except Exception as e:
                     logger.error(
                         f"Не удалось загрузить RTSTRUCT '{rt_path}' для слияния: {e}. "
@@ -649,7 +649,7 @@ def run_pipeline(
             color = ORGAN_COLORS.get(organ_name, [128, 128, 128])
             pretty_name = organ_name.replace("_", " ").title()
             
-            # Умное слияние с контурами врача
+            # Умное слияние с существующими контурами
             if pretty_name in existing_rois:
                 pretty_name = f"{pretty_name} (AI)"
                 logger.warning(f"Орган '{organ_name}' уже размечен врачом. ИИ-контур добавлен как '{pretty_name}'")
@@ -688,14 +688,14 @@ def run_pipeline(
                 orig_name = Path(existing_rtstruct_path).parent.name
             rtstruct_filename = f"RTSTRUCT_{orig_name}_merged.dcm"
         else:
-            rtstruct_filename = f"RTSTRUCT_AI_{clean_patient_id}.dcm"
+            rtstruct_filename = f"RTSTRUCT_{clean_patient_id}.dcm"
 
         rtstruct_file_path = output_dir / rtstruct_filename
         
         rtstruct.save(str(rtstruct_file_path))
         logger.info(f"Шаг 5 успешно завершен за {time.time() - step_start:.2f} сек.")
         if merge_mode and existing_rtstruct_path:
-            logger.info("Слияние успешно завершено! Исходный файл врача во входной папке КТ не изменен.")
+            logger.info("Слияние успешно завершено! Исходный файл структур во входной папке КТ не изменен.")
             logger.info(f"Результат слияния успешно записан в выходную папку: {rtstruct_file_path}")
         else:
             logger.info(f"Итоговый файл RTSTRUCT успешно записан: {rtstruct_file_path}")
@@ -1183,7 +1183,7 @@ if PYQT_AVAILABLE:
             self.status_rtstruct_label.setStyleSheet("color: #888888;")
             self.status_rtstruct_label.setWordWrap(True)
 
-            self.radio_merge = QRadioButton("Дописать ИИ-контуры в существующий файл врача (Merge)")
+            self.radio_merge = QRadioButton("Дописать ИИ-контуры в файл структур (Merge)")
             self.radio_new = QRadioButton("Создать новый файл отдельно (Сохранить оригинал)")
             self.radio_merge.setEnabled(False)
             self.radio_new.setEnabled(False)
@@ -1450,13 +1450,13 @@ if PYQT_AVAILABLE:
                 if found_file:
                     self.existing_rtstruct_path = found_file
                     basename = os.path.basename(found_file)
-                    self.status_rtstruct_label.setText(f"Обнаружен существующий RTSTRUCT врача: {basename}")
+                    self.status_rtstruct_label.setText(f"Обнаружен существующий RTSTRUCT: {basename}")
                     self.status_rtstruct_label.setStyleSheet("color: #2ecc71; font-weight: bold;")
                     self.radio_merge.setEnabled(True)
                     self.radio_new.setEnabled(True)
                     self.radio_merge.setChecked(True)
                 else:
-                    self.status_rtstruct_label.setText("Существующий RTSTRUCT врача не обнаружен (будет создан новый)")
+                    self.status_rtstruct_label.setText("Существующий RTSTRUCT не обнаружен (будет создан новый)")
                     self.status_rtstruct_label.setStyleSheet("color: #e74c3c;")
                     self.radio_merge.setEnabled(False)
                     self.radio_new.setEnabled(False)
@@ -1881,7 +1881,7 @@ if PYQT_AVAILABLE:
             <li><b>41 орган риска (OAR):</b> Сегментация широкого перечня структур по международным протоколам (QUANTEC, TG-263), включая структуры головы и шеи, грудной клетки, брюшной полости и малого таза.</li>
             <li><b>Интеллектуальное GPU-ускорение:</b> Программа автоматически определяет наличие графического ускорителя Nvidia с поддержкой CUDA. На GPU сегментация занимает всего <span class="highlight">15–20 секунд</span> (вместо 5–10 минут на CPU). При отсутствии GPU безопасно используется CPU-режим.</li>
             <li><b>Анатомические пресеты:</b> Возможность мгновенного выбора органов по группам (Голова и Шея, Грудная клетка, Брюшная полость, Малый таз, Все органы) или гибкой ручной настройки (Пользовательский).</li>
-            <li><b>Умное объединение (Merge):</b> Программа может записать сгенерированные ИИ-контуры прямо в существующий файл разметки врача (RTSTRUCT) без удаления или повреждения его собственных контуров, либо сохранить результаты в новый файл.</li>
+            <li><b>Умное объединение (Merge):</b> Программа может записать сгенерированные ИИ-контуры прямо в существующий файл разметки (RTSTRUCT) без удаления или повреждения его собственных контуров, либо сохранить результаты в новый файл.</li>
             <li><b>Полное сохранение состояния:</b> Все выбранные чекбоксы, пресеты, пути к папкам и настройки точности автоматически сохраняются и восстанавливаются при следующем запуске.</li>
         </ul>
     </div>
