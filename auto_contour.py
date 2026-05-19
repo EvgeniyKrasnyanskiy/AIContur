@@ -50,7 +50,7 @@ try:
         QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
         QLabel, QLineEdit, QPushButton, QComboBox, QListWidget, QListWidgetItem,
         QRadioButton, QButtonGroup, QTextEdit, QProgressBar, QFileDialog,
-        QMessageBox, QFrame, QSplitter, QCheckBox
+        QMessageBox, QFrame, QSplitter, QCheckBox, QDialog, QTextBrowser
     )
     from PyQt6.QtCore import QThread, pyqtSignal, Qt, QObject, QSettings
     from PyQt6.QtGui import QTextCursor, QBrush, QColor, QFont
@@ -877,6 +877,22 @@ if PYQT_AVAILABLE:
         border: none;
         background: none;
     }
+
+    QPushButton#btnHelp {
+        background-color: #2b2b2b;
+        border: 1px solid #3d3d3d;
+        color: #007acc;
+        padding: 5px 12px;
+        font-size: 13px;
+        font-weight: bold;
+        border-radius: 4px;
+    }
+
+    QPushButton#btnHelp:hover {
+        background-color: #333333;
+        border: 1px solid #007acc;
+        color: #0098ff;
+    }
     """
 
     class MainWindow(QMainWindow):
@@ -909,16 +925,37 @@ if PYQT_AVAILABLE:
             main_layout.setContentsMargins(15, 15, 15, 15)
             main_layout.setSpacing(10)
 
+            # Определение GPU/CPU для подзаголовка
+            device_str = "CPU"
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    device_str = "CUDA GPU"
+            except Exception:
+                pass
+
             # Шапка
             header_widget = QWidget()
-            header_layout = QVBoxLayout(header_widget)
+            header_layout = QHBoxLayout(header_widget)
             header_layout.setContentsMargins(0, 0, 0, 5)
+
+            title_layout = QVBoxLayout()
+            title_layout.setSpacing(2)
             title = QLabel("AI Contour")
             title.setObjectName("titleLabel")
-            subtitle = QLabel("Автоматическое сегментирование органов риска на КТ (TotalSegmentator CPU)")
+            subtitle = QLabel(f"Автоматическое сегментирование органов риска на КТ (TotalSegmentator {device_str})")
             subtitle.setObjectName("subtitleLabel")
-            header_layout.addWidget(title)
-            header_layout.addWidget(subtitle)
+            title_layout.addWidget(title)
+            title_layout.addWidget(subtitle)
+
+            btn_help = QPushButton("Справка и дисклеймер 📖")
+            btn_help.setObjectName("btnHelp")
+            btn_help.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn_help.clicked.connect(self.show_help)
+
+            header_layout.addLayout(title_layout)
+            header_layout.addStretch()
+            header_layout.addWidget(btn_help)
             main_layout.addWidget(header_widget)
 
             # Сплиттер
@@ -1454,6 +1491,137 @@ if PYQT_AVAILABLE:
         def on_step_changed(self, step_text: str):
             """Слот изменения текущего текстового шага пайплайна."""
             self.status_step_label.setText(step_text)
+
+        def show_help(self):
+            """Открывает диалоговое окно со справкой и дисклеймером."""
+            dialog = QDialog(self)
+            dialog.setWindowTitle("Справка и медицинский дисклеймер")
+            dialog.setMinimumSize(640, 560)
+            dialog.setStyleSheet(self.styleSheet())
+            
+            # Вертикальный макет для диалога
+            layout = QVBoxLayout(dialog)
+            layout.setContentsMargins(15, 15, 15, 15)
+            layout.setSpacing(12)
+            
+            # QTextBrowser для рендеринга HTML справки
+            browser = QTextBrowser()
+            browser.setOpenExternalLinks(True)
+            
+            html_content = """<!DOCTYPE html>
+<html>
+<head>
+<style>
+    body {
+        background-color: #1e1e1e;
+        color: #e0e0e0;
+        font-family: 'Segoe UI', Arial, sans-serif;
+        font-size: 13.5px;
+        line-height: 1.6;
+        margin: 0;
+        padding: 5px;
+    }
+    h1 {
+        color: #ffffff;
+        font-size: 19px;
+        border-bottom: 2px solid #007acc;
+        padding-bottom: 8px;
+        margin-top: 0;
+    }
+    h2 {
+        color: #007acc;
+        font-size: 15px;
+        margin-top: 18px;
+        margin-bottom: 8px;
+        font-weight: bold;
+    }
+    ul {
+        margin: 0;
+        padding-left: 20px;
+    }
+    li {
+        margin-bottom: 6px;
+    }
+    .disclaimer-box {
+        background-color: #2c1a1a;
+        border: 1px solid #d32f2f;
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin-top: 18px;
+        margin-bottom: 5px;
+    }
+    .disclaimer-title {
+        color: #f44336;
+        font-weight: bold;
+        font-size: 14px;
+        margin-bottom: 6px;
+    }
+    .highlight {
+        color: #0098ff;
+        font-weight: bold;
+    }
+    .card {
+        background-color: #242424;
+        border: 1px solid #333333;
+        border-radius: 6px;
+        padding: 12px;
+        margin-bottom: 12px;
+    }
+</style>
+</head>
+<body>
+    <h1>Справка по работе с AI Contour 📖</h1>
+    
+    <p><b>AI Contour</b> — это интеллектуальное программное обеспечение, разработанное для автоматического сегментирования критических органов риска (OAR) на КТ-изображениях DICOM с использованием искусственной нейросети <b>TotalSegmentator</b>.</p>
+
+    <div class="card">
+        <h2>Основные возможности 🚀</h2>
+        <ul>
+            <li><b>41 орган риска (OAR):</b> Сегментация широкого перечня структур по международным протоколам (QUANTEC, TG-263), включая структуры головы и шеи, грудной клетки, брюшной полости и малого таза.</li>
+            <li><b>Интеллектуальное GPU-ускорение:</b> Программа автоматически определяет наличие графического ускорителя Nvidia с поддержкой CUDA. На GPU сегментация занимает всего <span class="highlight">15–20 секунд</span> (вместо 5–10 минут на CPU). При отсутствии GPU безопасно используется CPU-режим.</li>
+            <li><b>Анатомические пресеты:</b> Возможность мгновенного выбора органов по группам (Голова и Шея, Грудная клетка, Брюшная полость, Малый таз, Все органы) или гибкой ручной настройки (Пользовательский).</li>
+            <li><b>Умное объединение (Merge):</b> Программа может записать сгенерированные ИИ-контуры прямо в существующий файл разметки врача (RTSTRUCT) без удаления или повреждения его собственных контуров, либо сохранить результаты в новый файл.</li>
+            <li><b>Полное сохранение состояния:</b> Все выбранные чекбоксы, пресеты, пути к папкам и настройки точности автоматически сохраняются и восстанавливаются при следующем запуске.</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h2>Технические ограничения ⚠️</h2>
+        <ul>
+            <li><b>Требования к КТ-снимкам:</b> КТ-исследование должно быть представлено в виде папки с валидными DICOM-файлами (без пропущенных срезов и без артефактов реконструкции).</li>
+            <li><b>Высокое разрешение (Highres):</b> Режим высокой точности обеспечивает максимальную детализацию контуров органов, но требует больше времени для расчетов и большего объема RAM (рекомендуется от 16 ГБ).</li>
+            <li><b>Требования для GPU-режима:</b> Требуется дискретная видеокарта Nvidia (архитектура Pascal и новее), установленные драйверы CUDA и PyTorch с поддержкой CUDA в виртуальном окружении.</li>
+        </ul>
+    </div>
+
+    <div class="disclaimer-box">
+        <div class="disclaimer-title">⚠️ ВАЖНЫЙ МЕДИЦИНСКИЙ ДИСКЛЕЙМЕР</div>
+        <p style="margin: 0; font-size: 12.5px; color: #e0b0b0;">
+            Данное программное обеспечение предоставляется исключительно для научных и исследовательских целей (<b>Research Use Only</b>). <br><br>
+            Автоматическая разметка, сгенерированная искусственным интеллектом, <b>не является окончательной клинической разметкой</b>. Она <b>не должна напрямую использоваться</b> для планирования лучевой терапии, хирургических вмешательств или других клинических манипуляций без обязательной проверки. <br><br>
+            Любая импортированная разметка <b>подлежит обязательному ручному контролю, валидации и коррекции</b> сертифицированным медицинским физиком или радиационным онкологом в клинической системе планирования (TPS) перед облучением пациента. Разработчики не несут ответственности за любые клинические решения, принятые на основе работы ПО.
+        </p>
+    </div>
+</body>
+</html>"""
+            
+            browser.setHtml(html_content)
+            layout.addWidget(browser, 1)
+            
+            # Кнопка закрытия
+            btn_close = QPushButton("Ясно, закрыть")
+            btn_close.setObjectName("btnAction")
+            btn_close.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn_close.clicked.connect(dialog.accept)
+            
+            # Разместим кнопку по центру
+            btn_layout = QHBoxLayout()
+            btn_layout.addStretch()
+            btn_layout.addWidget(btn_close)
+            btn_layout.addStretch()
+            layout.addLayout(btn_layout)
+            
+            dialog.exec()
 
         def closeEvent(self, event):
             event.accept()
