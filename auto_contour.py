@@ -1169,20 +1169,7 @@ if PYQT_AVAILABLE:
             left_layout.addWidget(input_label)
             left_layout.addLayout(input_box)
 
-            # Выбор директории вывода
-            output_label = QLabel("Папка сохранения результатов:")
-            output_label.setStyleSheet("font-weight: bold; color: #ffffff;")
-            self.output_edit = QLineEdit()
-            self.output_edit.setPlaceholderText("Выберите выходную папку для RTSTRUCT...")
-            btn_output = QPushButton("Обзор...")
-            btn_output.setObjectName("btnBrowse")
-            btn_output.clicked.connect(self.select_output_dir)
-
-            output_box = QHBoxLayout()
-            output_box.addWidget(self.output_edit)
-            output_box.addWidget(btn_output)
-            left_layout.addWidget(output_label)
-            left_layout.addLayout(output_box)
+            # Выбор директории вывода удален. Результаты сохраняются во входную папку.
 
             # Под-карточка статуса RTSTRUCT
             status_frame = QFrame()
@@ -1352,11 +1339,9 @@ if PYQT_AVAILABLE:
             
             try:
                 input_dir = self.settings.value("input_dir", "")
-                output_dir = self.settings.value("output_dir", "")
                 if input_dir:
                     self.input_edit.setText(input_dir)
-                if output_dir:
-                    self.output_edit.setText(output_dir)
+                self.last_alternative_output_dir = self.settings.value("alternative_output_dir", "")
                 
                 # Загружаем пресет
                 preset = self.settings.value("preset", "Брюшная полость (Abdomen)")
@@ -1407,7 +1392,8 @@ if PYQT_AVAILABLE:
         def save_settings(self):
             """Сохраняет состояние интерфейса в реестр / конфиг."""
             self.settings.setValue("input_dir", self.input_edit.text().strip())
-            self.settings.setValue("output_dir", self.output_edit.text().strip())
+            if hasattr(self, "last_alternative_output_dir") and self.last_alternative_output_dir:
+                self.settings.setValue("alternative_output_dir", self.last_alternative_output_dir)
             self.settings.setValue("preset", self.preset_combo.currentText())
             self.settings.setValue("highres", self.highres_check.isChecked())
             self.settings.setValue("play_sound", self.sound_check.isChecked())
@@ -1428,14 +1414,6 @@ if PYQT_AVAILABLE:
             dir_path = QFileDialog.getExistingDirectory(self, "Выберите папку с КТ-снимками DICOM")
             if dir_path:
                 self.input_edit.setText(dir_path)
-                if not self.output_edit.text():
-                    self.output_edit.setText(os.path.join(dir_path, "output"))
-                self.save_settings()
-
-        def select_output_dir(self):
-            dir_path = QFileDialog.getExistingDirectory(self, "Выберите папку сохранения результатов")
-            if dir_path:
-                self.output_edit.setText(dir_path)
                 self.save_settings()
 
         def check_for_rtstruct(self, directory: str):
@@ -1615,15 +1593,47 @@ if PYQT_AVAILABLE:
                 return
 
             dicom_dir = self.input_edit.text().strip()
-            output_dir = self.output_edit.text().strip()
-            
             if not dicom_dir or not os.path.isdir(dicom_dir):
                 QMessageBox.critical(self, "Ошибка", "Укажите корректный путь к папке с КТ DICOM снимками!")
                 return
                 
-            if not output_dir:
-                QMessageBox.critical(self, "Ошибка", "Укажите выходную папку для сохранения результатов!")
-                return
+            # Проверяем доступность папки DICOM на запись (поддержка read-only/сетевых дисков)
+            test_file_path = os.path.join(dicom_dir, f".write_test_{int(time.time())}")
+            is_writable = False
+            try:
+                with open(test_file_path, "w") as f:
+                    f.write("test")
+                os.remove(test_file_path)
+                is_writable = True
+                output_dir = dicom_dir
+            except Exception:
+                is_writable = False
+
+            if not is_writable:
+                QMessageBox.warning(
+                    self,
+                    "Папка защищена от записи ⚠️",
+                    "Выбранная папка с КТ-снимками защищена от записи (например, находится на сетевом диске только для чтения или CD).\n\n"
+                    "Пожалуйста, выберите альтернативную локальную папку для сохранения готовых RTSTRUCT файлов."
+                )
+                
+                default_alt = getattr(self, "last_alternative_output_dir", "")
+                if not default_alt or not os.path.isdir(default_alt):
+                    default_alt = str(Path.home())
+                    
+                alt_dir = QFileDialog.getExistingDirectory(
+                    self, 
+                    "Выберите папку для сохранения результатов",
+                    default_alt
+                )
+                
+                if not alt_dir:
+                    # Отмена запуска
+                    return
+                
+                output_dir = alt_dir
+                self.last_alternative_output_dir = alt_dir
+                self.save_settings()
                 
             selected_organs = []
             for i in range(self.organs_list.count()):
@@ -1697,7 +1707,6 @@ if PYQT_AVAILABLE:
 
         def set_ui_enabled(self, enabled: bool):
             self.input_edit.setEnabled(enabled)
-            self.output_edit.setEnabled(enabled)
             self.preset_combo.setEnabled(enabled)
             self.organs_list.setEnabled(enabled)
             self.highres_check.setEnabled(enabled)
@@ -1936,8 +1945,9 @@ if __name__ == "__main__":
         )
         parser.add_argument(
             "-o", "--output",
-            required=True,
-            help="Путь к папке, в которую будет сохранен готовый файл rtstruct.dcm."
+            required=False,
+            default=None,
+            help="Путь к папке сохранения rtstruct.dcm (по умолчанию: совпадает со входной папкой КТ)."
         )
         parser.add_argument(
             "-p", "--preset",
@@ -1952,7 +1962,20 @@ if __name__ == "__main__":
         )
         
         args = parser.parse_args()
-        run_pipeline(args.input, args.output, args.preset, args.highres)
+        output_path = args.output if args.output is not None else args.input
+        
+        # В CLI проверяем доступность выходного пути на запись
+        test_file_path = os.path.join(output_path, f".write_test_{int(time.time())}")
+        try:
+            with open(test_file_path, "w") as f:
+                f.write("test")
+            os.remove(test_file_path)
+        except Exception:
+            print(f"Ошибка: Папка для сохранения результатов '{output_path}' защищена от записи.")
+            print("Укажите другую папку с помощью параметра -o / --output.")
+            sys.exit(1)
+            
+        run_pipeline(args.input, output_path, args.preset, args.highres)
     else:
         # Режим GUI
         if not PYQT_AVAILABLE:
