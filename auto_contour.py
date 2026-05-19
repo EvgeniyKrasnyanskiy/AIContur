@@ -3,33 +3,22 @@
 
 """
 ================================================================================
-Скрипт автоматического оконтуривания органов риска (OAR) на КТ-исследованиях
+Скрипт автоматического оконтурирования органов риска (OAR) на КТ-исследованиях
 ================================================================================
 Этот скрипт является MVP для сегментирования анатомических структур на КТ-снимках
 и их последующего экспорта в формат DICOM RTSTRUCT для систем планирования (TPS).
 
 Особенности:
-1. Оптимизирован для работы на ПК с 16 ГБ ОЗУ (использует CPU и быстрый режим 3мм).
+1. Поддерживает два режима: графический интерфейс (GUI) и командную строку (CLI).
 2. Защищен от утечек памяти с помощью принудительного вызова сборщика мусора.
 3. Имеет гибкую систему пресетов для выбора OAR.
+4. Выполняет нейросетевую обработку в отдельном потоке (GUI не зависает).
+5. Сканирует КТ на наличие существующей разметки врача и позволяет слить контуры.
 
 --------------------------------------------------------------------------------
-Инструкция по развертыванию и установке зависимостей (Windows PowerShell):
+Инструкция по установке зависимостей (Windows PowerShell):
 --------------------------------------------------------------------------------
-1. Создайте виртуальное окружение:
-   python -m venv venv
-
-2. Активируйте виртуальное окружение:
-   .\venv\Scripts\Activate.ps1
-
-3. Обновите pip до последней версии:
-   python -m pip install --upgrade pip
-
-4. Установите необходимые библиотеки:
-   pip install numpy pydicom dicom2nifti totalsegmentator rt-utils nibabel
-
-5. Запуск скрипта:
-   python auto_contour.py --input "C:\path\to\ct_dicom" --output "C:\path\to\output_dir" --preset abdominal_oar
+    pip install PyQt6 pydicom dicom2nifti totalsegmentator rt-utils nibabel
 ================================================================================
 """
 
@@ -43,6 +32,20 @@ import logging
 from pathlib import Path
 from typing import Dict, List, Optional
 
+# Импорт PyQt6 для GUI режима
+try:
+    from PyQt6.QtWidgets import (
+        QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+        QLabel, QLineEdit, QPushButton, QComboBox, QListWidget, QListWidgetItem,
+        QRadioButton, QButtonGroup, QTextEdit, QProgressBar, QFileDialog,
+        QMessageBox, QFrame, QSplitter, QCheckBox
+    )
+    from PyQt6.QtCore import QThread, pyqtSignal, Qt, QObject
+    from PyQt6.QtGui import QTextCursor
+    PYQT_AVAILABLE = True
+except ImportError:
+    PYQT_AVAILABLE = False
+
 # Настройка логирования на русском языке
 logging.basicConfig(
     level=logging.INFO,
@@ -52,7 +55,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("AutoContour")
 
-# Пресеты органов риска (OAR) для оптимизации экспорта
+# Пресеты органов риска (OAR) для оптимизации экспорта (системные)
 PRESETS: Dict[str, List[str]] = {
     "abdominal_oar": [
         "spleen",            # Селезенка
@@ -114,20 +117,57 @@ ORGAN_COLORS: Dict[str, List[int]] = {
     "sacrum": [141, 110, 99]           # Серо-коричневый
 }
 
+# Полный перечень всех OAR, доступных в интерфейсе
+ALL_ORGANS = [
+    "spleen", "kidney_right", "kidney_left", "gallbladder", "liver",
+    "stomach", "aorta", "inferior_vena_cava", "urinary_bladder", "heart",
+    "lung_left", "lung_right", "trachea", "esophagus", "prostate",
+    "rectum", "colon", "femur_left", "femur_right", "hip_left", "hip_right", "sacrum"
+]
+
+# Отображаемые на русском языке имена для списка интерфейса
+ORGAN_RU_NAMES = {
+    "spleen": "Селезенка (Spleen)",
+    "kidney_right": "Правая почка (Kidney R)",
+    "kidney_left": "Левая почка (Kidney L)",
+    "gallbladder": "Желчный пузырь (Gallbladder)",
+    "liver": "Печень (Liver)",
+    "stomach": "Желудок (Stomach)",
+    "aorta": "Аорта (Aorta)",
+    "inferior_vena_cava": "Нижняя полая вена (Vena Cava)",
+    "urinary_bladder": "Мочевой пузырь (Bladder)",
+    "heart": "Сердце (Heart)",
+    "lung_left": "Левое легкое (Lung L)",
+    "lung_right": "Правое легкое (Lung R)",
+    "trachea": "Трахея (Trachea)",
+    "esophagus": "Пищевод (Esophagus)",
+    "prostate": "Предстательная железа (Prostate)",
+    "rectum": "Прямая кишка (Rectum)",
+    "colon": "Кишечник (Colon)",
+    "femur_left": "Левое бедро (Femur L)",
+    "femur_right": "Правое бедро (Femur R)",
+    "hip_left": "Левый таз (Hip L)",
+    "hip_right": "Правый таз (Hip R)",
+    "sacrum": "Крестец (Sacrum)"
+}
+
+# Карта пресетов для GUI
+PRESETS_MAP = {
+    "Брюшная полость (Abdomen)": PRESETS["abdominal_oar"],
+    "Грудная клетка (Thorax)": PRESETS["thoracic_oar"],
+    "Малый таз (Pelvis)": PRESETS["pelvis_oar"],
+    "Пользовательский (Custom)": []
+}
+
 
 def verify_dicom_directory(dicom_dir: Path) -> int:
     """
-    Проверяет корректность входной папки DICOM и считает количество файлов .dcm.
-
-    :param dicom_dir: Путь к папке с DICOM файлами.
-    :return: Количество найденных DICOM файлов.
-    :raises FileNotFoundError: Если папка пуста или не содержит файлов .dcm.
+    Проверяет корректность входной папки DICOM и считает количество файлов.
     """
     if not dicom_dir.exists() or not dicom_dir.is_dir():
         raise FileNotFoundError(f"Указанный путь к DICOM не существует или не является папкой: {dicom_dir}")
 
     dicom_files = list(dicom_dir.glob("*.dcm")) + list(dicom_dir.glob("*.DCM"))
-    # Если расширения нет, проверим все файлы
     if not dicom_files:
         dicom_files = [f for f in dicom_dir.iterdir() if f.is_file() and not f.name.startswith('.')]
 
@@ -139,20 +179,23 @@ def verify_dicom_directory(dicom_dir: Path) -> int:
     return num_files
 
 
-def run_pipeline(dicom_dir_path: str, output_dir_path: str, preset_name: str, highres: bool = False) -> None:
+def run_pipeline(
+    dicom_dir_path: str,
+    output_dir_path: str,
+    preset_name: str,
+    highres: bool = False,
+    selected_organs: Optional[List[str]] = None,
+    merge_mode: bool = False,
+    existing_rtstruct_path: Optional[str] = None
+) -> None:
     """
     Основной пайплайн выполнения автооконтурирования органов риска на КТ.
-
-    :param dicom_dir_path: Путь к директории с исходными DICOM КТ-слайсами.
-    :param output_dir_path: Путь для сохранения итогового rtstruct.dcm.
-    :param preset_name: Название используемого пресета OAR.
-    :param highres: Использовать ли клинически качественный режим 1.5 мм (вместо быстрого 3 мм).
     """
     start_time = time.time()
     dicom_dir = Path(dicom_dir_path).resolve()
     output_dir = Path(output_dir_path).resolve()
     
-    # 0. Инициализация временных путей
+    # Инициализация временных путей
     temp_dir = output_dir / "temp_autocontour_workspace"
     temp_dir.mkdir(parents=True, exist_ok=True)
     
@@ -170,8 +213,6 @@ def run_pipeline(dicom_dir_path: str, output_dir_path: str, preset_name: str, hi
         import dicom2nifti
         import dicom2nifti.settings as settings
         
-        # Отключаем строгие проверки геометрии, чтобы скрипт не падал на клинических КТ
-        # с неравномерным шагом, малым числом срезов или небольшим наклоном гентри.
         settings.disable_validate_slice_increment()
         settings.disable_validate_orthogonal()
         settings.disable_validate_orientation()
@@ -179,8 +220,6 @@ def run_pipeline(dicom_dir_path: str, output_dir_path: str, preset_name: str, hi
         step_start = time.time()
         logger.info(f"Сборка 3D-тома NIfTI из {dicom_dir}... Это может занять некоторое время.")
         
-        # Запуск конвертации без реориентации (reorient_nifti=False), чтобы сохранить
-        # оригинальную геометрию DICOM-координат для точного совмещения в rt-utils.
         dicom2nifti.dicom_series_to_nifti(str(dicom_dir), str(nifti_ct_path), reorient_nifti=False)
         
         if not nifti_ct_path.exists():
@@ -198,24 +237,30 @@ def run_pipeline(dicom_dir_path: str, output_dir_path: str, preset_name: str, hi
         step_start = time.time()
         if highres:
             logger.warning(
-                "ВНИМАНИЕ: Запуск сегментации принудительно на CPU в ВЫСОКОМ клиническом качестве (fast=False, 1.5 мм). "
-                "Это обеспечит идеально плавные контуры органов без грубых краев. "
-                "Процесс на CPU может занять от 5 до 10 минут в зависимости от производительности ПК. Пожалуйста, подождите!"
+                "ВНИМАНИЕ: Запуск сегментации принудительно на CPU в ВЫСОКОМ качестве (fast=False, 1.5 мм). "
+                "Это обеспечит плавные контуры органов. Процесс на CPU может занять 5-10 минут. Пожалуйста, подождите!"
             )
         else:
             logger.warning(
                 "ВНИМАНИЕ: Запуск сегментации принудительно на CPU в БЫСТРОМ режиме (fast=True, 3 мм). "
-                "Для клинического качества и идеально плавных краев запустите скрипт с флагом --highres."
+                "Для клинического качества и плавных краев запустите скрипт с флагом повышенного качества."
             )
         
         segmentation_dir.mkdir(parents=True, exist_ok=True)
         
-        # Получаем выбранный пресет органов для оптимизации скачивания весов и сегментации
-        target_organs = PRESETS.get(preset_name)
-        if target_organs:
-            logger.info(f"ИИ сегментирует только выбранные OAR из пресета '{preset_name}': {target_organs}")
+        # Получаем выбранные органы
+        if selected_organs is not None:
+            target_organs = selected_organs
+            logger.info(f"ИИ сегментирует только выбранные OAR: {target_organs}")
+        else:
+            target_organs = PRESETS.get(preset_name)
+            if target_organs:
+                logger.info(f"ИИ сегментирует только выбранные OAR из пресета '{preset_name}': {target_organs}")
+            else:
+                logger.warning(f"Пресет '{preset_name}' не найден. Будут экспортированы все найденные OAR.")
+                target_organs = None
         
-        # Запуск TotalSegmentator через официальный Python API
+        # Запуск TotalSegmentator
         totalsegmentator(
             input=str(nifti_ct_path),
             output=str(segmentation_dir),
@@ -227,18 +272,16 @@ def run_pipeline(dicom_dir_path: str, output_dir_path: str, preset_name: str, hi
         logger.info(f"Шаг 2 успешно завершен за {time.time() - step_start:.2f} сек.")
 
         # ----------------------------------------------------------------------
-        # Шаг 3: Принудительная очистка памяти (ОЗУ)
+        # Шаг 3: Принудительная очистка памяти
         # ----------------------------------------------------------------------
         logger.info("--- Шаг 3 из 5: Выгрузка моделей и принудительная очистка ОЗУ ---")
         step_start = time.time()
         
-        # Удаляем тяжелые ссылки, чтобы вызвать сборщик мусора
         if 'totalsegmentator' in sys.modules:
-            # Некоторые кэши PyTorch или библиотеки ИИ могут удерживать память на CPU
             import torch
-            torch.cuda.empty_cache()  # На случай если GPU частично упоминался
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
             
-        # Удаляем временный файл КТ для экономии диска перед сборкой
         if nifti_ct_path.exists():
             nifti_ct_path.unlink()
             
@@ -262,54 +305,51 @@ def run_pipeline(dicom_dir_path: str, output_dir_path: str, preset_name: str, hi
             
         detected_organs = sorted([f.name.replace(".nii.gz", "") for f in mask_files])
         logger.info(f"Обнаружено сегментированных масок органов: {len(mask_files)}")
-        logger.info(f"Список всех определенных ИИ органов на КТ: {detected_organs}")
+        logger.info(f"Список определенных ИИ органов на КТ: {detected_organs}")
         
-        # Загружаем выбранный пресет органов
-        target_organs = PRESETS.get(preset_name)
-        if target_organs:
-            logger.info(f"Используется пресет '{preset_name}'. Фильтрация OAR: {target_organs}")
+        # Инициализируем или загружаем существующий RTSTRUCT
+        existing_rois = []
+        if merge_mode and existing_rtstruct_path:
+            logger.info(f"Загрузка существующего RTSTRUCT для слияния: {existing_rtstruct_path}")
+            rtstruct = RTStructBuilder.create_from(
+                dicom_series_path=str(dicom_dir),
+                rt_struct_path=str(existing_rtstruct_path)
+            )
+            existing_rois = rtstruct.get_roi_names()
+            logger.info(f"Существующие структуры врача в файле: {existing_rois}")
         else:
-            logger.warning(f"Пресет '{preset_name}' не найден. Будут экспортированы все найденные OAR.")
-            target_organs = None
-            
-        # Инициализируем новый RTSTRUCT на основе оригинальных КТ-слайсов
-        logger.info("Инициализация RTSTRUCT считыванием оригинальной геометрии DICOM серии...")
-        rtstruct = RTStructBuilder.create_new(dicom_series_path=str(dicom_dir))
+            logger.info("Инициализация нового RTSTRUCT считыванием оригинальной геометрии DICOM серии...")
+            rtstruct = RTStructBuilder.create_new(dicom_series_path=str(dicom_dir))
         
         added_count = 0
         for mask_file in mask_files:
             organ_name = mask_file.name.replace(".nii.gz", "")
             
-            # Фильтруем органы по пресету, если он задан
+            # Фильтруем по списку целевых органов
             if target_organs and organ_name not in target_organs:
                 continue
                 
             logger.info(f"Обработка органа: {organ_name}...")
             
-            # Загружаем NIfTI маску
             nii_mask = nib.load(str(mask_file))
-            mask_data = nii_mask.get_fdata() > 0.5  # Приведение к бинарной bool маске
+            mask_data = nii_mask.get_fdata() > 0.5
             
-            # В NIfTI оси ориентированы как (X, Y, Z) [Cols, Rows, Slices].
-            # Библиотека rt-utils ожидает (Rows, Cols, Slices), что соответствует (Y, X, Z) в NumPy.
-            # Для этого транспонируем первые две оси.
+            # Транспонируем (X, Y, Z) к NumPy (Y, X, Z) [Rows, Cols, Slices]
             mask_data_transposed = np.transpose(mask_data, (1, 0, 2))
-            
-            # Преобразуем к типу bool для rt-utils
             mask_bool = mask_data_transposed.astype(bool)
             
-            # Если маска пустая (орган не попал в КТ), пропускаем его для чистоты RTSTRUCT
             if not np.any(mask_bool):
                 logger.info(f"Пропуск пустого органа: {organ_name} (отсутствует в КТ объеме)")
                 continue
                 
-            # Выбираем цвет для отображения
-            color = ORGAN_COLORS.get(organ_name, [128, 128, 128])  # Серый по умолчанию
-            
-            # Создаем красивое имя
+            color = ORGAN_COLORS.get(organ_name, [128, 128, 128])
             pretty_name = organ_name.replace("_", " ").title()
             
-            # Добавляем ROI в структуру
+            # Умное слияние с контурами врача
+            if pretty_name in existing_rois:
+                pretty_name = f"{pretty_name} (AI)"
+                logger.warning(f"Орган '{organ_name}' уже размечен врачом. ИИ-контур добавлен как '{pretty_name}'")
+            
             rtstruct.add_roi(
                 mask=mask_bool,
                 color=color,
@@ -319,7 +359,7 @@ def run_pipeline(dicom_dir_path: str, output_dir_path: str, preset_name: str, hi
             logger.info(f"Успешно добавлен ROI '{pretty_name}' (цвет: {color})")
             
         if added_count == 0:
-            raise RuntimeError("В RTSTRUCT не было добавлено ни одного OAR. Проверьте соответствие КТ области выбранному пресету.")
+            raise RuntimeError("В RTSTRUCT не было добавлено ни одного OAR. Проверьте соответствие КТ-области выбранным органам.")
             
         # ----------------------------------------------------------------------
         # Шаг 5: Сохранение итогового файла
@@ -337,38 +377,732 @@ def run_pipeline(dicom_dir_path: str, output_dir_path: str, preset_name: str, hi
         raise e
         
     finally:
-        # Полная очистка временных папок после выполнения (или сбоя)
         logger.info("Очистка временных папок и файлов...")
         if temp_dir.exists():
             shutil.rmtree(temp_dir)
-        logger.info(f"Пайплайн полностью завершен. Общее время работы: {time.time() - start_time:.2f} сек.")
+        logger.info(f"Пайплайн завершен. Общее время работы: {time.time() - start_time:.2f} сек.")
 
+
+# ==============================================================================
+# Раздел графического интерфейса PyQt6
+# ==============================================================================
+
+if PYQT_AVAILABLE:
+    class LogSignaler(QObject):
+        """Вспомогательный класс сигналов для потокобезопасного вывода логов."""
+        log_signal = pyqtSignal(str, str)
+
+    class StreamToSignaler:
+        """Перенаправляет текстовые потоки в сигналы PyQt6."""
+        def __init__(self, signaler: LogSignaler, level: str = "INFO"):
+            self.signaler = signaler
+            self.level = level
+            self.buffer = ""
+
+        def write(self, message):
+            if message:
+                self.buffer += message
+                if "\n" in self.buffer:
+                    lines = self.buffer.split("\n")
+                    self.buffer = lines[-1]
+                    for line in lines[:-1]:
+                        if line.strip():
+                            color = "#ecf0f1"
+                            if "ERROR" in line or "Exception" in line or self.level == "ERROR":
+                                color = "#ff6b6b"  # Красный
+                            elif "WARNING" in line:
+                                color = "#f1c40f"  # Желтый
+                            elif "Шаг" in line or "---" in line:
+                                color = "#007acc"  # Синий
+                            self.signaler.log_signal.emit(line, color)
+
+        def flush(self):
+            if self.buffer.strip():
+                color = "#ecf0f1"
+                if self.level == "ERROR":
+                    color = "#ff6b6b"
+                self.signaler.log_signal.emit(self.buffer, color)
+                self.buffer = ""
+
+        def isatty(self):
+            return False
+
+    class QTextEditLogHandler(logging.Handler):
+        """Обработчик logging для перенаправления логов в QTextEdit."""
+        def __init__(self, signaler: LogSignaler):
+            super().__init__()
+            self.signaler = signaler
+            self.setFormatter(logging.Formatter('[%(asctime)s] %(levelname)s: %(message)s', datefmt='%H:%M:%S'))
+
+        def emit(self, record):
+            try:
+                msg = self.format(record)
+                if record.levelno == logging.ERROR:
+                    color = "#ff6b6b"
+                elif record.levelno == logging.WARNING:
+                    color = "#f1c40f"
+                else:
+                    color = "#a0a0a2"
+                self.signaler.log_signal.emit(msg, color)
+            except Exception:
+                self.handleError(record)
+
+    class SegmentationWorker(QThread):
+        """Поток для вычислений сегментации TotalSegmentator, чтобы GUI не зависал."""
+        finished_signal = pyqtSignal(bool, str)
+
+        def __init__(
+            self,
+            dicom_dir: str,
+            output_dir: str,
+            preset_name: str,
+            highres: bool,
+            selected_organs: List[str],
+            merge_mode: bool,
+            existing_rtstruct_path: Optional[str]
+        ):
+            super().__init__()
+            self.dicom_dir = dicom_dir
+            self.output_dir = output_dir
+            self.preset_name = preset_name
+            self.highres = highres
+            self.selected_organs = selected_organs
+            self.merge_mode = merge_mode
+            self.existing_rtstruct_path = existing_rtstruct_path
+
+        def run(self):
+            try:
+                run_pipeline(
+                    dicom_dir_path=self.dicom_dir,
+                    output_dir_path=self.output_dir,
+                    preset_name=self.preset_name,
+                    highres=self.highres,
+                    selected_organs=self.selected_organs,
+                    merge_mode=self.merge_mode,
+                    existing_rtstruct_path=self.existing_rtstruct_path
+                )
+                self.finished_signal.emit(True, "Автооконтурирование успешно завершено!")
+            except Exception as e:
+                self.finished_signal.emit(False, str(e))
+
+    # Стилизация премиальной темной темы QSS
+    DARK_QSS = """
+    QWidget {
+        background-color: #1a1a1a;
+        color: #e0e0e0;
+        font-family: "Segoe UI", Arial, sans-serif;
+        font-size: 13px;
+    }
+
+    QFrame#card {
+        background-color: #242424;
+        border: 1px solid #333333;
+        border-radius: 8px;
+    }
+
+    QFrame#statusCard {
+        background-color: #1e1e1e;
+        border: 1px solid #2d2d2d;
+        border-radius: 6px;
+    }
+
+    QLabel {
+        color: #b0b0b0;
+        background-color: transparent;
+    }
+
+    QLabel#titleLabel {
+        color: #ffffff;
+        font-size: 22px;
+        font-weight: bold;
+    }
+
+    QLabel#subtitleLabel {
+        color: #007acc;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    QLineEdit {
+        background-color: #2d2d2d;
+        border: 1px solid #3c3c3c;
+        border-radius: 4px;
+        padding: 6px 10px;
+        color: #ffffff;
+    }
+
+    QLineEdit:focus {
+        border: 1px solid #007acc;
+    }
+
+    QPushButton {
+        background-color: #333333;
+        border: 1px solid #444444;
+        border-radius: 4px;
+        padding: 6px 12px;
+        color: #ffffff;
+        font-weight: bold;
+    }
+
+    QPushButton:hover {
+        background-color: #444444;
+        border: 1px solid #555555;
+    }
+
+    QPushButton:pressed {
+        background-color: #222222;
+    }
+
+    QPushButton#btnBrowse {
+        background-color: #2d2d2d;
+    }
+
+    QPushButton#btnBrowse:hover {
+        background-color: #3d3d3d;
+    }
+
+    QPushButton#btnRun {
+        background-color: #007acc;
+        border: 1px solid #007acc;
+        font-size: 14px;
+        font-weight: bold;
+        padding: 12px;
+        border-radius: 6px;
+        color: #ffffff;
+    }
+
+    QPushButton#btnRun:hover {
+        background-color: #0098ff;
+        border: 1px solid #0098ff;
+    }
+
+    QPushButton#btnRun:disabled {
+        background-color: #2d2d2d;
+        border: 1px solid #3d3d3d;
+        color: #888888;
+    }
+
+    QComboBox {
+        background-color: #2d2d2d;
+        border: 1px solid #3c3c3c;
+        border-radius: 4px;
+        padding: 5px 10px;
+        color: #ffffff;
+    }
+
+    QComboBox::drop-down {
+        border: 0px;
+    }
+
+    QComboBox QAbstractItemView {
+        background-color: #2d2d2d;
+        border: 1px solid #3c3c3c;
+        selection-background-color: #007acc;
+        selection-color: #ffffff;
+    }
+
+    QListWidget {
+        background-color: #1e1e1e;
+        border: 1px solid #2d2d2d;
+        border-radius: 6px;
+        padding: 5px;
+    }
+
+    QListWidget::item {
+        padding: 4px;
+    }
+
+    QListWidget::item:hover {
+        background-color: #2d2d2d;
+        border-radius: 4px;
+    }
+
+    QRadioButton {
+        spacing: 8px;
+        color: #d0d0d0;
+    }
+
+    QRadioButton::disabled {
+        color: #666666;
+    }
+
+    QCheckBox {
+        spacing: 8px;
+        color: #d0d0d0;
+    }
+
+    QProgressBar {
+        border: 1px solid #333333;
+        border-radius: 4px;
+        text-align: center;
+        background-color: #1e1e1e;
+        height: 18px;
+    }
+
+    QProgressBar::chunk {
+        background-color: #007acc;
+        border-radius: 3px;
+    }
+
+    QTextEdit {
+        background-color: #1e1e1e;
+        border: 1px solid #2d2d2d;
+        border-radius: 6px;
+        font-family: "Consolas", "Courier New", monospace;
+        font-size: 12px;
+        padding: 8px;
+        color: #ecf0f1;
+    }
+
+    QScrollBar:vertical {
+        border: 0px;
+        background: #1a1a1a;
+        width: 10px;
+        margin: 0px;
+    }
+
+    QScrollBar::handle:vertical {
+        background: #444444;
+        min-height: 20px;
+        border-radius: 5px;
+    }
+
+    QScrollBar::handle:vertical:hover {
+        background: #555555;
+    }
+
+    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+        border: none;
+        background: none;
+    }
+    """
+
+    class MainWindow(QMainWindow):
+        """Главное окно графического интерфейса приложения."""
+        def __init__(self):
+            super().__init__()
+            self.setWindowTitle("AI Contour - Автооконтурирование КТ органов риска")
+            self.setMinimumSize(920, 720)
+            self.existing_rtstruct_path = None
+            self.is_updating_presets = False
+            self.worker = None
+
+            # Настройка перенаправления логов в реальном времени
+            self.log_signaler = LogSignaler()
+            self.log_signaler.log_signal.connect(self.append_log)
+            self.log_handler = QTextEditLogHandler(self.log_signaler)
+            logger.addHandler(self.log_handler)
+
+            # Перехват stdout/stderr
+            self.old_stdout = sys.stdout
+            self.old_stderr = sys.stderr
+            sys.stdout = StreamToSignaler(self.log_signaler, "INFO")
+            sys.stderr = StreamToSignaler(self.log_signaler, "ERROR")
+
+            self.init_ui()
+
+        def init_ui(self):
+            self.setStyleSheet(self.DARK_QSS)
+
+            # Главный виджет
+            main_widget = QWidget()
+            self.setCentralWidget(main_widget)
+            main_layout = QVBoxLayout(main_widget)
+            main_layout.setContentsMargins(15, 15, 15, 15)
+            main_layout.setSpacing(10)
+
+            # Шапка
+            header_widget = QWidget()
+            header_layout = QVBoxLayout(header_widget)
+            header_layout.setContentsMargins(0, 0, 0, 5)
+            title = QLabel("AI Contour")
+            title.setObjectName("titleLabel")
+            subtitle = QLabel("Автоматическое сегментирование органов риска на КТ (TotalSegmentator CPU)")
+            subtitle.setObjectName("subtitleLabel")
+            header_layout.addWidget(title)
+            header_layout.addWidget(subtitle)
+            main_layout.addWidget(header_widget)
+
+            # Сплиттер
+            splitter = QSplitter(Qt.Orientation.Horizontal)
+            main_layout.addWidget(splitter)
+
+            # --- ЛЕВАЯ КОЛОНКА (Настройки и параметры) ---
+            left_card = QFrame()
+            left_card.setObjectName("card")
+            left_layout = QVBoxLayout(left_card)
+            left_layout.setSpacing(12)
+
+            # Выбор КТ DICOM
+            input_label = QLabel("Папка с КТ-снимками DICOM:")
+            input_label.setStyleSheet("font-weight: bold; color: #ffffff;")
+            self.input_edit = QLineEdit()
+            self.input_edit.setPlaceholderText("Выберите папку с DICOM файлами снимков...")
+            self.input_edit.textChanged.connect(self.check_for_rtstruct)
+            btn_input = QPushButton("Обзор...")
+            btn_input.setObjectName("btnBrowse")
+            btn_input.clicked.connect(self.select_input_dir)
+
+            input_box = QHBoxLayout()
+            input_box.addWidget(self.input_edit)
+            input_box.addWidget(btn_input)
+            left_layout.addWidget(input_label)
+            left_layout.addLayout(input_box)
+
+            # Выбор директории вывода
+            output_label = QLabel("Папка сохранения результатов:")
+            output_label.setStyleSheet("font-weight: bold; color: #ffffff;")
+            self.output_edit = QLineEdit()
+            self.output_edit.setPlaceholderText("Выберите выходную папку для RTSTRUCT...")
+            btn_output = QPushButton("Обзор...")
+            btn_output.setObjectName("btnBrowse")
+            btn_output.clicked.connect(self.select_output_dir)
+
+            output_box = QHBoxLayout()
+            output_box.addWidget(self.output_edit)
+            output_box.addWidget(btn_output)
+            left_layout.addWidget(output_label)
+            left_layout.addLayout(output_box)
+
+            # Под-карточка статуса RTSTRUCT
+            status_frame = QFrame()
+            status_frame.setObjectName("statusCard")
+            status_layout = QVBoxLayout(status_frame)
+            status_layout.setSpacing(8)
+
+            status_title = QLabel("Работа с существующими контурами:")
+            status_title.setStyleSheet("font-weight: bold; color: #b0b0b0;")
+            self.status_rtstruct_label = QLabel("Статус: Путь не выбран")
+            self.status_rtstruct_label.setStyleSheet("color: #888888;")
+            self.status_rtstruct_label.setWordWrap(True)
+
+            self.radio_merge = QRadioButton("Дописать ИИ-контуры в существующий файл врача (Merge)")
+            self.radio_new = QRadioButton("Создать новый файл отдельно (Сохранить оригинал)")
+            self.radio_merge.setEnabled(False)
+            self.radio_new.setEnabled(False)
+            self.radio_new.setChecked(True)
+
+            self.radio_group = QButtonGroup()
+            self.radio_group.addButton(self.radio_merge)
+            self.radio_group.addButton(self.radio_new)
+
+            status_layout.addWidget(status_title)
+            status_layout.addWidget(self.status_rtstruct_label)
+            status_layout.addWidget(self.radio_merge)
+            status_layout.addWidget(self.radio_new)
+            left_layout.addWidget(status_frame)
+
+            # Выбор пресета
+            preset_label = QLabel("Выбор пресета органов (OAR):")
+            preset_label.setStyleSheet("font-weight: bold; color: #ffffff;")
+            self.preset_combo = QComboBox()
+            self.preset_combo.addItems(list(PRESETS_MAP.keys()))
+            self.preset_combo.currentTextChanged.connect(self.on_preset_changed)
+
+            left_layout.addWidget(preset_label)
+            left_layout.addWidget(self.preset_combo)
+
+            # Список OAR с чек-боксами
+            organs_header = QLabel("Органы для автооконтурирования:")
+            organs_header.setStyleSheet("font-weight: bold; color: #ffffff;")
+            self.organs_list = QListWidget()
+            self.organs_list.itemChanged.connect(self.on_organ_item_changed)
+
+            # Заполнение списка чек-боксов
+            for org in ALL_ORGANS:
+                ru_name = ORGAN_RU_NAMES.get(org, org)
+                item = QListWidgetItem(ru_name)
+                item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+                item.setCheckState(Qt.CheckState.Unchecked)
+                item.setData(Qt.ItemDataRole.UserRole, org)
+                self.organs_list.addItem(item)
+
+            left_layout.addWidget(organs_header)
+            left_layout.addWidget(self.organs_list)
+
+            # Точность
+            self.highres_check = QCheckBox("Повышенная точность (1.5 мм, медленный расчет на CPU)")
+            self.highres_check.setToolTip("Использует высокое разрешение КТ. Занимает значительно больше времени и ОЗУ.")
+            left_layout.addWidget(self.highres_check)
+
+            splitter.addWidget(left_card)
+
+            # --- ПРАВАЯ КОЛОНКА (Терминал логов и управление) ---
+            right_card = QFrame()
+            right_card.setObjectName("card")
+            right_layout = QVBoxLayout(right_card)
+            right_layout.setSpacing(12)
+
+            logs_header = QLabel("Лог выполнения работы ИИ в реальном времени:")
+            logs_header.setStyleSheet("font-weight: bold; color: #ffffff;")
+            self.log_edit = QTextEdit()
+            self.log_edit.setReadOnly(True)
+            self.log_edit.setPlaceholderText("Здесь будет отображаться ход выполнения автооконтурирования...")
+
+            progress_header = QLabel("Индикатор прогресса:")
+            progress_header.setStyleSheet("font-weight: bold; color: #ffffff;")
+            self.progress_bar = QProgressBar()
+            self.progress_bar.setRange(0, 100)
+            self.progress_bar.setValue(0)
+
+            self.btn_run = QPushButton("ЗАПУСТИТЬ АВТООКОНТУРИРОВАНИЕ")
+            self.btn_run.setObjectName("btnRun")
+            self.btn_run.clicked.connect(self.start_segmentation)
+
+            right_layout.addWidget(logs_header)
+            right_layout.addWidget(self.log_edit)
+            right_layout.addWidget(progress_header)
+            right_layout.addWidget(self.progress_bar)
+            right_layout.addWidget(self.btn_run)
+
+            splitter.addWidget(right_card)
+
+            # Установка пресета по умолчанию
+            self.preset_combo.setCurrentText("Брюшная полость (Abdomen)")
+            splitter.setSizes([400, 520])
+
+        def select_input_dir(self):
+            dir_path = QFileDialog.getExistingDirectory(self, "Выберите папку с КТ-снимками DICOM")
+            if dir_path:
+                self.input_edit.setText(dir_path)
+                if not self.output_edit.text():
+                    self.output_edit.setText(os.path.join(dir_path, "output"))
+
+        def select_output_dir(self):
+            dir_path = QFileDialog.getExistingDirectory(self, "Выберите папку сохранения результатов")
+            if dir_path:
+                self.output_edit.setText(dir_path)
+
+        def check_for_rtstruct(self, directory: str):
+            """Автоматически сканирует папку КТ на наличие существующего RTSTRUCT файла."""
+            self.existing_rtstruct_path = None
+            if not directory or not os.path.isdir(directory):
+                self.status_rtstruct_label.setText("Статус: Путь не выбран или недействителен")
+                self.status_rtstruct_label.setStyleSheet("color: #888888;")
+                self.radio_merge.setEnabled(False)
+                self.radio_new.setEnabled(False)
+                self.radio_new.setChecked(True)
+                return
+
+            self.status_rtstruct_label.setText("Сканирование папки на наличие RTSTRUCT...")
+            self.status_rtstruct_label.setStyleSheet("color: #f1c40f;")
+            QApplication.processEvents()
+
+            try:
+                import pydicom
+                found_file = None
+                
+                for filename in os.listdir(directory):
+                    filepath = os.path.join(directory, filename)
+                    if os.path.isfile(filepath):
+                        try:
+                            # Проверяем DICOM-заголовок без чтения пикселей
+                            ds = pydicom.dcmread(filepath, stop_before_pixels=True)
+                            if getattr(ds, "Modality", None) == "RTSTRUCT":
+                                found_file = filepath
+                                break
+                        except Exception:
+                            continue
+                
+                if found_file:
+                    self.existing_rtstruct_path = found_file
+                    basename = os.path.basename(found_file)
+                    self.status_rtstruct_label.setText(f"Обнаружен существующий RTSTRUCT врача: {basename}")
+                    self.status_rtstruct_label.setStyleSheet("color: #2ecc71; font-weight: bold;")
+                    self.radio_merge.setEnabled(True)
+                    self.radio_new.setEnabled(True)
+                    self.radio_merge.setChecked(True)
+                else:
+                    self.status_rtstruct_label.setText("Существующий RTSTRUCT врача не обнаружен (будет создан новый)")
+                    self.status_rtstruct_label.setStyleSheet("color: #e74c3c;")
+                    self.radio_merge.setEnabled(False)
+                    self.radio_new.setEnabled(False)
+                    self.radio_new.setChecked(True)
+                    
+            except Exception as e:
+                self.status_rtstruct_label.setText(f"Ошибка при сканировании RTSTRUCT: {str(e)}")
+                self.status_rtstruct_label.setStyleSheet("color: #e74c3c;")
+                self.radio_merge.setEnabled(False)
+                self.radio_new.setEnabled(False)
+                self.radio_new.setChecked(True)
+
+        def on_preset_changed(self, text: str):
+            """Слот изменения выбранного пресета."""
+            if text == "Пользовательский (Custom)":
+                return
+                
+            self.is_updating_presets = True
+            target_organs = PRESETS_MAP.get(text, [])
+            
+            for i in range(self.organs_list.count()):
+                item = self.organs_list.item(i)
+                organ_name = item.data(Qt.ItemDataRole.UserRole)
+                if organ_name in target_organs:
+                    item.setCheckState(Qt.CheckState.Checked)
+                else:
+                    item.setCheckState(Qt.CheckState.Unchecked)
+                    
+            self.is_updating_presets = False
+
+        def on_organ_item_changed(self, item: QListWidgetItem):
+            """Слот изменения состояния чекбокса органа пользователем."""
+            if self.is_updating_presets:
+                return
+                
+            # Собираем все выбранные органы
+            checked_organs = []
+            for i in range(self.organs_list.count()):
+                itm = self.organs_list.item(i)
+                if itm.checkState() == Qt.CheckState.Checked:
+                    checked_organs.append(itm.data(Qt.ItemDataRole.UserRole))
+                    
+            # Проверяем на соответствие пресетам
+            matched_preset = "Пользовательский (Custom)"
+            for preset_name, preset_organs in PRESETS_MAP.items():
+                if preset_name == "Пользовательский (Custom)":
+                    continue
+                if set(checked_organs) == set(preset_organs):
+                    matched_preset = preset_name
+                    break
+                    
+            # Блокируем сигналы комбобокса на время смены названия
+            self.preset_combo.blockSignals(True)
+            self.preset_combo.setCurrentText(matched_preset)
+            self.preset_combo.blockSignals(False)
+
+        def append_log(self, message: str, color: str):
+            """Потокобезопасное добавление логов в текстовое окно."""
+            self.log_edit.appendHtml(f"<span style='color: {color};'>{message}</span>")
+            self.log_edit.moveCursor(QTextCursor.MoveOperation.End)
+
+        def start_segmentation(self):
+            """Запускает процесс сегментации."""
+            dicom_dir = self.input_edit.text().strip()
+            output_dir = self.output_edit.text().strip()
+            
+            if not dicom_dir or not os.path.isdir(dicom_dir):
+                QMessageBox.critical(self, "Ошибка", "Укажите корректный путь к папке с КТ DICOM снимками!")
+                return
+                
+            if not output_dir:
+                QMessageBox.critical(self, "Ошибка", "Укажите выходную папку для сохранения результатов!")
+                return
+                
+            selected_organs = []
+            for i in range(self.organs_list.count()):
+                item = self.organs_list.item(i)
+                if item.checkState() == Qt.CheckState.Checked:
+                    selected_organs.append(item.data(Qt.ItemDataRole.UserRole))
+                    
+            if not selected_organs:
+                QMessageBox.warning(self, "Предупреждение", "Не выбрано ни одного органа для сегментирования!")
+                return
+                
+            # Блокируем интерфейс
+            self.set_ui_enabled(False)
+            self.log_edit.clear()
+            self.progress_bar.setRange(0, 0)  # Режим marquee (ожидание)
+            
+            merge_mode = self.radio_merge.isChecked()
+            preset_name = self.preset_combo.currentText()
+            
+            preset_key = "abdominal_oar"
+            if "Thorax" in preset_name:
+                preset_key = "thoracic_oar"
+            elif "Pelvis" in preset_name:
+                preset_key = "pelvis_oar"
+            else:
+                preset_key = "all"
+                
+            # Создаем и запускаем вычислительный поток
+            self.worker = SegmentationWorker(
+                dicom_dir=dicom_dir,
+                output_dir=output_dir,
+                preset_name=preset_key,
+                highres=self.highres_check.isChecked(),
+                selected_organs=selected_organs,
+                merge_mode=merge_mode,
+                existing_rtstruct_path=self.existing_rtstruct_path
+            )
+            self.worker.finished_signal.connect(self.on_segmentation_finished)
+            self.worker.start()
+
+        def set_ui_enabled(self, enabled: bool):
+            self.input_edit.setEnabled(enabled)
+            self.output_edit.setEnabled(enabled)
+            self.preset_combo.setEnabled(enabled)
+            self.organs_list.setEnabled(enabled)
+            self.highres_check.setEnabled(enabled)
+            self.radio_merge.setEnabled(enabled if self.existing_rtstruct_path else False)
+            self.radio_new.setEnabled(enabled if self.existing_rtstruct_path else False)
+            self.btn_run.setEnabled(enabled)
+            if enabled:
+                self.btn_run.setText("ЗАПУСТИТЬ АВТООКОНТУРИРОВАНИЕ")
+            else:
+                self.btn_run.setText("ВЫПОЛНЯЕТСЯ СЕГМЕНТАЦИЯ...")
+
+        def on_segmentation_finished(self, success: bool, message: str):
+            self.set_ui_enabled(True)
+            self.progress_bar.setRange(0, 100)
+            
+            if success:
+                self.progress_bar.setValue(100)
+                QMessageBox.information(self, "Успех", "Автоматическое оконтурирование завершено успешно!")
+            else:
+                self.progress_bar.setValue(0)
+                QMessageBox.critical(self, "Критическая ошибка", f"Произошел сбой при сегментации:\n{message}")
+
+        def closeEvent(self, event):
+            # Восстанавливаем оригинальные потоки при выходе
+            sys.stdout = self.old_stdout
+            sys.stderr = self.old_stderr
+            event.accept()
+
+
+# ==============================================================================
+# Исполняемый блок программы
+# ==============================================================================
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="MVP автооконтурирования органов риска на КТ для лучевой терапии."
-    )
-    parser.add_argument(
-        "-i", "--input",
-        required=True,
-        help="Путь к папке, содержащей исходные КТ-срезы в формате DICOM."
-    )
-    parser.add_argument(
-        "-o", "--output",
-        required=True,
-        help="Путь к папке, в которую будет сохранен готовый файл rtstruct.dcm."
-    )
-    parser.add_argument(
-        "-p", "--preset",
-        default="abdominal_oar",
-        choices=list(PRESETS.keys()) + ["all"],
-        help="Пресет органов риска для экспорта (по умолчанию: abdominal_oar)."
-    )
-    parser.add_argument(
-        "-hr", "--highres",
-        action="store_true",
-        help="Запустить сегментацию в высоком качестве (1.5 мм разрешение вместо 3 мм). Обеспечивает идеально гладкие края контуров."
-    )
-    
-    args = parser.parse_args()
-    run_pipeline(args.input, args.output, args.preset, args.highres)
+    # Если переданы аргументы командной строки, запускаем в режиме CLI
+    if len(sys.argv) > 1:
+        parser = argparse.ArgumentParser(
+            description="MVP автооконтурирования органов риска на КТ для лучевой терапии."
+        )
+        parser.add_argument(
+            "-i", "--input",
+            required=True,
+            help="Путь к папке, содержащей исходные КТ-срезы в формате DICOM."
+        )
+        parser.add_argument(
+            "-o", "--output",
+            required=True,
+            help="Путь к папке, в которую будет сохранен готовый файл rtstruct.dcm."
+        )
+        parser.add_argument(
+            "-p", "--preset",
+            default="abdominal_oar",
+            choices=list(PRESETS.keys()) + ["all"],
+            help="Пресет органов риска для экспорта (по умолчанию: abdominal_oar)."
+        )
+        parser.add_argument(
+            "-hr", "--highres",
+            action="store_true",
+            help="Запустить сегментацию в высоком качестве (1.5 мм разрешение вместо 3 мм)."
+        )
+        
+        args = parser.parse_args()
+        run_pipeline(args.input, args.output, args.preset, args.highres)
+    else:
+        # Режим GUI
+        if not PYQT_AVAILABLE:
+            print("Ошибка: Для запуска GUI необходима библиотека PyQt6.")
+            print("Установите ее с помощью команды: pip install PyQt6")
+            sys.exit(1)
+            
+        app = QApplication(sys.argv)
+        app.setStyle("Fusion")
+        
+        window = MainWindow()
+        window.show()
+        sys.exit(app.exec())
