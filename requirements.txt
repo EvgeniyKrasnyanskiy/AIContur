@@ -4,3 +4,4 @@ dicom2nifti
 totalsegmentator
 rt-utils
 nibabel
+PyQt6
