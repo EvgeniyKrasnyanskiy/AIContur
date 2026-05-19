@@ -1123,6 +1123,11 @@ if PYQT_AVAILABLE:
             self.highres_check.setToolTip("Использует высокое разрешение КТ. Занимает значительно больше времени и ОЗУ.")
             left_layout.addWidget(self.highres_check)
 
+            # Чекбокс звукового оповещения
+            self.sound_check = QCheckBox("Звуковое оповещение при завершении 🔔")
+            self.sound_check.setToolTip("Воспроизводить приятный звуковой сигнал после окончания сегментации.")
+            left_layout.addWidget(self.sound_check)
+
             splitter.addWidget(left_card)
 
             # --- ПРАВАЯ КОЛОНКА (Терминал логов и управление) ---
@@ -1162,8 +1167,9 @@ if PYQT_AVAILABLE:
             splitter.setStretchFactor(0, 0)
             splitter.setStretchFactor(1, 1)
 
-            # Подключаем сохранение настроек при смене флага точности
+            # Подключаем сохранение настроек при смене флага точности и звука
             self.highres_check.stateChanged.connect(self.save_settings)
+            self.sound_check.stateChanged.connect(self.save_settings)
             splitter.setSizes([400, 520])
 
         def load_settings(self):
@@ -1188,6 +1194,10 @@ if PYQT_AVAILABLE:
                 # Загружаем точность
                 highres = self.settings.value("highres", False, type=bool)
                 self.highres_check.setChecked(highres)
+                
+                # Загружаем настройку звука
+                play_sound = self.settings.value("play_sound", True, type=bool)
+                self.sound_check.setChecked(play_sound)
                 
                 # Загружаем отмеченные органы
                 checked_organs = self.settings.value("checked_organs", None)
@@ -1229,6 +1239,7 @@ if PYQT_AVAILABLE:
             self.settings.setValue("output_dir", self.output_edit.text().strip())
             self.settings.setValue("preset", self.preset_combo.currentText())
             self.settings.setValue("highres", self.highres_check.isChecked())
+            self.settings.setValue("play_sound", self.sound_check.isChecked())
             
             # Собираем список всех выбранных органов
             checked_organs = []
@@ -1487,6 +1498,7 @@ if PYQT_AVAILABLE:
             self.preset_combo.setEnabled(enabled)
             self.organs_list.setEnabled(enabled)
             self.highres_check.setEnabled(enabled)
+            self.sound_check.setEnabled(enabled)
             self.radio_merge.setEnabled(enabled if self.existing_rtstruct_path else False)
             self.radio_new.setEnabled(enabled if self.existing_rtstruct_path else False)
             self.btn_run.setEnabled(enabled)
@@ -1520,6 +1532,17 @@ if PYQT_AVAILABLE:
             # Останавливаем анимацию активности и сбрасываем стиль на статичный приятный синий
             self.activity_timer.stop()
             self.status_step_label.setStyleSheet("color: #007acc; font-weight: bold; font-style: italic;")
+            
+            # Воспроизведение звука при включенной опции
+            if self.sound_check.isChecked():
+                try:
+                    import winsound
+                    if success:
+                        winsound.MessageBeep(winsound.MB_ICONASTERISK)
+                    else:
+                        winsound.MessageBeep(winsound.MB_ICONEXCLAMATION)
+                except Exception as e:
+                    logger.error(f"Не удалось воспроизвести звуковое оповещение: {e}")
             
             if success:
                 self.progress_bar.setValue(100)
