@@ -45,28 +45,27 @@ logger = logging.getLogger("ContourEngine")
 DEFAULT_PRESETS_DATA = {
     "presets": {
         "Голова и шея (Head & Neck)": [
-            "body", "brain", "spinal_cord", "thyroid_gland", "skull", "trachea", "esophagus",
+            "brain", "spinal_cord", "thyroid_gland", "skull", "trachea", "esophagus",
             "common_carotid_artery_left", "common_carotid_artery_right"
         ],
         "Грудная клетка (Thorax)": [
-            "body", "heart", "lung_left", "lung_right", "trachea", "esophagus", "aorta", "pulmonary_artery",
+            "heart", "lung_left", "lung_right", "trachea", "esophagus", "aorta", "pulmonary_artery",
             "superior_vena_cava", "sternum", "clavicula_left", "clavicula_right"
         ],
         "Брюшная полость (Abdomen)": [
-            "body", "spleen", "kidney_right", "kidney_left", "gallbladder", "liver", "stomach", "aorta",
+            "spleen", "kidney_right", "kidney_left", "gallbladder", "liver", "stomach", "aorta",
             "inferior_vena_cava", "urinary_bladder", "heart", "pancreas", "duodenum",
             "adrenal_gland_left", "adrenal_gland_right", "portal_vein_and_splenic_vein"
         ],
         "Малый таз (Pelvis)": [
-            "body", "urinary_bladder", "prostate", "rectum", "colon", "small_bowel", "femur_left", "femur_right",
+            "urinary_bladder", "prostate", "rectum", "colon", "small_bowel", "femur_left", "femur_right",
             "hip_left", "hip_right", "sacrum", "iliac_artery_left", "iliac_artery_right"
         ],
         "Брахитерапия (Brachytherapy)": [
-            "body", "urinary_bladder", "small_bowel", "colon"
+            "urinary_bladder", "small_bowel", {"colon": ["Colon", "Colon Dup"]}
         ]
     },
     "colors": {
-        "body": [255, 230, 0],
         "spleen": [156, 39, 176],
         "kidney_right": [3, 169, 244],
         "kidney_left": [33, 150, 243],
@@ -110,7 +109,6 @@ DEFAULT_PRESETS_DATA = {
         "iliac_artery_right": [255, 99, 71]
     },
     "ru_names": {
-        "body": "Контур тела (Body)",
         "spleen": "Селезенка (Spleen)",
         "kidney_right": "Правая почка (Kidney R)",
         "kidney_left": "Левая почка (Kidney L)",
@@ -168,6 +166,42 @@ class ContourEngine:
         self.ru_names: Dict[str, str] = {}
         self.load_presets_config()
 
+    def _get_default_color(self, organ_name: str) -> List[int]:
+        """Генерирует стабильный RGB цвет на основе хэша имени органа."""
+        import hashlib
+        h = hashlib.md5(organ_name.encode('utf-8')).digest()
+        # Избегаем слишком темных цветов, минимальная яркость 50
+        return [max(50, int(h[0])), max(50, int(h[1])), max(50, int(h[2]))]
+
+    def _update_presets_with_total_classes(self) -> None:
+        """Сравнивает текущие ru_names/colors с полным списком и дополняет их."""
+        all_organs = self.get_all_supported_organs()
+        if not all_organs:
+            return
+
+        changed = False
+        full_total_preset = []
+        for org in all_organs:
+            if org == "body":
+                continue
+            full_total_preset.append(org)
+            if org not in self.ru_names:
+                self.ru_names[org] = org
+                changed = True
+            if org not in self.colors:
+                self.colors[org] = self._get_default_color(org)
+                changed = True
+
+        preset_key = "Все структуры / Full Total"
+        if preset_key not in self.presets or len(self.presets[preset_key]) != len(full_total_preset):
+            self.presets[preset_key] = full_total_preset
+            changed = True
+
+        if changed:
+            logger.info(f"Обнаружены новые структуры TotalSegmentator. Обновление {self.config_path}...")
+            self.save_presets_config()
+
+
     def load_presets_config(self) -> None:
         """
         Загружает пресеты, цвета и переводы из presets.json.
@@ -186,6 +220,10 @@ class ContourEngine:
             self.colors = data.get("colors", DEFAULT_PRESETS_DATA["colors"])
             self.ru_names = data.get("ru_names", DEFAULT_PRESETS_DATA["ru_names"])
             logger.info("Конфигурация пресетов успешно загружена.")
+            
+            # Динамическое дополнение до 117 классов TotalSegmentator
+            self._update_presets_with_total_classes()
+            
         except Exception as e:
             logger.error(f"Не удалось загрузить presets.json: {e}. Используются внутренние данные по умолчанию.")
             self.presets = DEFAULT_PRESETS_DATA["presets"]
