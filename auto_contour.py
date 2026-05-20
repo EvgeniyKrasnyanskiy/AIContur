@@ -836,9 +836,6 @@ if PYQT_AVAILABLE:
 
             # Группировка списка органов по анатомическим областям
             ORGAN_GROUPS = {
-                "━━━ ОБЩЕЕ ━━━": [
-                    "body"
-                ],
                 "━━━ ГОЛОВА И ШЕЯ ━━━": [
                     "brain", "spinal_cord", "thyroid_gland", "skull", "trachea", "esophagus",
                     "common_carotid_artery_left", "common_carotid_artery_right"
@@ -1034,9 +1031,6 @@ if PYQT_AVAILABLE:
                     basename = os.path.basename(found_file)
                     self.status_rtstruct_label.setText(f"Обнаружен существующий RTSTRUCT: {basename}")
                     self.status_rtstruct_label.setStyleSheet("color: #2ecc71; font-weight: bold;")
-                    self.radio_merge.setEnabled(True)
-                    self.radio_new.setEnabled(True)
-                    self.radio_merge.setChecked(True)
                 else:
                     self.status_rtstruct_label.setText("Существующий RTSTRUCT не обнаружен (будет создан новый)")
                     self.status_rtstruct_label.setStyleSheet("color: #e74c3c;")
