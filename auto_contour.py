@@ -515,6 +515,11 @@ if PYQT_AVAILABLE:
             self.load_settings()
 
         def init_ui(self):
+            # Установка премиальной иконки приложения
+            icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app_icon.png")
+            if os.path.exists(icon_path):
+                self.setWindowIcon(QIcon(icon_path))
+
             self.setStyleSheet(DARK_QSS)
 
             # Главный виджет
@@ -849,7 +854,8 @@ if PYQT_AVAILABLE:
 
             for group_title, organs in ORGAN_GROUPS.items():
                 header_item = QListWidgetItem(group_title)
-                header_item.setFlags(Qt.ItemFlag.NoItemFlags)
+                header_item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsUserCheckable)
+                header_item.setCheckState(Qt.CheckState.Unchecked)
                 header_item.setData(Qt.ItemDataRole.UserRole, "header")
                 
                 font = header_item.font()
@@ -940,6 +946,9 @@ if PYQT_AVAILABLE:
                             item.setCheckState(Qt.CheckState.Unchecked)
                 else:
                     self.apply_preset_checked_states(preset)
+
+                # Обновляем состояние заголовков категорий при загрузке настроек
+                self.update_headers_check_states()
             finally:
                 self.is_updating_presets = False
                 self.organs_list.blockSignals(False)
@@ -1082,6 +1091,39 @@ if PYQT_AVAILABLE:
                 else:
                     item.setCheckState(Qt.CheckState.Unchecked)
 
+        def update_headers_check_states(self):
+            """Обновляет состояния чекбоксов заголовков на основе состояния дочерних органов."""
+            self.is_updating_presets = True
+            current_header = None
+            group_items = []
+
+            for i in range(self.organs_list.count()):
+                item = self.organs_list.item(i)
+                role = item.data(Qt.ItemDataRole.UserRole)
+                if role == "header":
+                    if current_header is not None:
+                        self._set_header_state_from_children(current_header, group_items)
+                    current_header = item
+                    group_items = []
+                else:
+                    group_items.append(item)
+
+            if current_header is not None:
+                self._set_header_state_from_children(current_header, group_items)
+            self.is_updating_presets = False
+
+        def _set_header_state_from_children(self, header_item: QListWidgetItem, children: list):
+            if not children:
+                header_item.setCheckState(Qt.CheckState.Unchecked)
+                return
+            checked_count = sum(1 for item in children if item.checkState() == Qt.CheckState.Checked)
+            if checked_count == len(children):
+                header_item.setCheckState(Qt.CheckState.Checked)
+            elif checked_count == 0:
+                header_item.setCheckState(Qt.CheckState.Unchecked)
+            else:
+                header_item.setCheckState(Qt.CheckState.PartiallyChecked)
+
         def on_preset_changed(self, text: str):
             """Слот изменения выбранного пресета."""
             self.is_updating_presets = True
@@ -1093,21 +1135,50 @@ if PYQT_AVAILABLE:
             """Слот изменения состояния чекбокса органа пользователем."""
             if self.is_updating_presets:
                 return
-                
+
             organ_name = item.data(Qt.ItemDataRole.UserRole)
             if organ_name == "header":
-                return
-                
-            self.is_updating_presets = True
-            state = item.checkState()
-            
-            # Синхронизация состояния одинаковых органов в списке (если есть дубли)
-            for i in range(self.organs_list.count()):
-                itm = self.organs_list.item(i)
-                if itm != item and itm.data(Qt.ItemDataRole.UserRole) == organ_name:
-                    itm.setCheckState(state)
-            self.is_updating_presets = False
-                
+                # Это клик по заголовку группы!
+                self.is_updating_presets = True
+                new_state = item.checkState()
+                if new_state == Qt.CheckState.PartiallyChecked:
+                    new_state = Qt.CheckState.Checked
+                    item.setCheckState(new_state)
+
+                # Находим все органы в этой группе и ставим им новое состояние
+                row = self.organs_list.row(item)
+                changed_organs = []
+                for i in range(row + 1, self.organs_list.count()):
+                    next_item = self.organs_list.item(i)
+                    next_role = next_item.data(Qt.ItemDataRole.UserRole)
+                    if next_role == "header":
+                        break
+                    next_item.setCheckState(new_state)
+                    changed_organs.append(next_role)
+                self.is_updating_presets = False
+
+                # Синхронизируем дубли измененных органов в других группах
+                self.is_updating_presets = True
+                for i in range(self.organs_list.count()):
+                    itm = self.organs_list.item(i)
+                    itm_role = itm.data(Qt.ItemDataRole.UserRole)
+                    if itm_role != "header" and itm_role in changed_organs:
+                        itm.setCheckState(new_state)
+                self.is_updating_presets = False
+            else:
+                # Это клик по обычному органу
+                self.is_updating_presets = True
+                state = item.checkState()
+                # Синхронизация дубликатов
+                for i in range(self.organs_list.count()):
+                    itm = self.organs_list.item(i)
+                    if itm != item and itm.data(Qt.ItemDataRole.UserRole) == organ_name:
+                        itm.setCheckState(state)
+                self.is_updating_presets = False
+
+            # Обновляем состояния всех заголовков групп
+            self.update_headers_check_states()
+
             # Проверяем соответствие пресетам
             checked_organs = []
             for i in range(self.organs_list.count()):
@@ -1118,9 +1189,9 @@ if PYQT_AVAILABLE:
                 if itm.checkState() == Qt.CheckState.Checked:
                     if org not in checked_organs:
                         checked_organs.append(org)
-                    
+
             matched_preset = "Пользовательский (Custom)"
-            
+
             # Проверяем "Все"
             all_orgs = list(self.engine.ru_names.keys())
             if set(checked_organs) == set(all_orgs):
@@ -1130,7 +1201,7 @@ if PYQT_AVAILABLE:
                     if set(checked_organs) == set(preset_organs):
                         matched_preset = preset_name
                         break
-                    
+
             self.preset_combo.blockSignals(True)
             self.preset_combo.setCurrentText(matched_preset)
             self.preset_combo.blockSignals(False)
