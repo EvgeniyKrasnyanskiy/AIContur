@@ -839,18 +839,21 @@ if PYQT_AVAILABLE:
 
             # Группировка списка органов по анатомическим областям
             ORGAN_GROUPS = {
-                "--- ГОЛОВА И ШЕЯ ---": [
+                "━━━ ОБЩЕЕ ━━━": [
+                    "body"
+                ],
+                "━━━ ГОЛОВА И ШЕЯ ━━━": [
                     "brain", "spinal_cord", "thyroid_gland", "skull", "trachea", "esophagus",
                     "common_carotid_artery_left", "common_carotid_artery_right"
                 ],
-                "--- ГРУДНАЯ КЛЕТКА ---": [
+                "━━━ ГРУДНАЯ КЛЕТКА ━━━": [
                     "heart", "lung_left", "lung_right", "trachea", "esophagus", "aorta", "pulmonary_artery",
                     "superior_vena_cava", "sternum", "clavicula_left", "clavicula_right"
                 ],
-                "--- БРЮШНАЯ ПОЛОСТЬ ---": [
+                "━━━ БРЮШНАЯ ПОЛОСТЬ ━━━": [
                     "spleen", "kidney_right", "kidney_left", "gallbladder", "liver", "stomach", "inferior_vena_cava", "pancreas", "duodenum", "adrenal_gland_left", "adrenal_gland_right", "portal_vein_and_splenic_vein"
                 ],
-                "--- МАЛЫЙ ТАЗ ---": [
+                "━━━ МАЛЫЙ ТАЗ ━━━": [
                     "urinary_bladder", "prostate", "rectum", "colon", "small_bowel", "femur_left", "femur_right", "hip_left", "hip_right", "sacrum", "iliac_artery_left", "iliac_artery_right"
                 ]
             }
@@ -957,9 +960,10 @@ if PYQT_AVAILABLE:
                     finally:
                         self.organs_list.blockSignals(False)
 
-                # Обновляем состояния заголовков и подбираем подходящий пресет в комбо
+                # Обновляем состояния заголовков категорий
                 self.update_headers_check_states()
-                self._sync_preset_combo_to_organs()
+                # НЕ вызываем _sync_preset_combo_to_organs — при старте
+                # комбобокс всегда должен показывать заглушку.
             finally:
                 self.is_updating_presets = False
                 self.organs_list.blockSignals(False)

@@ -45,27 +45,28 @@ logger = logging.getLogger("ContourEngine")
 DEFAULT_PRESETS_DATA = {
     "presets": {
         "Голова и шея (Head & Neck)": [
-            "brain", "spinal_cord", "thyroid_gland", "skull", "trachea", "esophagus",
+            "body", "brain", "spinal_cord", "thyroid_gland", "skull", "trachea", "esophagus",
             "common_carotid_artery_left", "common_carotid_artery_right"
         ],
         "Грудная клетка (Thorax)": [
-            "heart", "lung_left", "lung_right", "trachea", "esophagus", "aorta", "pulmonary_artery",
+            "body", "heart", "lung_left", "lung_right", "trachea", "esophagus", "aorta", "pulmonary_artery",
             "superior_vena_cava", "sternum", "clavicula_left", "clavicula_right"
         ],
         "Брюшная полость (Abdomen)": [
-            "spleen", "kidney_right", "kidney_left", "gallbladder", "liver", "stomach", "aorta",
+            "body", "spleen", "kidney_right", "kidney_left", "gallbladder", "liver", "stomach", "aorta",
             "inferior_vena_cava", "urinary_bladder", "heart", "pancreas", "duodenum",
             "adrenal_gland_left", "adrenal_gland_right", "portal_vein_and_splenic_vein"
         ],
         "Малый таз (Pelvis)": [
-            "urinary_bladder", "prostate", "rectum", "colon", "small_bowel", "femur_left", "femur_right",
+            "body", "urinary_bladder", "prostate", "rectum", "colon", "small_bowel", "femur_left", "femur_right",
             "hip_left", "hip_right", "sacrum", "iliac_artery_left", "iliac_artery_right"
         ],
         "Брахитерапия (Brachytherapy)": [
-            "urinary_bladder", "small_bowel", "colon"
+            "body", "urinary_bladder", "small_bowel", "colon"
         ]
     },
     "colors": {
+        "body": [255, 230, 0],
         "spleen": [156, 39, 176],
         "kidney_right": [3, 169, 244],
         "kidney_left": [33, 150, 243],
@@ -109,6 +110,7 @@ DEFAULT_PRESETS_DATA = {
         "iliac_artery_right": [255, 99, 71]
     },
     "ru_names": {
+        "body": "Контур тела (Body)",
         "spleen": "Селезенка (Spleen)",
         "kidney_right": "Правая почка (Kidney R)",
         "kidney_left": "Левая почка (Kidney L)",
@@ -402,8 +404,15 @@ class ContourEngine:
                     else:
                         logger.warning(f"Орган '{organ}' не поддерживается текущей версией TotalSegmentator и будет пропущен.")
                 
-                totalseg_rois = sorted(list(set(totalseg_rois)))
-                logger.info(f"Адаптированный список ROI для TotalSegmentator: {totalseg_rois}")
+            # "body" — специальный орган: требует отдельного вызова TotalSegmentator --task body
+            need_body_task = target_organs is not None and "body" in target_organs
+            if need_body_task:
+                logger.info("Contour 'body' запрошен: будет выполнен отдельный вызов TotalSegmentator --task body.")
+            # Удаляем 'body' из списка для основного запуска (в total-задаче его нет)
+            totalseg_rois = [r for r in totalseg_rois if r != "body"]
+
+            totalseg_rois = sorted(list(set(totalseg_rois)))
+            logger.info(f"Адаптированный список ROI для TotalSegmentator: {totalseg_rois}")
 
             # Находим путь к исполняемому файлу TotalSegmentator в виртуальном окружении
             exe_dir = Path(sys.executable).parent
@@ -485,6 +494,53 @@ class ContourEngine:
                 raise RuntimeError(f"Процесс TotalSegmentator завершился с кодом ошибки {return_code}")
                 
             logger.info(f"Шаг 2 успешно завершен за {time.time() - step_start:.2f} сек.")
+
+            # ------------------------------------------------------------------
+            # Опционально: запуск TotalSegmentator --task body для контура тела
+            # ------------------------------------------------------------------
+            if need_body_task and precision_mode != "faster":
+                if is_cancelled_cb and is_cancelled_cb():
+                    raise RuntimeError("Операция отменена пользователем.")
+                logger.info("--- Доп. задача: Сегментация контура тела (--task body) ---")
+                body_out_dir = temp_dir / "temp_body_task"
+                body_out_dir.mkdir(parents=True, exist_ok=True)
+                body_cmd = [
+                    str(totalseg_exe),
+                    "-i", str(nifti_ct_path),
+                    "-o", str(body_out_dir),
+                    "--device", device,
+                    "--task", "body"
+                ]
+                logger.info(f"Запуск body-задачи: {' '.join(body_cmd)}")
+                try:
+                    body_proc = subprocess.Popen(
+                        body_cmd,
+                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                        text=True, encoding="utf-8", errors="replace",
+                        bufsize=1, startupinfo=startupinfo
+                    )
+                    while True:
+                        if is_cancelled_cb and is_cancelled_cb():
+                            body_proc.kill()
+                            raise RuntimeError("Операция отменена пользователем.")
+                        ln = body_proc.stdout.readline()
+                        if not ln and body_proc.poll() is not None:
+                            break
+                        if ln.strip():
+                            logger.info(f"[body-task]: {ln.strip()}")
+                    body_proc.wait()
+                    # TotalSegmentator body-task пишет body.nii.gz в папку body_out_dir
+                    body_nii = body_out_dir / "body.nii.gz"
+                    if body_nii.exists():
+                        dest = segmentation_dir / "body.nii.gz"
+                        shutil.copy(str(body_nii), str(dest))
+                        logger.info("Контур тела body.nii.gz успешно получен и перенесен в папку масок.")
+                    else:
+                        logger.warning("Контур тела body.nii.gz не найден в выходной папке body-задачи.")
+                except Exception as body_err:
+                    logger.error(f"Ошибка при выполнении body-задачи: {body_err}")
+                finally:
+                    shutil.rmtree(body_out_dir, ignore_errors=True)
 
             # ----------------------------------------------------------------------
             # Постобработка: сборка виртуальных органов (легкие)
