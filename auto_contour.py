@@ -901,34 +901,35 @@ if PYQT_AVAILABLE:
                 if input_dir:
                     self.input_edit.setText(input_dir)
                 self.last_alternative_output_dir = self.settings.value("alternative_output_dir", "")
-                
-                preset = self.settings.value("preset", "")
-                if preset and self.preset_combo.findText(preset) >= 0:
-                    self.preset_combo.setCurrentText(preset)
-                else:
-                    # Если нет сохранённого пресета — выбираем пустой заголовок
-                    self.preset_combo.setCurrentIndex(0)
-                
+
+                # При старте комбобокс ВСЕГДА в положении заглушки.
+                # Сохранённое имя пресета используется только для подбора текста в комбо
+                # ПОСЛЕ того как органы восстановлены из checked_organs.
+                self.preset_combo.setCurrentIndex(0)
+                # Убираем устаревший ключ «preset» из настроек — теперь состояние
+                # определяется исключительно по checked_organs.
+                self.settings.remove("preset")
+
                 # Доп параметры постобработки и точности
                 precision_idx = self.settings.value("precision_mode", 0, type=int)
                 self.precision_combo.setCurrentIndex(precision_idx)
-                
+
                 clean_blobs = self.settings.value("clean_blobs", True, type=bool)
                 self.clean_blobs_check.setChecked(clean_blobs)
-                
+
                 smoothing = self.settings.value("smoothing", False, type=bool)
                 self.smoothing_check.setChecked(smoothing)
                 self.smoothing_combo.setEnabled(smoothing)
-                
+
                 smoothing_idx = self.settings.value("smoothing_idx", 1, type=int)
                 self.smoothing_combo.setCurrentIndex(smoothing_idx)
-                
+
                 color_preset = self.settings.value("color_preset", "Классический AI Contour")
                 self.color_preset_combo.setCurrentText(color_preset)
 
                 play_sound = self.settings.value("play_sound", True, type=bool)
                 self.sound_check.setChecked(play_sound)
-                
+
                 # Загружаем выбранные ресурсы
                 use_gpu = self.settings.value("use_gpu", True, type=bool)
                 if self.radio_gpu.isEnabled():
@@ -936,28 +937,29 @@ if PYQT_AVAILABLE:
                     self.radio_cpu.setChecked(not use_gpu)
                 else:
                     self.radio_cpu.setChecked(True)
-                
+
+                # Восстанавливаем галочки органов (без сигналов)
                 checked_organs = self.settings.value("checked_organs", None)
                 if checked_organs is not None:
                     if not isinstance(checked_organs, list):
                         checked_organs = [checked_organs]
+                    self.organs_list.blockSignals(True)
+                    try:
+                        for i in range(self.organs_list.count()):
+                            item = self.organs_list.item(i)
+                            organ_name = item.data(Qt.ItemDataRole.UserRole)
+                            if organ_name == "header":
+                                continue
+                            item.setCheckState(
+                                Qt.CheckState.Checked if organ_name in checked_organs
+                                else Qt.CheckState.Unchecked
+                            )
+                    finally:
+                        self.organs_list.blockSignals(False)
 
-                    for i in range(self.organs_list.count()):
-                        item = self.organs_list.item(i)
-                        organ_name = item.data(Qt.ItemDataRole.UserRole)
-                        if organ_name == "header":
-                            continue
-                        if organ_name in checked_organs:
-                            item.setCheckState(Qt.CheckState.Checked)
-                        else:
-                            item.setCheckState(Qt.CheckState.Unchecked)
-                else:
-                    # Нет сохранённых органов — применяем пресет явно
-                    if preset and preset != "— Выберите пресет —":
-                        self.apply_preset_checked_states(preset)
-
-                # Обновляем состояние заголовков категорий при загрузке настроек
+                # Обновляем состояния заголовков и подбираем подходящий пресет в комбо
                 self.update_headers_check_states()
+                self._sync_preset_combo_to_organs()
             finally:
                 self.is_updating_presets = False
                 self.organs_list.blockSignals(False)
@@ -1084,6 +1086,34 @@ if PYQT_AVAILABLE:
             
             self.save_settings()
 
+        def _sync_preset_combo_to_organs(self):
+            """Подбирает и устанавливает в комбобоксе пресет, соответствующий текущим выбранным органам.
+            Если точного совпадения нет — оставляет заглушку «— Выберите пресет —»."""
+            checked_organs = []
+            for i in range(self.organs_list.count()):
+                item = self.organs_list.item(i)
+                org = item.data(Qt.ItemDataRole.UserRole)
+                if org != "header" and item.checkState() == Qt.CheckState.Checked:
+                    if org not in checked_organs:
+                        checked_organs.append(org)
+
+            matched = "— Выберите пресет —"
+            if checked_organs:
+                all_orgs = list(self.engine.ru_names.keys())
+                if set(checked_organs) == set(all_orgs):
+                    matched = "Все органы (All)"
+                else:
+                    for pname, porgans in self.engine.presets.items():
+                        if set(checked_organs) == set(porgans):
+                            matched = pname
+                            break
+                    else:
+                        matched = "Пользовательский (Custom)"
+
+            self.preset_combo.blockSignals(True)
+            self.preset_combo.setCurrentText(matched)
+            self.preset_combo.blockSignals(False)
+
         def apply_preset_checked_states(self, preset_name: str):
             """Снимает/ставит галочки в списке в соответствии с выбранным пресетом."""
             if preset_name == "Пользовательский (Custom)":
@@ -1094,15 +1124,23 @@ if PYQT_AVAILABLE:
             else:
                 target_organs = self.engine.presets.get(preset_name, [])
 
-            for i in range(self.organs_list.count()):
-                item = self.organs_list.item(i)
-                organ_name = item.data(Qt.ItemDataRole.UserRole)
-                if organ_name == "header":
-                    continue
-                if organ_name in target_organs:
-                    item.setCheckState(Qt.CheckState.Checked)
-                else:
-                    item.setCheckState(Qt.CheckState.Unchecked)
+            # Блокируем сигналы чтобы не вызывать on_organ_item_changed в цикле
+            self.organs_list.blockSignals(True)
+            try:
+                for i in range(self.organs_list.count()):
+                    item = self.organs_list.item(i)
+                    organ_name = item.data(Qt.ItemDataRole.UserRole)
+                    if organ_name == "header":
+                        continue
+                    if organ_name in target_organs:
+                        item.setCheckState(Qt.CheckState.Checked)
+                    else:
+                        item.setCheckState(Qt.CheckState.Unchecked)
+            finally:
+                self.organs_list.blockSignals(False)
+
+            # После обновления органов — пересчитываем состояния заголовков групп
+            self.update_headers_check_states()
 
         def update_headers_check_states(self):
             """Обновляет состояния чекбоксов заголовков на основе состояния дочерних органов."""
@@ -1194,33 +1232,8 @@ if PYQT_AVAILABLE:
 
             # Обновляем состояния всех заголовков групп
             self.update_headers_check_states()
-
-            # Проверяем соответствие пресетам
-            checked_organs = []
-            for i in range(self.organs_list.count()):
-                itm = self.organs_list.item(i)
-                org = itm.data(Qt.ItemDataRole.UserRole)
-                if org == "header":
-                    continue
-                if itm.checkState() == Qt.CheckState.Checked:
-                    if org not in checked_organs:
-                        checked_organs.append(org)
-
-            matched_preset = "Пользовательский (Custom)"
-
-            # Проверяем "Все"
-            all_orgs = list(self.engine.ru_names.keys())
-            if set(checked_organs) == set(all_orgs):
-                matched_preset = "Все органы (All)"
-            else:
-                for preset_name, preset_organs in self.engine.presets.items():
-                    if set(checked_organs) == set(preset_organs):
-                        matched_preset = preset_name
-                        break
-
-            self.preset_combo.blockSignals(True)
-            self.preset_combo.setCurrentText(matched_preset)
-            self.preset_combo.blockSignals(False)
+            # Синхронизируем текст в комбобоксе пресетов
+            self._sync_preset_combo_to_organs()
             self.save_settings()
 
         def on_organ_selection_changed(self):
@@ -1697,11 +1710,19 @@ if __name__ == "__main__":
         print("Ошибка: Для запуска GUI необходима библиотека PyQt6.")
         print("Установите ее: pip install PyQt6")
         sys.exit(1)
-        
+
+    # Регистрируем уникальный AppUserModelID — это ключ для отображения
+    # собственной иконки на панели задач Windows (не иконки python.exe).
+    try:
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("AIContour.AutoContour.1.0")
+    except Exception:
+        pass
+
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
 
-    # Устанавливаем иконку на приложение — отображается и в заголовке, и на панели задач
+    # Иконка на QApplication охватывает все окна приложения
     icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app_icon.png")
     if os.path.exists(icon_path):
         app.setWindowIcon(QIcon(icon_path))
