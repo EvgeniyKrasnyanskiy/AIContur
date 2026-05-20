@@ -264,11 +264,26 @@ if PYQT_AVAILABLE:
     }
 
     QPushButton#btnBrowse {
-        background-color: #2d2d2d;
+        background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #0088ff, stop: 1 #0055cc);
+        border: 1px solid #00aaff;
+        color: #ffffff;
+        font-weight: bold;
+        padding: 6px 14px;
     }
 
     QPushButton#btnBrowse:hover {
-        background-color: #3d3d3d;
+        background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #33a0ff, stop: 1 #0077ff);
+        border: 1px solid #33ccff;
+    }
+
+    QPushButton#btnBrowse:pressed {
+        background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #0044aa, stop: 1 #003388);
+    }
+
+    QPushButton#btnBrowse:disabled {
+        background-color: #2b2b2b;
+        border: 1px solid #3d3d3d;
+        color: #888888;
     }
 
     QPushButton#btnRun {
@@ -567,13 +582,13 @@ if PYQT_AVAILABLE:
             self.input_edit = QLineEdit()
             self.input_edit.setPlaceholderText("Выберите папку с DICOM файлами...")
             self.input_edit.textChanged.connect(self.check_for_rtstruct)
-            btn_input = QPushButton("Обзор...")
-            btn_input.setObjectName("btnBrowse")
-            btn_input.clicked.connect(self.select_input_dir)
+            self.btn_input = QPushButton("📂 Обзор...")
+            self.btn_input.setObjectName("btnBrowse")
+            self.btn_input.clicked.connect(self.select_input_dir)
 
             input_box = QHBoxLayout()
             input_box.addWidget(self.input_edit)
-            input_box.addWidget(btn_input)
+            input_box.addWidget(self.btn_input)
             tab1_layout.addWidget(input_label)
             tab1_layout.addLayout(input_box)
 
@@ -615,16 +630,16 @@ if PYQT_AVAILABLE:
 
             # Кнопки быстрого выделения
             selection_layout = QHBoxLayout()
-            btn_select_all = QPushButton("Выбрать все")
-            btn_select_all.setObjectName("btnAction")
-            btn_select_all.clicked.connect(self.select_all_organs)
+            self.btn_select_all = QPushButton("Выбрать все")
+            self.btn_select_all.setObjectName("btnAction")
+            self.btn_select_all.clicked.connect(self.select_all_organs)
             
-            btn_deselect_all = QPushButton("Снять все")
-            btn_deselect_all.setObjectName("btnAction")
-            btn_deselect_all.clicked.connect(self.deselect_all_organs)
+            self.btn_deselect_all = QPushButton("Снять все")
+            self.btn_deselect_all.setObjectName("btnAction")
+            self.btn_deselect_all.clicked.connect(self.deselect_all_organs)
             
-            selection_layout.addWidget(btn_select_all)
-            selection_layout.addWidget(btn_deselect_all)
+            selection_layout.addWidget(self.btn_select_all)
+            selection_layout.addWidget(self.btn_deselect_all)
             tab1_layout.addLayout(selection_layout)
 
             # Список OAR с чек-боксами
@@ -636,7 +651,15 @@ if PYQT_AVAILABLE:
 
             tab1_layout.addWidget(organs_header)
             tab1_layout.addWidget(self.organs_list)
-            self.tab_widget.addTab(tab1_widget, "🎯 Органы и снимки")
+            
+            # Кнопка индивидуальной настройки цвета выделенного органа
+            self.btn_color_pick = QPushButton("🎨 Выбрать индивидуальный цвет органа...")
+            self.btn_color_pick.setObjectName("btnAction")
+            self.btn_color_pick.setEnabled(False)
+            self.btn_color_pick.clicked.connect(self.pick_organ_color)
+            tab1_layout.addWidget(self.btn_color_pick)
+            
+            self.tab_widget.addTab(tab1_widget, "🎯 Контуры и снимки")
 
             # ------------------------------------------------------------------
             # ВКЛАДКА 2: Параметры ИИ и Цвета
@@ -730,14 +753,8 @@ if PYQT_AVAILABLE:
             ])
             self.color_preset_combo.currentTextChanged.connect(self.on_color_preset_changed)
             
-            self.btn_color_pick = QPushButton("🎨 Выбрать индивидуальный цвет органа...")
-            self.btn_color_pick.setObjectName("btnAction")
-            self.btn_color_pick.setEnabled(False)
-            self.btn_color_pick.clicked.connect(self.pick_organ_color)
-            
             color_group_layout.addWidget(color_preset_label)
             color_group_layout.addWidget(self.color_preset_combo)
-            color_group_layout.addWidget(self.btn_color_pick)
             tab2_layout.addWidget(color_group)
 
             # Звук в конце
@@ -746,7 +763,7 @@ if PYQT_AVAILABLE:
             tab2_layout.addWidget(self.sound_check)
             tab2_layout.addStretch()
 
-            self.tab_widget.addTab(tab2_widget, "⚙️ Параметры ИИ & Цвета")
+            self.tab_widget.addTab(tab2_widget, "⚙️ Настройки")
 
             splitter.addWidget(left_card)
 
@@ -1349,6 +1366,9 @@ if PYQT_AVAILABLE:
 
         def set_ui_enabled(self, enabled: bool):
             self.input_edit.setEnabled(enabled)
+            self.btn_input.setEnabled(enabled)
+            self.btn_select_all.setEnabled(enabled)
+            self.btn_deselect_all.setEnabled(enabled)
             self.preset_combo.setEnabled(enabled)
             self.organs_list.setEnabled(enabled)
             self.precision_combo.setEnabled(enabled)
@@ -1356,8 +1376,10 @@ if PYQT_AVAILABLE:
             self.smoothing_check.setEnabled(enabled)
             if enabled:
                 self.smoothing_combo.setEnabled(self.smoothing_check.isChecked())
+                self.on_organ_selection_changed()
             else:
                 self.smoothing_combo.setEnabled(False)
+                self.btn_color_pick.setEnabled(False)
                 
             self.color_preset_combo.setEnabled(enabled)
             self.sound_check.setEnabled(enabled)
@@ -1401,10 +1423,17 @@ if PYQT_AVAILABLE:
             if self.sound_check.isChecked():
                 try:
                     import winsound
+                    import time
                     if success:
-                        winsound.MessageBeep(winsound.MB_ICONASTERISK)
+                        # Красивый восходящий мажорный аккорд (C5 -> E5 -> G5)
+                        winsound.Beep(523, 150)
+                        time.sleep(0.05)
+                        winsound.Beep(659, 150)
+                        time.sleep(0.05)
+                        winsound.Beep(784, 250)
                     else:
-                        winsound.MessageBeep(winsound.MB_ICONEXCLAMATION)
+                        # Низкий предупреждающий звук (A3)
+                        winsound.Beep(220, 500)
                 except Exception as e:
                     logger.error(f"Не удалось воспроизвести звуковое оповещение: {e}")
             
