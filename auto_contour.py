@@ -629,7 +629,8 @@ if PYQT_AVAILABLE:
             preset_label = QLabel("Выбор пресета органов (OAR):")
             preset_label.setStyleSheet("font-weight: bold; color: #ffffff;")
             self.preset_combo = QComboBox()
-            self.preset_combo.currentTextChanged.connect(self.on_preset_changed)
+            # activated срабатывает при каждом выборе из списка, даже если значение не изменилось
+            self.preset_combo.activated.connect(self.on_preset_changed)
             tab1_layout.addWidget(preset_label)
             tab1_layout.addWidget(self.preset_combo)
 
@@ -828,6 +829,8 @@ if PYQT_AVAILABLE:
             self.preset_combo.clear()
             self.organs_list.clear()
 
+            # Первый элемент — пустая строка-подсказка (ничего не выделяет)
+            self.preset_combo.addItem("— Выберите пресет —")
             # Добавляем пресеты из движка
             presets_keys = list(self.engine.presets.keys())
             self.preset_combo.addItems(presets_keys)
@@ -899,8 +902,12 @@ if PYQT_AVAILABLE:
                     self.input_edit.setText(input_dir)
                 self.last_alternative_output_dir = self.settings.value("alternative_output_dir", "")
                 
-                preset = self.settings.value("preset", "Брюшная полость (Abdomen)")
-                self.preset_combo.setCurrentText(preset)
+                preset = self.settings.value("preset", "")
+                if preset and self.preset_combo.findText(preset) >= 0:
+                    self.preset_combo.setCurrentText(preset)
+                else:
+                    # Если нет сохранённого пресета — выбираем пустой заголовок
+                    self.preset_combo.setCurrentIndex(0)
                 
                 # Доп параметры постобработки и точности
                 precision_idx = self.settings.value("precision_mode", 0, type=int)
@@ -934,7 +941,7 @@ if PYQT_AVAILABLE:
                 if checked_organs is not None:
                     if not isinstance(checked_organs, list):
                         checked_organs = [checked_organs]
-                    
+
                     for i in range(self.organs_list.count()):
                         item = self.organs_list.item(i)
                         organ_name = item.data(Qt.ItemDataRole.UserRole)
@@ -945,7 +952,9 @@ if PYQT_AVAILABLE:
                         else:
                             item.setCheckState(Qt.CheckState.Unchecked)
                 else:
-                    self.apply_preset_checked_states(preset)
+                    # Нет сохранённых органов — применяем пресет явно
+                    if preset and preset != "— Выберите пресет —":
+                        self.apply_preset_checked_states(preset)
 
                 # Обновляем состояние заголовков категорий при загрузке настроек
                 self.update_headers_check_states()
@@ -959,7 +968,11 @@ if PYQT_AVAILABLE:
             self.settings.setValue("input_dir", self.input_edit.text().strip())
             if hasattr(self, "last_alternative_output_dir") and self.last_alternative_output_dir:
                 self.settings.setValue("alternative_output_dir", self.last_alternative_output_dir)
-            self.settings.setValue("preset", self.preset_combo.currentText())
+            current_preset = self.preset_combo.currentText()
+            if current_preset != "— Выберите пресет —":
+                self.settings.setValue("preset", current_preset)
+            else:
+                self.settings.remove("preset")
             self.settings.setValue("precision_mode", self.precision_combo.currentIndex())
             self.settings.setValue("clean_blobs", self.clean_blobs_check.isChecked())
             self.settings.setValue("smoothing", self.smoothing_check.isChecked())
@@ -1124,8 +1137,11 @@ if PYQT_AVAILABLE:
             else:
                 header_item.setCheckState(Qt.CheckState.PartiallyChecked)
 
-        def on_preset_changed(self, text: str):
-            """Слот изменения выбранного пресета."""
+        def on_preset_changed(self, index: int):
+            """Слот изменения выбранного пресета (вызывается при каждом выборе из списка)."""
+            text = self.preset_combo.itemText(index)
+            if text == "— Выберите пресет —":
+                return  # Заглушка — ничего не делаем
             self.is_updating_presets = True
             self.apply_preset_checked_states(text)
             self.is_updating_presets = False
@@ -1684,7 +1700,12 @@ if __name__ == "__main__":
         
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
-    
+
+    # Устанавливаем иконку на приложение — отображается и в заголовке, и на панели задач
+    icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app_icon.png")
+    if os.path.exists(icon_path):
+        app.setWindowIcon(QIcon(icon_path))
+
     window = MainWindow()
     window.show()
     sys.exit(app.exec())
