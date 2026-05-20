@@ -57,7 +57,12 @@
     "Брахитерапия (Brachytherapy)": [
       "urinary_bladder",
       "small_bowel",
-      "colon"
+      {
+        "colon": [
+          "Colon",
+          "Colon Dup"
+        ]
+      }
     ]
   },
   "colors": {

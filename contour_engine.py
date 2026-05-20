@@ -220,6 +220,24 @@ class ContourEngine:
             return False
 
     @staticmethod
+    def get_all_supported_organs() -> List[str]:
+        """Динамически получает список всех органов из TotalSegmentator."""
+        try:
+            from totalsegmentator.map_to_binary import class_map
+            supported = set()
+            if "total" in class_map:
+                supported.update(class_map["total"].values())
+            if "total_v1" in class_map:
+                supported.update(class_map["total_v1"].values())
+            if not supported:
+                for subset in class_map.values():
+                    supported.update(subset.values())
+            return sorted(list(supported))
+        except Exception as e:
+            logger.warning(f"Не удалось получить список органов: {e}")
+            return []
+
+    @staticmethod
     def remove_small_blobs(mask_3d: np.ndarray) -> np.ndarray:
         """
         Постобработка: оставляет только крупнейший 3D-связный компонент маски (основной объем органа),
@@ -235,7 +253,7 @@ class ContourEngine:
             
         # Индекс самого большого компонента (sizes[0] - фон)
         largest_label = np.argmax(sizes[1:]) + 1
-        return labeled_array == largest_label
+        return (labeled_array == largest_label).astype(bool)
 
     @staticmethod
     def smooth_3d_mask(mask_3d: np.ndarray, sigma: float) -> np.ndarray:
@@ -245,7 +263,7 @@ class ContourEngine:
         if sigma <= 0.0:
             return mask_3d
         smoothed = gaussian_filter(mask_3d.astype(float), sigma=sigma)
-        return smoothed > 0.5
+        return (smoothed > 0.5).astype(bool)
 
     def verify_dicom_directory(self, dicom_dir: Path) -> int:
         """
@@ -654,9 +672,33 @@ class ContourEngine:
                 logger.info("Инициализация нового RTSTRUCT считыванием оригинальной геометрии DICOM серии...")
                 rtstruct = RTStructBuilder.create_new(dicom_series_path=str(dicom_dir))
                 existing_rtstruct_path = None
+
+            # Копирование критичных DICOM тегов для совместимости с Elekta Monaco
+            try:
+                import pydicom
+                first_dcm_path = next(Path(dicom_dir).glob("*.dcm"))
+                ref_dcm = pydicom.dcmread(str(first_dcm_path), stop_before_pixels=True)
+                if hasattr(ref_dcm, 'FrameOfReferenceUID'):
+                    rtstruct.ds.FrameOfReferenceUID = ref_dcm.FrameOfReferenceUID
+                if hasattr(ref_dcm, 'PositionReferenceIndicator'):
+                    rtstruct.ds.PositionReferenceIndicator = ref_dcm.PositionReferenceIndicator
+                if hasattr(ref_dcm, 'PatientPosition'):
+                    rtstruct.ds.PatientPosition = ref_dcm.PatientPosition
+                logger.info("Скопированы DICOM теги (FrameOfReferenceUID, PositionReferenceIndicator, PatientPosition) для совместимости с TPS Monaco.")
+            except StopIteration:
+                pass
+            except Exception as e:
+                logger.warning(f"Не удалось скопировать DICOM теги для Monaco: {e}")
             
             added_count = 0
-            is_brachy = "Brachytherapy" in preset_name or preset_name == "brachytherapy_oar"
+            
+            # Извлекаем алиасы для дублирования контуров из пресета
+            organ_to_aliases = {}
+            preset_items = self.presets.get(preset_name, [])
+            for item in preset_items:
+                if isinstance(item, dict):
+                    for k, v in item.items():
+                        organ_to_aliases[k] = v
             
             for mask_file in mask_files:
                 organ_name = mask_file.name.replace(".nii.gz", "")
@@ -702,21 +744,14 @@ class ContourEngine:
                 # Определяем имена ROI
                 roi_names_to_add: List[Tuple[str, List[int]]] = []
                 
-                if is_brachy:
-                    # Специальная кастомизация для пресета "Брахитерапия"
-                    if organ_name == "urinary_bladder":
-                        roi_names_to_add.append(("Bladder", color))
-                    elif organ_name == "small_bowel":
-                        roi_names_to_add.append(("Small Bowel", color))
-                    elif organ_name == "colon":
-                        # Дублируем маску кишечника под двумя именами (например, Colon и Colon Dup)
-                        roi_names_to_add.append(("Colon", color))
-                        # Цвет дубликата делаем немного отличающимся для визуального удобства
-                        dup_color = [color[0], min(255, color[1] + 40), color[2]]
-                        roi_names_to_add.append(("Colon Dup", dup_color))
-                    else:
-                        pretty_name = organ_name.replace("_", " ").title()
-                        roi_names_to_add.append((pretty_name, color))
+                if organ_name in organ_to_aliases:
+                    aliases = organ_to_aliases[organ_name]
+                    for i, alias in enumerate(aliases):
+                        # Слегка меняем цвет дубликатов для визуального отличия
+                        adj_color = color.copy()
+                        if i > 0:
+                            adj_color = [adj_color[0], min(255, adj_color[1] + 40 * i), adj_color[2]]
+                        roi_names_to_add.append((alias, adj_color))
                 else:
                     # Стандартное английское название
                     pretty_name = organ_name.replace("_", " ").title()
@@ -740,6 +775,12 @@ class ContourEngine:
                     )
                     added_count += 1
                     logger.info(f"Успешно добавлен ROI '{final_name}' (цвет: {roi_color})")
+                
+                # Очистка памяти после обработки маски органа
+                del mask_data
+                del mask_data_transposed
+                del mask_bool
+                gc.collect()
                 
             if added_count == 0:
                 raise RuntimeError("В RTSTRUCT не было добавлено ни одного OAR. Проверьте область сканирования.")

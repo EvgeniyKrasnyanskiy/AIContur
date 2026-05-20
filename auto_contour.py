@@ -852,6 +852,10 @@ if PYQT_AVAILABLE:
                 ]
             }
 
+            # Получаем все доступные органы динамически из движка
+            all_supported_organs = self.engine.get_all_supported_organs()
+            placed_organs = set()
+
             for group_title, organs in ORGAN_GROUPS.items():
                 header_item = QListWidgetItem(group_title)
                 header_item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsUserCheckable)
@@ -866,6 +870,7 @@ if PYQT_AVAILABLE:
                 self.organs_list.addItem(header_item)
 
                 for org in organs:
+                    placed_organs.add(org)
                     # Проверяем, есть ли такой орган в ru_names
                     ru_name = self.engine.ru_names.get(org, org)
                     item = QListWidgetItem(f"   {ru_name}")
@@ -876,6 +881,29 @@ if PYQT_AVAILABLE:
                     # Установка цветного квадратика-иконки для OAR
                     self.update_item_color_icon(item, org)
                     
+                    self.organs_list.addItem(item)
+            
+            # Добавляем оставшиеся органы (total) в отдельную группу
+            other_organs = [org for org in all_supported_organs if org not in placed_organs]
+            if other_organs:
+                other_header = QListWidgetItem("━━━ ПРОЧИЕ ОРГАНЫ (TOTAL) ━━━")
+                other_header.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsUserCheckable)
+                other_header.setCheckState(Qt.CheckState.Unchecked)
+                other_header.setData(Qt.ItemDataRole.UserRole, "header")
+                font = other_header.font()
+                font.setBold(True)
+                other_header.setFont(font)
+                other_header.setForeground(QBrush(QColor("#007acc")))
+                other_header.setBackground(QBrush(QColor("#242424")))
+                self.organs_list.addItem(other_header)
+                
+                for org in other_organs:
+                    ru_name = self.engine.ru_names.get(org, org)
+                    item = QListWidgetItem(f"   {ru_name}")
+                    item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+                    item.setCheckState(Qt.CheckState.Unchecked)
+                    item.setData(Qt.ItemDataRole.UserRole, org)
+                    self.update_item_color_icon(item, org)
                     self.organs_list.addItem(item)
 
             self.is_updating_presets = False
@@ -1109,9 +1137,15 @@ if PYQT_AVAILABLE:
                 return
 
             if preset_name == "Все органы (All)":
-                target_organs = list(self.engine.ru_names.keys())
+                target_organs = self.engine.get_all_supported_organs()
             else:
-                target_organs = self.engine.presets.get(preset_name, [])
+                target_organs_raw = self.engine.presets.get(preset_name, [])
+                target_organs = []
+                for item in target_organs_raw:
+                    if isinstance(item, dict):
+                        target_organs.extend(item.keys())
+                    else:
+                        target_organs.append(item)
 
             # Блокируем сигналы чтобы не вызывать on_organ_item_changed в цикле
             self.organs_list.blockSignals(True)
