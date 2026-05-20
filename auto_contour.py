@@ -1396,9 +1396,24 @@ if PYQT_AVAILABLE:
                 self.btn_run.setStyleSheet("")
             else:
                 self.btn_run.setText("ОТМЕНИТЬ РАСЧЕТ ❌")
-                self.btn_run.setStyleSheet(
-                    "background-color: #c0392b; color: white; font-weight: bold; border: 1px solid #962d22;"
-                )
+                self.btn_run.setStyleSheet("""
+                    QPushButton#btnRun {
+                        background-color: #c0392b;
+                        color: white;
+                        font-weight: bold;
+                        border: 1px solid #962d22;
+                        font-size: 14px;
+                        padding: 12px;
+                        border-radius: 6px;
+                    }
+                    QPushButton#btnRun:hover {
+                        background-color: #e74c3c;
+                        border: 1px solid #c0392b;
+                    }
+                    QPushButton#btnRun:pressed {
+                        background-color: #962d22;
+                    }
+                """)
 
         def update_activity_animation(self):
             self.spinner_index = (self.spinner_index + 1) % len(self.SPINNER_FRAMES)
