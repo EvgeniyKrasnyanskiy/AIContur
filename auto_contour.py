@@ -485,7 +485,7 @@ if PYQT_AVAILABLE:
             self.log_signaler = LogSignaler()
             self.log_signaler.log_signal.connect(self.append_log)
             self.log_handler = QTextEditLogHandler(self.log_signaler)
-            logger.addHandler(self.log_handler)
+            logging.getLogger().addHandler(self.log_handler)
 
             # Таймер активности (спиннер + пульсация цвета)
             self.activity_timer = QTimer(self)
