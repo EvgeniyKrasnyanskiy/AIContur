@@ -609,20 +609,8 @@ if PYQT_AVAILABLE:
             self.status_rtstruct_label.setStyleSheet("color: #888888;")
             self.status_rtstruct_label.setWordWrap(True)
 
-            self.radio_merge = QRadioButton("Дописать ИИ-контуры в RTSTRUCT (Merge)")
-            self.radio_new = QRadioButton("Создать новый файл RTSTRUCT")
-            self.radio_merge.setEnabled(False)
-            self.radio_new.setEnabled(False)
-            self.radio_new.setChecked(True)
-
-            self.radio_group = QButtonGroup()
-            self.radio_group.addButton(self.radio_merge)
-            self.radio_group.addButton(self.radio_new)
-
             status_layout.addWidget(status_title)
             status_layout.addWidget(self.status_rtstruct_label)
-            status_layout.addWidget(self.radio_merge)
-            status_layout.addWidget(self.radio_new)
             tab1_layout.addWidget(status_frame)
 
             # Выбор пресета
@@ -814,7 +802,16 @@ if PYQT_AVAILABLE:
             self.init_presets_and_organs()
 
             # Подключаем сохранение настроек
-            self.sound_check.stateChanged.connect(self.save_settings)
+            self.sound_check.stateChanged.connect(self.on_sound_check_changed)
+        
+        def on_sound_check_changed(self):
+            self.save_settings()
+            if self.sound_check.isChecked():
+                try:
+                    import winsound
+                    winsound.Beep(523, 150)
+                except Exception:
+                    pass
             self.clean_blobs_check.stateChanged.connect(self.save_settings)
             self.smoothing_check.stateChanged.connect(self.save_settings)
             self.precision_combo.currentIndexChanged.connect(self.save_settings)
@@ -1010,9 +1007,7 @@ if PYQT_AVAILABLE:
             if not directory or not os.path.isdir(directory):
                 self.status_rtstruct_label.setText("Статус: Путь не выбран или недействителен")
                 self.status_rtstruct_label.setStyleSheet("color: #888888;")
-                self.radio_merge.setEnabled(False)
-                self.radio_new.setEnabled(False)
-                self.radio_new.setChecked(True)
+                # removed radio_merge and radio_new disables
                 return
 
             self.status_rtstruct_label.setText("Сканирование папки на наличие RTSTRUCT...")
@@ -1045,16 +1040,12 @@ if PYQT_AVAILABLE:
                 else:
                     self.status_rtstruct_label.setText("Существующий RTSTRUCT не обнаружен (будет создан новый)")
                     self.status_rtstruct_label.setStyleSheet("color: #e74c3c;")
-                    self.radio_merge.setEnabled(False)
-                    self.radio_new.setEnabled(False)
-                    self.radio_new.setChecked(True)
                     
+
             except Exception as e:
                 self.status_rtstruct_label.setText(f"Ошибка при сканировании RTSTRUCT: {str(e)}")
                 self.status_rtstruct_label.setStyleSheet("color: #e74c3c;")
-                self.radio_merge.setEnabled(False)
-                self.radio_new.setEnabled(False)
-                self.radio_new.setChecked(True)
+                # error opening dir
 
         def select_all_organs(self):
             """Отмечает все органы в списке."""
@@ -1340,8 +1331,8 @@ if PYQT_AVAILABLE:
             if hasattr(self, 'worker') and self.worker and self.worker.isRunning():
                 reply = QMessageBox.question(
                     self, 
-                    "Подтверждение отмены", 
-                    "Вы действительно хотите прервать процесс автоматического оконтурирования?",
+                    "Отмена или приостановка", 
+                    "Отменить или приостановить операцию?",
                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                     QMessageBox.StandardButton.No
                 )
@@ -1402,21 +1393,7 @@ if PYQT_AVAILABLE:
                 QMessageBox.warning(self, "Предупреждение", "Не выбрано ни одного органа для сегментирования!")
                 return
                 
-            merge_mode = self.radio_merge.isChecked()
-            if merge_mode:
-                if not self.existing_rtstruct_path or not os.path.exists(self.existing_rtstruct_path):
-                    QMessageBox.critical(
-                        self, 
-                        "Ошибка слияния", 
-                        "Выбран режим слияния, но файл RTSTRUCT не найден по указанному пути!\n\n"
-                        "Укажите папку с КТ заново."
-                    )
-                    self.status_rtstruct_label.setText("Файл RTSTRUCT отсутствует!")
-                    self.status_rtstruct_label.setStyleSheet("color: #e74c3c; font-weight: bold;")
-                    self.radio_merge.setEnabled(False)
-                    self.radio_new.setEnabled(False)
-                    self.radio_new.setChecked(True)
-                    return
+            merge_mode = bool(self.existing_rtstruct_path)
             
             # Блокируем интерфейс
             self.set_ui_enabled(False)
@@ -1486,20 +1463,14 @@ if PYQT_AVAILABLE:
                 self.btn_color_pick.setEnabled(False)
                 
             self.color_preset_combo.setEnabled(enabled)
-            self.sound_check.setEnabled(enabled)
-            self.radio_cpu.setEnabled(enabled)
-            if self.engine.is_gpu_available():
-                self.radio_gpu.setEnabled(enabled)
-                
-            self.radio_merge.setEnabled(enabled if self.existing_rtstruct_path else False)
-            self.radio_new.setEnabled(enabled if self.existing_rtstruct_path else False)
+            # radio disables removed
             
             self.btn_run.setEnabled(True)
             if enabled:
                 self.btn_run.setText("ЗАПУСТИТЬ АВТООКОНТУРИРОВАНИЕ")
                 self.btn_run.setStyleSheet("")
             else:
-                self.btn_run.setText("ОТМЕНИТЬ РАСЧЕТ ❌")
+                self.btn_run.setText("Отменить автооконтуривание")
                 self.btn_run.setStyleSheet("""
                     QPushButton#btnRun {
                         background-color: #c0392b;

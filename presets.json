@@ -1,7 +1,6 @@
 {
   "presets": {
     "Голова и шея (Head & Neck)": [
-      "body",
       "brain",
       "spinal_cord",
       "thyroid_gland",
@@ -12,7 +11,6 @@
       "common_carotid_artery_right"
     ],
     "Грудная клетка (Thorax)": [
-      "body",
       "heart",
       "lung_left",
       "lung_right",
@@ -26,7 +24,6 @@
       "clavicula_right"
     ],
     "Брюшная полость (Abdomen)": [
-      "body",
       "spleen",
       "kidney_right",
       "kidney_left",
@@ -44,7 +41,6 @@
       "portal_vein_and_splenic_vein"
     ],
     "Малый таз (Pelvis)": [
-      "body",
       "urinary_bladder",
       "prostate",
       "rectum",
@@ -59,14 +55,12 @@
       "iliac_artery_right"
     ],
     "Брахитерапия (Brachytherapy)": [
-      "body",
       "urinary_bladder",
       "small_bowel",
       "colon"
     ]
   },
   "colors": {
-    "body": [255, 230, 0],
     "spleen": [
       160,
       32,
@@ -274,7 +268,6 @@
     ]
   },
   "ru_names": {
-    "body": "Контур тела (Body)",
     "spleen": "Селезенка (Spleen)",
     "kidney_right": "Правая почка (Kidney R)",
     "kidney_left": "Левая почка (Kidney L)",

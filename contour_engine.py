@@ -302,8 +302,8 @@ class ContourEngine:
             # Проверка DICOM-файлов
             self.verify_dicom_directory(dicom_dir)
             
-            # Считывание PatientID из первого DICOM-файла для динамического именования
             patient_id = "Unknown"
+            series_uid = "Unknown"
             try:
                 dicom_files = list(dicom_dir.glob("*.dcm")) + list(dicom_dir.glob("*.DCM"))
                 if not dicom_files:
@@ -311,9 +311,10 @@ class ContourEngine:
                 if dicom_files:
                     ds = pydicom.dcmread(str(dicom_files[0]), stop_before_pixels=True)
                     patient_id = getattr(ds, "PatientID", "Unknown")
-                    logger.info(f"Успешно считан PatientID из DICOM: {patient_id}")
+                    series_uid = getattr(ds, "SeriesInstanceUID", "Unknown")
+                    logger.info(f"Успешно считан PatientID: {patient_id}, SeriesInstanceUID: {series_uid}")
             except Exception as de:
-                logger.debug(f"Не удалось считать PatientID из DICOM: {de}")
+                logger.debug(f"Не удалось считать PatientID/SeriesInstanceUID из DICOM: {de}")
 
             # ----------------------------------------------------------------------
             # Шаг 1: Конвертация DICOM -> NIfTI
@@ -622,7 +623,7 @@ class ContourEngine:
                 rt_path = Path(existing_rtstruct_path)
                 if rt_path.exists():
                     try:
-                        logger.info(f"Загрузка существующего RTSTRUCT для слияния: {rt_path}")
+                        logger.info(f"Загрузка существующего RTSTRUCT для автоматического слияния: {rt_path}")
                         rtstruct = RTStructBuilder.create_from(
                             dicom_series_path=str(dicom_dir),
                             rt_struct_path=str(rt_path),
@@ -630,16 +631,24 @@ class ContourEngine:
                         )
                         existing_rois = rtstruct.get_roi_names()
                         logger.info(f"Существующие структуры в файле: {existing_rois}")
+                        
+                        # Создаем бэкап оригинального файла
+                        backup_path = rt_path.with_name(rt_path.name + ".backup")
+                        shutil.copy2(str(rt_path), str(backup_path))
+                        logger.info(f"Создан бэкап старого файла структур: {backup_path}")
+                        
                     except Exception as e:
                         logger.error(
                             f"Не удалось загрузить RTSTRUCT '{rt_path}' для слияния: {e}. "
                             "Пайплайн переключен в режим создания НОВОГО файла."
                         )
+                        existing_rtstruct_path = None
                 else:
                     logger.error(
                         f"Файл RTSTRUCT для слияния не найден на диске: '{rt_path}'. "
                         "Пайплайн переключен в режим создания НОВОГО файла."
                     )
+                    existing_rtstruct_path = None
 
             if rtstruct is None:
                 logger.info("Инициализация нового RTSTRUCT считыванием оригинальной геометрии DICOM серии...")
@@ -750,13 +759,13 @@ class ContourEngine:
             if not clean_patient_id:
                 clean_patient_id = "Unknown"
 
-            if merge_mode and existing_rtstruct_path:
-                orig_name = Path(existing_rtstruct_path).parent.name if Path(existing_rtstruct_path).stem == "rtstruct" else Path(existing_rtstruct_path).stem
-                if orig_name.lower() == "rtstruct":
-                    orig_name = Path(existing_rtstruct_path).parent.name
-                rtstruct_filename = f"RTSTRUCT_{orig_name}_merged.dcm"
+            if existing_rtstruct_path:
+                # Берем исходное имя существующего файла структур без изменений
+                rtstruct_filename = Path(existing_rtstruct_path).name
             else:
-                rtstruct_filename = f"RTSTRUCT_{clean_patient_id}.dcm"
+                # Если файла нет, используем SeriesInstanceUID
+                uid = series_uid if series_uid != "Unknown" else clean_patient_id
+                rtstruct_filename = f"STR_{uid}.dcm"
 
             rtstruct_file_path = output_dir / rtstruct_filename
             
