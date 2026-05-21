@@ -1968,20 +1968,30 @@ if PYQT_AVAILABLE:
                 progress_dialog.show()
                 QApplication.processEvents()
                 
-                # Словарь сопоставления алиасов -> базовых имён органов
-                alias_to_organ = {}
+                # Словарь сопоставления имён из RTSTRUCT -> технический ID органа
+                rtstruct_name_to_id = {}
+                
+                # Этап 1: Добавляем алиасы из пресетов
                 if hasattr(self.engine, 'presets'):
                     for pname, pitems in self.engine.presets.items():
                         for it in pitems:
                             if isinstance(it, dict):
                                 for organ_name, aliases in it.items():
                                     for alias in aliases:
-                                        alias_to_organ[alias.lower()] = organ_name.lower()
-                                    alias_to_organ[organ_name.lower()] = organ_name.lower()
+                                        rtstruct_name_to_id[alias.lower()] = organ_name.lower()
+                                    rtstruct_name_to_id[organ_name.lower()] = organ_name.lower()
                             elif isinstance(it, str):
-                                alias_to_organ[it.lower()] = it.lower()
+                                rtstruct_name_to_id[it.lower()] = it.lower()
+                                
+                # Этап 2: Добавляем обратный маппинг для всех поддерживаемых органов
+                for org in self.engine.get_all_supported_organs():
+                    if org == "urinary_bladder":
+                        pretty_name = "Bladder"
+                    else:
+                        pretty_name = org.replace("_", " ").title()
+                    rtstruct_name_to_id[pretty_name.lower()] = org
  
-                file_organs = set(alias_to_organ.get(r.lower(), r.lower()) for r in roi_names)
+                file_organs = set(rtstruct_name_to_id.get(r.lower(), r.lower().replace(" ", "_")) for r in roi_names)
 
                 # Если это первая загрузка этого файла RTSTRUCT, интеллектуально отмечаем только те органы, которые в нем есть
                 if is_new_rtstruct:
@@ -2030,7 +2040,8 @@ if PYQT_AVAILABLE:
                 for idx, roi in enumerate(roi_names, start=1):
                     try:
                         alias_key = roi.lower()
-                        orig_organ = alias_to_organ.get(alias_key, alias_key)
+                        # Если имя не найдено в словаре, делаем фолбэк: меняем пробелы обратно на подчеркивания
+                        orig_organ = rtstruct_name_to_id.get(alias_key, alias_key.replace(" ", "_"))
                         
                         # Получаем красивое русское название органа для пошагового вывода
                         ru_name = self.engine.ru_names.get(orig_organ, orig_organ)
