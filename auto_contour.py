@@ -507,6 +507,36 @@ if PYQT_AVAILABLE:
         color: #d0d0d0;
     }
 
+    QCheckBox::indicator {
+        width: 16px;
+        height: 16px;
+        border: 2px solid #666666;
+        border-radius: 4px;
+        background-color: #242424;
+    }
+
+    QCheckBox::indicator:hover {
+        border-color: #007acc;
+        background-color: #2d2d2d;
+    }
+
+    QCheckBox::indicator:checked {
+        border-color: #007acc;
+        background-color: #007acc;
+        image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0id2hpdGUiIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiI+PHBhdGggZD0iTTAgMGgyNHYyNEgweiIgZmlsbD0ibm9uZSIvPjxwYXRoIGQ9Ik05IDE2LjJMNC44IDEybC0xLjQgMS40TDkgMTkgMjEgN2wtMS40LTEuNEw5IDE2LjJ6IiBmaWxsPSIjZmZmZmZmIi8+PC9zdmc+");
+    }
+
+    QCheckBox::indicator:disabled {
+        border-color: #444444;
+        background-color: #1e1e1e;
+    }
+
+    QCheckBox::indicator:checked:disabled {
+        border-color: #444444;
+        background-color: #444444;
+        image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0id2hpdGUiIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiI+PHBhdGggZD0iTTAgMGgyNHYyNEgweiIgZmlsbD0ibm9uZSIvPjxwYXRoIGQ9Ik05IDE2LjJMNC44IDEybC0xLjQgMS40TDkgMTkgMjEgN2wtMS40LTEuNEw5IDE2LjJ6IiBmaWxsPSIjYWFhYWFhIi8+PC9zdmc+");
+    }
+
     QCheckBox::disabled {
         color: #666666;
     }
@@ -994,9 +1024,35 @@ if PYQT_AVAILABLE:
                     color: #2ecc71;
                     font-weight: bold;
                     font-size: 13px;
+                    spacing: 8px;
                 }
                 QCheckBox:disabled {
                     color: rgba(46, 204, 113, 0.35);
+                }
+                QCheckBox::indicator {
+                    width: 16px;
+                    height: 16px;
+                    border: 2px solid #2ecc71;
+                    border-radius: 4px;
+                    background-color: #1a1a1a;
+                }
+                QCheckBox::indicator:hover {
+                    border-color: #27ae60;
+                    background-color: #242424;
+                }
+                QCheckBox::indicator:checked {
+                    border-color: #2ecc71;
+                    background-color: #2ecc71;
+                    image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0id2hpdGUiIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiI+PHBhdGggZD0iTTAgMGgyNHYyNEgweiIgZmlsbD0ibm9uZSIvPjxwYXRoIGQ9Ik05IDE2LjJMNC44IDEybC0xLjQgMS40TDkgMTkgMjEgN2wtMS40LTEuNEw5IDE2LjJ6IiBmaWxsPSIjZmZmZmZmIi8+PC9zdmc+");
+                }
+                QCheckBox::indicator:disabled {
+                    border-color: rgba(46, 204, 113, 0.15);
+                    background-color: #1a1a1a;
+                }
+                QCheckBox::indicator:checked:disabled {
+                    border-color: rgba(46, 204, 113, 0.35);
+                    background-color: rgba(46, 204, 113, 0.35);
+                    image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0id2hpdGUiIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiI+PHBhdGggZD0iTTAgMGgyNHYyNEgweiIgZmlsbD0ibm9uZSIvPjxwYXRoIGQ9Ik05IDE2LjJMNC44IDEybC0xLjQgMS40TDkgMTkgMjEgN2wtMS40LTEuNEw5IDE6LjJ6IiBmaWxsPSIjYWFhYWFhIi8+PC9zdmc+");
                 }
             """)
             self.chk_show_structures.stateChanged.connect(self.on_show_structures_changed)
