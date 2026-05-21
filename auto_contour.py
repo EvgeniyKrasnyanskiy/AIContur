@@ -270,6 +270,7 @@ if PYQT_AVAILABLE:
         finished_signal = pyqtSignal(bool, str)
         step_signal = pyqtSignal(str)
         progress_signal = pyqtSignal(int)
+        eta_signal = pyqtSignal(float, float)  # (elapsed_sec, eta_sec)
 
         def __init__(
             self,
@@ -311,12 +312,19 @@ if PYQT_AVAILABLE:
 
         def run(self):
             try:
+                self._start_time = time.time()
+
                 def callback(step_text: str):
                     self.step_signal.emit(step_text)
                     
                 def prog_callback(val: int, text: str):
                     self.progress_signal.emit(val)
                     self.step_signal.emit(text)
+                    # Расчёт ETA: если уже есть прогресс > 2%, прогнозируем оставшееся время
+                    if val > 2:
+                        elapsed = time.time() - self._start_time
+                        eta = (elapsed / val) * (100 - val)
+                        self.eta_signal.emit(elapsed, eta)
                     
                 def reg_proc(p):
                     self.process = p
@@ -989,14 +997,135 @@ if PYQT_AVAILABLE:
             tab2_layout.addWidget(self.sound_check)
             
             tab2_layout.addStretch()
-            
-            btn_help = QPushButton("Справка и дисклеймер 📖")
-            btn_help.setObjectName("btnHelp")
-            btn_help.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn_help.clicked.connect(self.show_help)
-            tab2_layout.addWidget(btn_help)
 
             self.tab_widget.addTab(tab2_widget, "⚙️ Настройки")
+
+            # ------------------------------------------------------------------
+            # ВКЛАДКА 3: Справка и дисклеймер
+            # ------------------------------------------------------------------
+            tab3_widget = QWidget()
+            tab3_layout = QVBoxLayout(tab3_widget)
+            tab3_layout.setContentsMargins(0, 0, 0, 0)
+            tab3_layout.setSpacing(0)
+
+            from PyQt6.QtWidgets import QTextBrowser
+            help_browser = QTextBrowser()
+            help_browser.setOpenExternalLinks(True)
+            help_browser.setFrameShape(QTextBrowser.Shape.NoFrame)
+            help_browser.setHtml("""<!DOCTYPE html>
+<html>
+<head>
+<style>
+    body {
+        background-color: #1e1e1e;
+        color: #e0e0e0;
+        font-family: 'Segoe UI', Arial, sans-serif;
+        font-size: 13px;
+        line-height: 1.6;
+        margin: 8px 12px;
+        padding: 0;
+    }
+    h1 {
+        color: #ffffff;
+        font-size: 17px;
+        border-bottom: 2px solid #007acc;
+        padding-bottom: 6px;
+        margin-top: 8px;
+        margin-bottom: 10px;
+    }
+    h2 {
+        color: #007acc;
+        font-size: 13px;
+        margin-top: 14px;
+        margin-bottom: 6px;
+        font-weight: bold;
+    }
+    ul {
+        margin: 4px 0;
+        padding-left: 18px;
+    }
+    li {
+        margin-bottom: 5px;
+    }
+    p {
+        margin: 6px 0;
+    }
+    .disclaimer-box {
+        background-color: #2c1a1a;
+        border: 1px solid #d32f2f;
+        border-radius: 6px;
+        padding: 10px 14px;
+        margin-top: 14px;
+    }
+    .disclaimer-title {
+        color: #f44336;
+        font-weight: bold;
+        font-size: 13px;
+        margin-bottom: 5px;
+    }
+    .highlight {
+        color: #0098ff;
+        font-weight: bold;
+    }
+    .card {
+        background-color: #242424;
+        border: 1px solid #333333;
+        border-radius: 6px;
+        padding: 10px 12px;
+        margin-bottom: 10px;
+    }
+</style>
+</head>
+<body>
+    <h1>Справка по работе с AI Contour 📖</h1>
+
+    <p><b>AI Contour</b> — интеллектуальное ПО для автоматического сегментирования органов риска (OAR) на КТ-снимках DICOM с использованием нейросети <b>TotalSegmentator</b>.</p>
+
+    <div class="card">
+        <h2>Основные возможности 🚀</h2>
+        <ul>
+            <li><b>Динамические пресеты:</b> Редактируйте анатомические пресеты во внешнем файле <span class="highlight">presets.json</span>.</li>
+            <li><b>GPU-ускорение:</b> При наличии Nvidia CUDA расчёты выполняются в 20–30 раз быстрее.</li>
+            <li><b>3D постобработка:</b> Очистка мелкого шума (Remove small blobs) и сглаживание Гаусса.</li>
+            <li><b>Кастомизация цветов:</b> Двойной клик по органу — выбор цвета. Палитры QUANTEC и Неон.</li>
+            <li><b>Просмотр структур:</b> Включите «Отображать структуры» на вкладке снимков для наложения контуров на КТ.</li>
+            <li><b>Режим слияния:</b> Дополняйте существующий RTSTRUCT или создавайте новый.</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h2>Порядок работы 📋</h2>
+        <ul>
+            <li>На вкладке <b>«⚙️ Настройки»</b> выберите папку с КТ-снимками DICOM и нажмите <b>«📂 Источник»</b>.</li>
+            <li>На вкладке <b>«🎯 Контуры и снимки»</b> выберите пресет органов и пациента в таблице.</li>
+            <li>Настройте режим расчёта (CPU/GPU), точность ИИ и постобработку.</li>
+            <li>Нажмите <b>«ЗАПУСТИТЬ АВТООКОНТУРИРОВАНИЕ»</b> и дождитесь завершения.</li>
+            <li>После завершения включите <b>«Отображать структуры»</b> для просмотра результатов.</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h2>Форматы файлов структур 📁</h2>
+        <ul>
+            <li>Выходной файл RTSTRUCT сохраняется рядом со снимками: <span class="highlight">STR_YYYYMMDD_HHMMSS.dcm</span>.</li>
+            <li>Файл совместим с TPS: Monaco, RayStation, Eclipse и другими.</li>
+            <li>Поддерживается импорт в OIS системы через стандартный DICOM RT-импорт.</li>
+        </ul>
+    </div>
+
+    <div class="disclaimer-box">
+        <div class="disclaimer-title">⚠️ ВАЖНЫЙ МЕДИЦИНСКИЙ ДИСКЛЕЙМЕР</div>
+        <p style="margin: 0; font-size: 12px; color: #e0b0b0;">
+            Данное ПО предоставляется исключительно для научных и исследовательских целей (<b>Research Use Only</b>).<br><br>
+            Автоматическая разметка <b>не является окончательной клинической разметкой</b>. Любая импортированная разметка
+            <b>подлежит обязательному ручному контролю, валидации и коррекции</b> сертифицированным медицинским физиком
+            или радиационным онкологом в системе планирования (TPS) перед облучением пациента.
+        </p>
+    </div>
+</body>
+</html>""")
+            tab3_layout.addWidget(help_browser, 1)
+            self.tab_widget.addTab(tab3_widget, "📖 Справка")
 
             splitter.addWidget(left_card)
 
@@ -1064,6 +1193,10 @@ if PYQT_AVAILABLE:
             self.progress_bar.setValue(0)
             self.progress_bar.setTextVisible(True)
             self.progress_bar.setFormat("%p%")
+
+            # Метка для отображения ETA (прошедшее время + прогноз окончания)
+            self.eta_label = QLabel("")
+            self.eta_label.setStyleSheet("color: #888888; font-size: 11px; font-style: italic;")
 
             self.btn_run = QPushButton("ЗАПУСТИТЬ АВТООКОНТУРИРОВАНИЕ")
             self.btn_run.setObjectName("btnRun")
@@ -1183,6 +1316,7 @@ if PYQT_AVAILABLE:
             bottom_layout.addWidget(progress_header)
             bottom_layout.addWidget(self.status_step_label)
             bottom_layout.addWidget(self.progress_bar)
+            bottom_layout.addWidget(self.eta_label)
             bottom_layout.addWidget(self.btn_run)
             
             v_splitter.addWidget(top_panel)
@@ -1711,6 +1845,16 @@ if PYQT_AVAILABLE:
                 
                 self.volume_3d_base = volume_3d
                 self.current_dicom_dir = folder_path
+                # Сохраняем Z-позиции срезов для корректного slice-by-slice маппинга контуров
+                self.z_positions = [float(s.ImagePositionPatient[2]) for s in slices]
+                self.dicom_pixel_spacing = (
+                    float(getattr(slices[0], 'PixelSpacing', [1, 1])[0]),
+                    float(getattr(slices[0], 'PixelSpacing', [1, 1])[1])
+                )
+                self.dicom_image_position = [
+                    float(slices[0].ImagePositionPatient[0]),
+                    float(slices[0].ImagePositionPatient[1]),
+                ]
                 self.dicom_viewer.setImage(self.volume_3d_base)
                 
                 # Принудительно вызываем обновление оверлея если галка включена
@@ -1901,8 +2045,15 @@ if PYQT_AVAILABLE:
                         if orig_organ not in checked_organs:
                             continue
                         
-                        mask_3d = rtstruct.get_roi_mask_by_name(roi)  # (y, x, z)
-                        mask_3d = np.transpose(mask_3d, (2, 1, 0))  # (z, x, y)
+                        # Используем безопасный slice-by-slice экстрактор вместо get_roi_mask_by_name,
+                        # чтобы не падать при вырожденных контурах (Skull, Eye Right и др.)
+                        mask_3d = self._get_roi_mask_safe(
+                            rtstruct, roi,
+                            self.volume_3d_base.shape,
+                            getattr(self, 'z_positions', None),
+                            getattr(self, 'dicom_pixel_spacing', (1.0, 1.0)),
+                            getattr(self, 'dicom_image_position', [0.0, 0.0])
+                        )   # возвращает (z, x, y) bool array
                         
                         color = self.engine.colors.get(orig_organ, [0, 255, 128])
                         overlay_3d[mask_3d, 0] = color[0]
@@ -1926,6 +2077,112 @@ if PYQT_AVAILABLE:
                 if progress_dialog:
                     progress_dialog.close()
                 QApplication.restoreOverrideCursor()
+
+        def _get_roi_mask_safe(
+            self,
+            rtstruct,
+            roi_name: str,
+            volume_shape: tuple,
+            z_positions: list | None,
+            pixel_spacing: tuple = (1.0, 1.0),
+            image_position: list = (0.0, 0.0)
+        ):
+            """
+            Безопасный slice-by-slice экстрактор маски ROI из DICOM RTSTRUCT.
+
+            В отличие от rt_utils.get_roi_mask_by_name(), не падает при
+            вырожденных контурах (< 3 точек), характерных для Skull, Eye и др.
+            Возвращает numpy bool-маску формата (z, x, y), совместимую с overlay_3d.
+            """
+            import numpy as np
+            import cv2
+
+            z_dim, x_dim, y_dim = volume_shape
+            mask = np.zeros((z_dim, x_dim, y_dim), dtype=bool)
+
+            # Ищем ROI по имени в DICOM-датасете
+            try:
+                roi_index = None
+                for i, roi_item in enumerate(rtstruct.ds.StructureSetROISequence):
+                    if roi_item.ROIName == roi_name:
+                        roi_index = i
+                        break
+                if roi_index is None:
+                    return mask
+
+                # Находим соответствующий элемент в ROIContourSequence
+                roi_contour = None
+                for rc in rtstruct.ds.ROIContourSequence:
+                    if int(getattr(rc, 'ReferencedROINumber', -1)) == int(rtstruct.ds.StructureSetROISequence[roi_index].ROINumber):
+                        roi_contour = rc
+                        break
+                if roi_contour is None or not hasattr(roi_contour, 'ContourSequence'):
+                    return mask
+
+            except Exception:
+                return mask
+
+            # Строим маппинг Z-координата -> индекс среза
+            z_index_map: dict[float, int] = {}
+            if z_positions:
+                for idx, z in enumerate(z_positions):
+                    z_index_map[round(z, 2)] = idx
+
+            ps_row, ps_col = pixel_spacing  # мм/пиксель по строкам и столбцам
+            img_pos_x, img_pos_y = image_position  # позиция первого пикселя (мм)
+
+            for contour in roi_contour.ContourSequence:
+                try:
+                    pts_raw = np.array(contour.ContourData, dtype=np.float64).reshape(-1, 3)
+                    n_pts = len(pts_raw)
+
+                    # Пропускаем вырожденные контуры — именно они вызывают cv2.fillPoly assert
+                    if n_pts < 3:
+                        continue
+
+                    z_val = round(float(pts_raw[0, 2]), 2)
+
+                    # Находим ближайший Z-индекс
+                    if z_val in z_index_map:
+                        z_idx = z_index_map[z_val]
+                    elif z_positions:
+                        # Ближайший срез (допуск ±2 мм)
+                        diffs = [abs(z - z_val) for z in z_positions]
+                        min_diff = min(diffs)
+                        if min_diff > 2.0:
+                            continue
+                        z_idx = diffs.index(min_diff)
+                    else:
+                        continue
+
+                    # Конвертируем мировые координаты (мм) -> пиксельные (с учётом разрешения)
+                    x_pts_mm = pts_raw[:, 0]  # X в мировых координатах
+                    y_pts_mm = pts_raw[:, 1]  # Y в мировых координатах
+
+                    # Формула: pixel = (world - image_position) / pixel_spacing
+                    col_pts = np.round((x_pts_mm - img_pos_x) / ps_col).astype(np.int32)
+                    row_pts = np.round((y_pts_mm - img_pos_y) / ps_row).astype(np.int32)
+
+                    # Зажимаем координаты в границах среза
+                    col_pts = np.clip(col_pts, 0, x_dim - 1)
+                    row_pts = np.clip(row_pts, 0, y_dim - 1)
+
+                    # Формируем массив точек для cv2.fillPoly
+                    contour_pts = np.stack([col_pts, row_pts], axis=1).reshape((-1, 1, 2))
+
+                    if len(contour_pts) < 3:
+                        continue
+
+                    # Рисуем на пустом срезе
+                    slice_mask = np.zeros((y_dim, x_dim), dtype=np.uint8)
+                    cv2.fillPoly(slice_mask, [contour_pts.astype(np.int32)], 1)
+                    mask[z_idx] |= slice_mask.T.astype(bool)
+
+                except Exception as ce:
+                    logger.debug(f"[{roi_name}] Пропуск контура (вырожденный): {ce}")
+                    continue
+
+            return mask
 
         def update_roi_overlay_frame(self):
             if hasattr(self, 'roi_overlay_item') and hasattr(self, 'roi_overlay_3d'):
@@ -2366,6 +2623,7 @@ if PYQT_AVAILABLE:
                 self.worker.finished_signal.connect(self.on_segmentation_finished)
                 self.worker.step_signal.connect(self.on_step_changed)
                 self.worker.progress_signal.connect(self.progress_bar.setValue)
+                self.worker.eta_signal.connect(self.on_eta_updated)
                 
                 self.current_step_base_text = "Подготовка пайплайна..."
                 self.spinner_index = 0
@@ -2466,6 +2724,8 @@ if PYQT_AVAILABLE:
                 self.progress_bar.setRange(0, 100)
                 self.activity_timer.stop()
                 self.status_step_label.setStyleSheet("color: #007acc; font-weight: bold; font-style: italic;")
+                # Сбрасываем ETA-метку сразу после завершения
+                self.eta_label.setText("")
                 
                 if self.sound_check.isChecked():
                     try:
@@ -2521,6 +2781,8 @@ if PYQT_AVAILABLE:
                                 self.chk_show_structures.setChecked(True)
                     
                     QTimer.singleShot(100, lambda: QMessageBox.information(self, "Успех", "Автоматическое оконтурирование завершено успешно!"))
+                    # Сбрасываем прогресс-бар до 0 через 5 секунд, чтобы не висел при просмотре снимков
+                    QTimer.singleShot(5000, lambda: self.progress_bar.setValue(0))
                 else:
                     self.progress_bar.setValue(0)
                     if "отменена пользователем" in message.lower() or "отменен пользователем" in message.lower():
@@ -2530,6 +2792,8 @@ if PYQT_AVAILABLE:
                     else:
                         self.status_step_label.setText("Текущий шаг: Ошибка!")
                         QTimer.singleShot(100, lambda msg=message: QMessageBox.critical(self, "Критическая ошибка", f"Произошел сбой при сегментации:\n{msg}"))
+                    # Сбрасываем прогресс-бар через 3 секунды в обоих случаях (отмена/ошибка)
+                    QTimer.singleShot(3000, lambda: self.progress_bar.setValue(0))
             except Exception as e:
                 import traceback
                 traceback.print_exc()
@@ -2539,6 +2803,17 @@ if PYQT_AVAILABLE:
         def on_step_changed(self, step_text: str):
             self.current_step_base_text = step_text
             self.status_step_label.setText(f"{step_text} {self.SPINNER_FRAMES[self.spinner_index]}")
+
+        def on_eta_updated(self, elapsed: float, eta: float):
+            """Обновляет метку ETA во время расчёта ИИ."""
+            def fmt(s: float) -> str:
+                m = int(s // 60)
+                sec = int(s % 60)
+                return f"{m} мин {sec:02d} сек" if m > 0 else f"{sec} сек"
+            txt = f"⏱ Прошло: {fmt(elapsed)}"
+            if eta > 0:
+                txt += f"  |  Ожидается ещё: ~{fmt(eta)}"
+            self.eta_label.setText(txt)
 
         def show_help(self):
             dialog = QDialog(self)
