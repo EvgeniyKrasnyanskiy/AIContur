@@ -42,6 +42,33 @@ from scipy.ndimage import label, gaussian_filter
 # Настройка локального логера движка
 logger = logging.getLogger("ContourEngine")
 
+# Глобальный словарь маппинга органов на таски TotalSegmentator
+ROI_TO_TASK_MAP = {
+    # Базовая модель (total)
+    'skull': 'total', 'trachea': 'total', 'esophagus': 'total', 
+    'thyroid_gland': 'total', 'spinal_cord': 'total',
+    'common_carotid_artery_left': 'total', 'common_carotid_artery_right': 'total',
+    'heart': 'total', 'lung_left': 'total', 'lung_right': 'total', 'aorta': 'total',
+    'pulmonary_artery': 'total', 'superior_vena_cava': 'total', 'sternum': 'total',
+    'clavicula_left': 'total', 'clavicula_right': 'total', 'spleen': 'total',
+    'kidney_right': 'total', 'kidney_left': 'total', 'gallbladder': 'total',
+    'liver': 'total', 'stomach': 'total', 'inferior_vena_cava': 'total',
+    'urinary_bladder': 'total', 'pancreas': 'total', 'duodenum': 'total',
+    'adrenal_gland_left': 'total', 'adrenal_gland_right': 'total',
+    'portal_vein_and_splenic_vein': 'total', 'prostate': 'total', 'rectum': 'total',
+    'colon': 'total', 'small_bowel': 'total', 'femur_left': 'total',
+    'femur_right': 'total', 'hip_left': 'total', 'hip_right': 'total',
+    'sacrum': 'total', 'iliac_artery_left': 'total', 'iliac_artery_right': 'total',
+    
+    # Мозг (brain_structures)
+    'brain': 'brain_structures', 'brain_stem': 'brain_structures', 'brainstem': 'brain_structures',
+    
+    # Лицо / Орбиты (face)
+    'eye_left': 'face', 'eye_right': 'face', 
+    'lens_left': 'face', 'lens_right': 'face',
+    'optic_nerve_left': 'face', 'optic_nerve_right': 'face'
+}
+
 # Дефолтные настройки для автогенерации presets.json при его отсутствии
 DEFAULT_PRESETS_DATA = {
     "presets": {
@@ -523,32 +550,11 @@ class ContourEngine:
                 if preset_name == "head_neck_oar" or preset_name == "Голова и Шея (Head & Neck)":
                     logger.info("Анализ пресета Голова и Шея: разбиение на задачи total, brain_structures и др.")
                 
-                try:
-                    from totalsegmentator.map_to_binary import class_map
-                    for organ in totalseg_rois:
-                        task = None
-                        if organ in class_map.get("total", {}).values() or organ in class_map.get("total_v1", {}).values():
-                            task = "total"
-                        elif organ in class_map.get("brain_structures", {}).values():
-                            task = "brain_structures"
-                        elif organ in class_map.get("head_glands_cavities", {}).values():
-                            task = "head_glands_cavities"
-                        elif organ in class_map.get("oculomotor_muscles", {}).values():
-                            task = "oculomotor_muscles"
-                        elif organ in class_map.get("face", {}).values():
-                            task = "face"
-                        else:
-                            for t, m in class_map.items():
-                                if organ in m.values() and t != "total_v1":
-                                    task = t
-                                    break
-                        if task:
-                            if task not in tasks_to_run:
-                                tasks_to_run[task] = []
-                            tasks_to_run[task].append(organ)
-                except ImportError:
-                    # Если class_map недоступен, фолбэк на одну задачу total
-                    tasks_to_run["total"] = totalseg_rois
+                for organ in totalseg_rois:
+                    task = ROI_TO_TASK_MAP.get(organ, 'total') # fallback на total
+                    if task not in tasks_to_run:
+                        tasks_to_run[task] = []
+                    tasks_to_run[task].append(organ)
             
             if not tasks_to_run and precision_mode != "faster":
                 raise RuntimeError(
