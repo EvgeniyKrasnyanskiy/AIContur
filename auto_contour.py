@@ -906,15 +906,22 @@ if PYQT_AVAILABLE:
             table_header = QLabel("Выбор пациента:")
             table_header.setStyleSheet("font-weight: bold; color: #ffffff;")
             self.series_table = QTableWidget(0, 7)
-            self.series_table.setHorizontalHeaderLabels(["ФИО", "ID пациента", "STR", "Область сканирования", "Число срезов", "Дата исследования", "Путь"])
+            self.series_table.setHorizontalHeaderLabels(["ФИО", "ID", "STR", "Область", "Срезы", "Дата КТ", "Путь"])
             self.series_table.setColumnHidden(6, True) # Скрываем путь
             
-            self.series_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-            self.series_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-            self.series_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
-            self.series_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
-            self.series_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
-            self.series_table.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
+            header = self.series_table.horizontalHeader()
+            # ФИО: Interactive — не сжимается автоматически, пользователь может изменять вручную
+            header.setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
+            self.series_table.setColumnWidth(0, 180)  # начальная ширина
+            # ID, STR, Срезы, Дата — по содержимому (фиксированная минимальная ширина)
+            header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+            header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+            # Область сканирования: Stretch — сжимается первой при нехватке места
+            header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+            header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+            header.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
+            # Минимальный размер секций, чтобы данные совсем не пропали
+            header.setMinimumSectionSize(32)
             
             self.series_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
             self.series_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
@@ -972,10 +979,12 @@ if PYQT_AVAILABLE:
             self.viewer_event_filter = ViewerEventFilter(self.dicom_viewer)
             self.dicom_viewer.ui.graphicsView.viewport().installEventFilter(self.viewer_event_filter)
             
-            # Сплиттер для таблицы и вьюера
+            # Горизонтальный сплиттер: 60% таблица / 40% вьюер
             main_splitter = QSplitter(Qt.Orientation.Horizontal)
             main_splitter.addWidget(self.series_table)
             main_splitter.addWidget(self.dicom_viewer)
+            main_splitter.setStretchFactor(0, 6)  # поддерживает 60/40 при ресайзе окна
+            main_splitter.setStretchFactor(1, 4)
             main_splitter.setSizes([600, 400])
             
             top_layout.addWidget(main_splitter, 1)  # stretch=1: main_splitter занимает всё оставшееся пространство
@@ -995,7 +1004,10 @@ if PYQT_AVAILABLE:
             
             v_splitter.addWidget(top_panel)
             v_splitter.addWidget(bottom_panel)
-            v_splitter.setSizes([700, 200])  # Пропорции по умолчанию
+            # Вертикальный сплиттер: 50% верхняя зона / 50% логи
+            v_splitter.setStretchFactor(0, 1)
+            v_splitter.setStretchFactor(1, 1)
+            v_splitter.setSizes([500, 500])
             
             right_layout.addWidget(v_splitter, 1)  # stretch=1: v_splitter заполняет right_card
 
