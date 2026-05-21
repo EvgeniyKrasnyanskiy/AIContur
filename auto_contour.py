@@ -1212,15 +1212,39 @@ if PYQT_AVAILABLE:
                 self.progress_dialog.close()
                 self.progress_dialog = None
                 
-            selected_path = None
-            if self.series_table.selectedItems():
-                row = self.series_table.selectedItems()[0].row()
-                selected_path = self.series_table.item(row, 6).text()
+            self.series_table.setUpdatesEnabled(False)
+            
+            existing_paths = {}
+            for row in range(self.series_table.rowCount()):
+                path_item = self.series_table.item(row, 6)
+                if path_item:
+                    existing_paths[path_item.text()] = row
+                    
+            new_paths = [res[6] for res in results]
+            
+            rows_to_remove = []
+            for path, row in existing_paths.items():
+                if path not in new_paths:
+                    rows_to_remove.append(row)
+                    
+            for row in sorted(rows_to_remove, reverse=True):
+                self.series_table.removeRow(row)
                 
+            existing_paths = {}
+            for row in range(self.series_table.rowCount()):
+                path_item = self.series_table.item(row, 6)
+                if path_item:
+                    existing_paths[path_item.text()] = row
+                    
             self.series_table.setSortingEnabled(False)
-            self.series_table.setRowCount(0)
             
             for (p_name, p_id, str_status, body_part, slice_count, s_date, path) in results:
+                if path in existing_paths:
+                    row = existing_paths[path]
+                    self.series_table.item(row, 2).setText(str_status)
+                    self.series_table.item(row, 4).setText(str(slice_count))
+                    continue
+
                 row = self.series_table.rowCount()
                 self.series_table.insertRow(row)
                 
@@ -1247,11 +1271,11 @@ if PYQT_AVAILABLE:
                 self.series_table.setItem(row, 5, item_date)
                 
                 self.series_table.setItem(row, 6, QTableWidgetItem(path))
-                
-                if selected_path and path == selected_path:
-                    self.series_table.selectRow(row)
             
             self.series_table.setSortingEnabled(True)
+            self.series_table.sortByColumn(0, Qt.SortOrder.AscendingOrder)
+            self.series_table.setUpdatesEnabled(True)
+            
             self.on_scan_finished()
             
         def on_scan_finished(self):
