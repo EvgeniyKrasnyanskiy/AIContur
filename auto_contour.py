@@ -1878,56 +1878,62 @@ if PYQT_AVAILABLE:
             )
 
         def on_segmentation_finished(self, success: bool, message: str):
-            self.scan_timer.start(15000)
-            self.set_ui_enabled(True)
-            self.progress_bar.setRange(0, 100)
-            self.activity_timer.stop()
-            self.status_step_label.setStyleSheet("color: #007acc; font-weight: bold; font-style: italic;")
-            
-            if self.sound_check.isChecked():
-                try:
-                    import winsound
-                    import time
-                    if success:
-                        # Красивый восходящий мажорный аккорд (C5 -> E5 -> G5)
-                        winsound.Beep(523, 150)
-                        time.sleep(0.05)
-                        winsound.Beep(659, 150)
-                        time.sleep(0.05)
-                        winsound.Beep(784, 250)
-                    else:
-                        # Низкий предупреждающий звук (A3)
-                        winsound.Beep(220, 500)
-                except Exception as e:
-                    logger.error(f"Не удалось воспроизвести звуковое оповещение: {e}")
-            
-            if success:
-                self.progress_bar.setValue(100)
-                self.status_step_label.setText("Текущий шаг: Готово!")
+            try:
+                self.scan_timer.start(15000)
+                self.set_ui_enabled(True)
+                self.progress_bar.setRange(0, 100)
+                self.activity_timer.stop()
+                self.status_step_label.setStyleSheet("color: #007acc; font-weight: bold; font-style: italic;")
                 
-                # Парсинг количества структур (из текста сообщения)
-                count = 0
-                time_str = "0.0"
-                match_count = re.search(r'добавлено структур:\s*(\d+)', message.lower())
-                if match_count:
-                    count = match_count.group(1)
+                if self.sound_check.isChecked():
+                    try:
+                        import winsound
+                        import time
+                        if success:
+                            # Красивый восходящий мажорный аккорд (C5 -> E5 -> G5)
+                            winsound.Beep(523, 150)
+                            time.sleep(0.05)
+                            winsound.Beep(659, 150)
+                            time.sleep(0.05)
+                            winsound.Beep(784, 250)
+                        else:
+                            # Низкий предупреждающий звук (A3)
+                            winsound.Beep(220, 500)
+                    except Exception as e:
+                        logger.error(f"Не удалось воспроизвести звуковое оповещение: {e}")
                 
-                match_time = re.search(r'время работы:\s*([\d\.]+)', message.lower())
-                if match_time:
-                    time_str = match_time.group(1)
+                if success:
+                    self.progress_bar.setValue(100)
+                    self.status_step_label.setText("Текущий шаг: Готово!")
+                    
+                    # Парсинг количества структур (из текста сообщения)
+                    count = 0
+                    time_str = "0.0"
+                    match_count = re.search(r'добавлено структур:\s*(\d+)', message.lower())
+                    if match_count:
+                        count = match_count.group(1)
+                    
+                    match_time = re.search(r'время работы:\s*([\d\.]+)', message.lower())
+                    if match_time:
+                        time_str = match_time.group(1)
 
-                final_log = f"[INFO]: Пайплайн успешно завершен! Добавлено структур: {count}. Общее время работы: {time_str} сек."
-                self.log_edit.appendHtml(f"<br><span style='background-color: #107c41; color: white; font-weight: bold; padding: 4px;'>{final_log}</span><br>")
-                QTimer.singleShot(100, lambda: QMessageBox.information(self, "Успех", "Автоматическое оконтурирование завершено успешно!"))
-            else:
-                self.progress_bar.setValue(0)
-                if "отменена пользователем" in message.lower() or "отменен пользователем" in message.lower():
-                    self.status_step_label.setText("Текущий шаг: Расчет отменен!")
-                    self.status_step_label.setStyleSheet("color: #e74c3c; font-weight: bold;")
-                    QTimer.singleShot(100, lambda: QMessageBox.warning(self, "Предупреждение", "Процесс оконтурирования был прерван."))
+                    final_log = f"[INFO]: Пайплайн успешно завершен! Добавлено структур: {count}. Общее время работы: {time_str} сек."
+                    self.log_edit.append(f"<br><span style='background-color: #107c41; color: white; font-weight: bold; padding: 4px;'>{final_log}</span><br>")
+                    QTimer.singleShot(100, lambda: QMessageBox.information(self, "Успех", "Автоматическое оконтурирование завершено успешно!"))
                 else:
-                    self.status_step_label.setText("Текущий шаг: Ошибка!")
-                    QTimer.singleShot(100, lambda msg=message: QMessageBox.critical(self, "Критическая ошибка", f"Произошел сбой при сегментации:\n{msg}"))
+                    self.progress_bar.setValue(0)
+                    if "отменена пользователем" in message.lower() or "отменен пользователем" in message.lower():
+                        self.status_step_label.setText("Текущий шаг: Расчет отменен!")
+                        self.status_step_label.setStyleSheet("color: #e74c3c; font-weight: bold;")
+                        QTimer.singleShot(100, lambda: QMessageBox.warning(self, "Предупреждение", "Процесс оконтурирования был прерван."))
+                    else:
+                        self.status_step_label.setText("Текущий шаг: Ошибка!")
+                        QTimer.singleShot(100, lambda msg=message: QMessageBox.critical(self, "Критическая ошибка", f"Произошел сбой при сегментации:\n{msg}"))
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                logger.error(f"Критическая ошибка в on_segmentation_finished: {e}")
+                QTimer.singleShot(100, lambda err=e: QMessageBox.critical(self, "Сбой GUI", f"Ошибка в on_segmentation_finished:\n{err}"))
 
         def on_step_changed(self, step_text: str):
             self.current_step_base_text = step_text
