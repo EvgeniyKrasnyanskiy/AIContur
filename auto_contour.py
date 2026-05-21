@@ -972,8 +972,9 @@ if PYQT_AVAILABLE:
             # Группировка списка органов по анатомическим областям
             ORGAN_GROUPS = {
                 "━━━ ГОЛОВА И ШЕЯ ━━━": [
-                    "brain", "spinal_cord", "thyroid_gland", "skull", "trachea", "esophagus",
-                    "common_carotid_artery_left", "common_carotid_artery_right"
+                    "eye_left", "eye_right", "lens_left", "lens_right", "brain", "brain_stem",
+                    "optic_nerve_left", "optic_nerve_right", "spinal_cord", "thyroid_gland",
+                    "skull", "trachea", "esophagus", "common_carotid_artery_left", "common_carotid_artery_right"
                 ],
                 "━━━ ГРУДНАЯ КЛЕТКА ━━━": [
                     "heart", "lung_left", "lung_right", "trachea", "esophagus", "aorta", "pulmonary_artery",

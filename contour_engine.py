@@ -64,6 +64,10 @@ DEFAULT_PRESETS_DATA = {
         ],
         "Брахитерапия (Brachytherapy)": [
             "urinary_bladder", "small_bowel", {"colon": ["Colon", "Colon Dup"]}
+        ],
+        "Голова и Шея (Head & Neck)": [
+            "eye_left", "eye_right", "lens_left", "lens_right", "brain", 
+            "brain_stem", "optic_nerve_left", "optic_nerve_right", "spinal_cord"
         ]
     },
     "colors": {
@@ -107,7 +111,14 @@ DEFAULT_PRESETS_DATA = {
         "clavicula_right": [244, 164, 96],
         "sternum": [222, 184, 135],
         "iliac_artery_left": [255, 99, 71],
-        "iliac_artery_right": [255, 99, 71]
+        "iliac_artery_right": [255, 99, 71],
+        "eye_left": [255, 255, 0],
+        "eye_right": [255, 255, 0],
+        "lens_left": [255, 165, 0],
+        "lens_right": [255, 165, 0],
+        "brain_stem": [210, 105, 30],
+        "optic_nerve_left": [240, 230, 140],
+        "optic_nerve_right": [240, 230, 140]
     },
     "ru_names": {
         "spleen": "Селезенка (Spleen)",
@@ -149,8 +160,15 @@ DEFAULT_PRESETS_DATA = {
         "clavicula_left": "Левая ключица (Clavicle L)",
         "clavicula_right": "Правая ключица (Clavicle R)",
         "sternum": "Грудина (Sternum)",
-        "iliac_artery_left": "Левая подвздошная артерия (Iliac A L)",
-        "iliac_artery_right": "Правая подвздошная артерия (Iliac A R)"
+        "iliac_artery_left": "Левая подвздошная артерия (Iliac Artery L)",
+        "iliac_artery_right": "Правая подвздошная артерия (Iliac Artery R)",
+        "eye_left": "Левый глаз (Eye L)",
+        "eye_right": "Правый глаз (Eye R)",
+        "lens_left": "Левый хрусталик (Lens L)",
+        "lens_right": "Правый хрусталик (Lens R)",
+        "brain_stem": "Ствол мозга (Brain Stem)",
+        "optic_nerve_left": "Левый зрительный нерв (Optic Nerve L)",
+        "optic_nerve_right": "Правый зрительный нерв (Optic Nerve R)"
     }
 }
 
@@ -515,6 +533,11 @@ class ContourEngine:
             
             # Передаем адаптированные органы, если это не режим body (в body ищется только тело)
             if precision_mode != "faster":
+                # Добавление специализированной задачи для пресета Голова и Шея
+                if preset_name == "head_neck_oar" or preset_name == "Голова и Шея (Head & Neck)":
+                    logger.info("Активирована задача 'head' для сегментации глаз, хрусталиков и зрительных нервов.")
+                    cmd.extend(["--task", "head"])
+                    
                 if target_organs:
                     if totalseg_rois:
                         cmd.append("--roi_subset")
@@ -791,9 +814,11 @@ class ContourEngine:
                 mask_data = nii_mask.get_fdata() > 0.5
                 
                 # ------------------------------------------------------------------
-                # ПОСТОБРАБОТКА МАСОК (Remove small blobs)
+                # ПОСТОБРАБОТКА МАСОК (Remove small blobs & Smoothing)
                 # ------------------------------------------------------------------
-                if remove_blobs:
+                TINY_ORGANS = {"lens_left", "lens_right", "eye_left", "eye_right", "optic_nerve_left", "optic_nerve_right"}
+                
+                if remove_blobs and organ_name not in TINY_ORGANS:
                     before_pixels = np.sum(mask_data)
                     mask_data = self.remove_small_blobs(mask_data)
                     after_pixels = np.sum(mask_data)
@@ -801,10 +826,7 @@ class ContourEngine:
                     if removed_pixels > 0:
                         logger.info(f"[{organ_name}] Удалено мелких артефактов (blobs): {removed_pixels} пикселей")
 
-                # ------------------------------------------------------------------
-                # ПОСТОБРАБОТКА МАСОК (Gaussian smoothing)
-                # ------------------------------------------------------------------
-                if smoothing_sigma > 0.0:
+                if smoothing_sigma > 0.0 and organ_name not in TINY_ORGANS:
                     logger.info(f"[{organ_name}] Применение 3D-сглаживания Гаусса (sigma={smoothing_sigma})...")
                     mask_data = self.smooth_3d_mask(mask_data, smoothing_sigma)
 
