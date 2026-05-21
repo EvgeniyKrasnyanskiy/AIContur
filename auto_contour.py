@@ -34,7 +34,8 @@ try:
         QLabel, QLineEdit, QPushButton, QComboBox, QListWidget, QListWidgetItem,
         QRadioButton, QButtonGroup, QTextEdit, QProgressBar, QFileDialog,
         QMessageBox, QFrame, QSplitter, QCheckBox, QDialog, QTextBrowser,
-        QTabWidget, QColorDialog, QGroupBox
+        QTabWidget, QColorDialog, QGroupBox,
+        QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView
     )
     from PyQt6.QtCore import QThread, pyqtSignal, Qt, QObject, QSettings, QTimer
     from PyQt6.QtGui import QTextCursor, QBrush, QColor, QFont, QIcon, QPixmap
