@@ -1888,7 +1888,6 @@ if PYQT_AVAILABLE:
                 if self.sound_check.isChecked():
                     try:
                         import winsound
-                        import time
                         if success:
                             # Красивый восходящий мажорный аккорд (C5 -> E5 -> G5)
                             winsound.Beep(523, 150)

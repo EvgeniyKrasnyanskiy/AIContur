@@ -890,7 +890,6 @@ class ContourEngine:
                 rtstruct_filename = Path(existing_rtstruct_path).name
             else:
                 # Упрощенное именование по таймстампу, как попросил пользователь
-                import time
                 timestamp = time.strftime("%Y%m%d_%H%M%S")
                 rtstruct_filename = f"STR_{timestamp}.dcm"
 
