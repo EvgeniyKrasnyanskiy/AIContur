@@ -889,13 +889,10 @@ class ContourEngine:
                 # Берем исходное имя существующего файла структур без изменений
                 rtstruct_filename = Path(existing_rtstruct_path).name
             else:
-                # Именование по медицинскому стандарту
-                name_part = clean_patient_name if clean_patient_name != "Unknown" else series_uid
-                id_part = clean_patient_id if clean_patient_id != "Unknown" else series_uid
-                date_part = clean_study_date if clean_study_date != "Unknown" else series_uid
-                
-                name_part = re.sub(r'_+', '_', name_part)
-                rtstruct_filename = f"STR_{name_part}_{id_part}_{date_part}.dcm"
+                # Упрощенное именование по таймстампу, как попросил пользователь
+                import time
+                timestamp = time.strftime("%Y%m%d_%H%M%S")
+                rtstruct_filename = f"STR_{timestamp}.dcm"
 
             rtstruct_file_path = output_dir / rtstruct_filename
             
