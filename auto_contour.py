@@ -156,6 +156,23 @@ if PYQT_AVAILABLE:
                     return True  # блокируем, чтобы pyqtgraph не зумировал
             return False
 
+    def format_rtstruct_count(count: int) -> str:
+        """Форматирует количество файлов RTSTRUCT со склонениями на русском языке."""
+        if count == 0:
+            return "Нет"
+        remainder10 = count % 10
+        remainder100 = count % 100
+        if remainder100 in [11, 12, 13, 14]:
+            suffix = "файлов"
+        elif remainder10 == 1:
+            suffix = "файл"
+        elif remainder10 in [2, 3, 4]:
+            suffix = "файла"
+        else:
+            suffix = "файлов"
+        return f"{count} {suffix}"
+
+
     class DicomScanWorker(QThread):
         """Фоновый поток для сканирования папок на наличие DICOM серий."""
         scan_started = pyqtSignal(int, int, bool)  # total_dcm_count, total_dirs, is_manual
@@ -194,8 +211,7 @@ if PYQT_AVAILABLE:
                     if self.is_cancelled:
                         return
                         
-                    slice_count = len(dcm_files)
-                    has_rtstruct = False
+                    rtstruct_count = 0
                     
                     for dcm in dcm_files:
                         if self.is_cancelled:
@@ -203,10 +219,11 @@ if PYQT_AVAILABLE:
                         try:
                             ds = pydicom.dcmread(str(Path(dirpath) / dcm), stop_before_pixels=True)
                             if str(getattr(ds, 'Modality', '')) == 'RTSTRUCT':
-                                has_rtstruct = True
-                                break
+                                rtstruct_count += 1
                         except Exception:
                             pass
+
+                    slice_count = len(dcm_files) - rtstruct_count
 
                     if self.is_cancelled:
                         return
@@ -236,7 +253,7 @@ if PYQT_AVAILABLE:
                         elif not s_date:
                             s_date = "Нет даты"
                             
-                        str_status = "Yes" if has_rtstruct else "No"
+                        str_status = format_rtstruct_count(rtstruct_count)
                         results.append((p_name, p_id, str_status, body_part, slice_count, s_date, dirpath))
                     except Exception:
                         pass
@@ -1587,7 +1604,7 @@ if PYQT_AVAILABLE:
                     self.update_viewer_with_dicom(selected_path)
                     
                     str_status = self.series_table.item(row, 2).text()
-                    if str_status == "No":
+                    if str_status == "Нет" or str_status == "No":
                         self.status_rtstruct_label.setText("Существующий RTSTRUCT не обнаружен (будет создан новый)")
                         self.status_rtstruct_label.setStyleSheet("color: #888888;")
                         self.radio_merge_merge.setEnabled(False)
@@ -1763,11 +1780,14 @@ if PYQT_AVAILABLE:
                 return
                 
             if not getattr(self, 'chk_show_structures', None) or not self.chk_show_structures.isChecked():
+                self._last_loaded_rtstruct = None
                 return
                 
             rtstruct_path = self.rtstruct_combo.currentData()
             if not rtstruct_path or not os.path.exists(rtstruct_path):
                 return
+            
+            is_new_rtstruct = (getattr(self, "_last_loaded_rtstruct", None) != rtstruct_path)
             
             progress_dialog = None
             try:
@@ -1810,6 +1830,32 @@ if PYQT_AVAILABLE:
                             elif isinstance(it, str):
                                 alias_to_organ[it.lower()] = it.lower()
  
+                file_organs = set(alias_to_organ.get(r.lower(), r.lower()) for r in roi_names)
+
+                # Если это первая загрузка этого файла RTSTRUCT, интеллектуально отмечаем только те органы, которые в нем есть
+                if is_new_rtstruct:
+                    self.organs_list.blockSignals(True)
+                    self.is_updating_presets = True
+                    for i in range(self.organs_list.count()):
+                        itm = self.organs_list.item(i)
+                        itm_data = itm.data(Qt.ItemDataRole.UserRole)
+                        if itm_data != "header":
+                            if isinstance(itm_data, dict):
+                                org_name = itm_data.get("name") or (list(itm_data.keys())[0] if itm_data else "")
+                            else:
+                                org_name = itm_data
+                            
+                            if org_name and org_name.lower() in file_organs:
+                                itm.setCheckState(Qt.CheckState.Checked)
+                            else:
+                                itm.setCheckState(Qt.CheckState.Unchecked)
+                    
+                    self.update_headers_check_states()
+                    self._sync_preset_combo_to_organs()
+                    self.organs_list.blockSignals(False)
+                    self.is_updating_presets = False
+                    self._last_loaded_rtstruct = rtstruct_path
+
                 # Собираем отмеченные органы для фильтрации вьюера
                 checked_organs = set()
                 for i in range(self.organs_list.count()):
@@ -1824,7 +1870,6 @@ if PYQT_AVAILABLE:
                             checked_organs.add(org_name.lower())
                 
                 # Если ни одна галочка не совпала с органами файла - показываем все
-                file_organs = set(alias_to_organ.get(r.lower(), r.lower()) for r in roi_names)
                 if not checked_organs.intersection(file_organs):
                     checked_organs = file_organs
                 
@@ -2345,7 +2390,28 @@ if PYQT_AVAILABLE:
                 self.smoothing_combo.setEnabled(False)
                 
             self.color_preset_combo.setEnabled(enabled)
-            # radio disables removed
+            
+            # Блокировка переключателей устройства
+            self.radio_cpu.setEnabled(enabled)
+            self.radio_gpu.setEnabled(enabled and self.engine.is_gpu_available())
+            
+            # Блокировка/восстановление переключателей слияния RTSTRUCT
+            if enabled:
+                row = self.series_table.currentRow()
+                if row >= 0:
+                    str_status = self.series_table.item(row, 2).text()
+                    has_structs = (str_status != "Нет" and str_status != "No" and "0 " not in str_status)
+                    self.radio_merge_new.setEnabled(True)
+                    self.radio_merge_merge.setEnabled(has_structs)
+                    self.radio_merge_overwrite.setEnabled(has_structs)
+                else:
+                    self.radio_merge_new.setEnabled(True)
+                    self.radio_merge_merge.setEnabled(False)
+                    self.radio_merge_overwrite.setEnabled(False)
+            else:
+                self.radio_merge_new.setEnabled(False)
+                self.radio_merge_merge.setEnabled(False)
+                self.radio_merge_overwrite.setEnabled(False)
             
             self.btn_run.setEnabled(True)
             if enabled:
@@ -2435,13 +2501,13 @@ if PYQT_AVAILABLE:
                         path_item = self.series_table.item(row, 6)
                         if path_item:
                             selected_path = path_item.text()
-                            # Обновляем статус структуры в таблице на "Yes" (чтобы не ждать автотаймера)
-                            item_str = self.series_table.item(row, 2)
-                            if item_str:
-                                item_str.setText("Yes")
-                            
                             # Сканируем RTSTRUCT
                             self.check_for_rtstruct(selected_path)
+                            
+                            # Обновляем статус структуры в таблице на точное количество найденных файлов
+                            item_str = self.series_table.item(row, 2)
+                            if item_str:
+                                item_str.setText(format_rtstruct_count(len(self.rtstruct_files)))
                             
                             # Автоматически активируем галочку и отрисовываем контуры во вьюере
                             if hasattr(self, 'chk_show_structures') and self.chk_show_structures.isEnabled():
