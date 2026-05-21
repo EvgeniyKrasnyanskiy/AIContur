@@ -970,10 +970,35 @@ if PYQT_AVAILABLE:
             viewer_layout = QVBoxLayout(viewer_container)
             viewer_layout.setContentsMargins(0, 0, 0, 0)
             
-            viewer_tools_layout = QHBoxLayout()
+            viewer_tools_panel = QFrame()
+            viewer_tools_panel.setObjectName("viewerToolsPanel")
+            viewer_tools_panel.setStyleSheet("""
+                QFrame#viewerToolsPanel {
+                    background-color: #1a1a1a;
+                    border: 1px solid #2d2d2d;
+                    border-left: 4px solid #2ecc71;
+                    border-radius: 4px;
+                }
+                QLabel {
+                    color: #888888;
+                    font-weight: bold;
+                }
+            """)
+            viewer_tools_layout = QHBoxLayout(viewer_tools_panel)
+            viewer_tools_layout.setContentsMargins(10, 6, 10, 6)
+            
             self.chk_show_structures = QCheckBox("Отображать структуры")
             self.chk_show_structures.setEnabled(False)
-            self.chk_show_structures.setStyleSheet("color: #2ecc71; font-weight: bold; font-size: 13px;")
+            self.chk_show_structures.setStyleSheet("""
+                QCheckBox {
+                    color: #2ecc71;
+                    font-weight: bold;
+                    font-size: 13px;
+                }
+                QCheckBox:disabled {
+                    color: rgba(46, 204, 113, 0.35);
+                }
+            """)
             self.chk_show_structures.stateChanged.connect(self.on_show_structures_changed)
             
             self.rtstruct_combo = QComboBox()
@@ -983,7 +1008,7 @@ if PYQT_AVAILABLE:
             viewer_tools_layout.addWidget(self.chk_show_structures)
             viewer_tools_layout.addWidget(QLabel("Файл:"))
             viewer_tools_layout.addWidget(self.rtstruct_combo, 1)
-            viewer_layout.addLayout(viewer_tools_layout)
+            viewer_layout.addWidget(viewer_tools_panel)
             
             self.dicom_viewer = pg.ImageView()
             self.dicom_viewer.ui.roiBtn.hide()
@@ -2255,6 +2280,26 @@ if PYQT_AVAILABLE:
 
                     final_log = f"[INFO]: Пайплайн успешно завершен! Добавлено структур: {count}. Общее время работы: {time_str} сек."
                     self.log_edit.append(f"<br><span style='background-color: #107c41; color: white; font-weight: bold; padding: 4px;'>{final_log}</span><br>")
+                    
+                    # Немедленно обновляем интерфейс, чтобы подтянуть созданный RTSTRUCT
+                    selected = self.series_table.selectedItems()
+                    if selected:
+                        row = selected[0].row()
+                        path_item = self.series_table.item(row, 6)
+                        if path_item:
+                            selected_path = path_item.text()
+                            # Обновляем статус структуры в таблице на "Yes" (чтобы не ждать автотаймера)
+                            item_str = self.series_table.item(row, 2)
+                            if item_str:
+                                item_str.setText("Yes")
+                            
+                            # Сканируем RTSTRUCT
+                            self.check_for_rtstruct(selected_path)
+                            
+                            # Автоматически активируем галочку и отрисовываем контуры во вьюере
+                            if hasattr(self, 'chk_show_structures') and self.chk_show_structures.isEnabled():
+                                self.chk_show_structures.setChecked(True)
+                    
                     QTimer.singleShot(100, lambda: QMessageBox.information(self, "Успех", "Автоматическое оконтурирование завершено успешно!"))
                 else:
                     self.progress_bar.setValue(0)
