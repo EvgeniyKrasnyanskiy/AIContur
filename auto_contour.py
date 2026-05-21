@@ -2156,7 +2156,6 @@ if PYQT_AVAILABLE:
                 self.on_organ_selection_changed()
             else:
                 self.smoothing_combo.setEnabled(False)
-                self.btn_color_pick.setEnabled(False)
                 
             self.color_preset_combo.setEnabled(enabled)
             # radio disables removed
