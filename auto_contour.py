@@ -972,6 +972,7 @@ if PYQT_AVAILABLE:
             viewer_tools_layout = QHBoxLayout()
             self.chk_show_structures = QCheckBox("Отображать структуры")
             self.chk_show_structures.setEnabled(False)
+            self.chk_show_structures.setStyleSheet("color: #2ecc71; font-weight: bold; font-size: 13px;")
             self.chk_show_structures.stateChanged.connect(self.on_show_structures_changed)
             
             self.rtstruct_combo = QComboBox()
@@ -1427,15 +1428,13 @@ if PYQT_AVAILABLE:
                 row = selected[0].row()
                 selected_path = self.series_table.item(row, 6).text()
                 
-                # Фоновый поиск реального пути файла
-                self.check_for_rtstruct(selected_path)
-                
-                # Обновляем DICOM-вьюер (только при ручном клике)
+                # Меняем UI и обновляем вьюер ТОЛЬКО при ручном клике пользователя
                 if not getattr(self, "_is_updating_table", False):
+                    # Фоновый поиск реального пути файла (теперь не моргает от таймера)
+                    self.check_for_rtstruct(selected_path)
+                    
                     self.update_viewer_with_dicom(selected_path)
-                
-                # Меняем UI (радиокнопки и текстовую надпись) ТОЛЬКО при ручном клике пользователя
-                if not getattr(self, "_is_updating_table", False):
+                    
                     str_status = self.series_table.item(row, 2).text()
                     if str_status == "No":
                         self.status_rtstruct_label.setText("Существующий RTSTRUCT не обнаружен (будет создан новый)")
@@ -1623,6 +1622,13 @@ if PYQT_AVAILABLE:
                     try:
                         mask_3d = rtstruct.get_roi_mask_by_name(roi) # (x, y, z) bool
                         mask_3d = np.transpose(mask_3d, (2, 0, 1)) # (z, x, y)
+                        
+                        # Корректировка ориентации по запросу пользователя
+                        # 180 градусов по оси Z (отзеркаливание порядка срезов)
+                        mask_3d = np.flip(mask_3d, axis=0)
+                        # 270 градусов в плоскости (поворот)
+                        mask_3d = np.rot90(mask_3d, k=3, axes=(1, 2))
+                        
                         color = self.engine.colors.get(roi, [0, 255, 128])
                         overlay_3d[mask_3d, 0] = color[0]
                         overlay_3d[mask_3d, 1] = color[1]
