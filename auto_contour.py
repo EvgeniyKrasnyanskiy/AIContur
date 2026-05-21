@@ -543,13 +543,16 @@ if PYQT_AVAILABLE:
     QRadioButton {
         spacing: 8px;
         color: #d0d0d0;
+        margin-bottom: 6px;
+        padding-top: 2px;
+        padding-bottom: 2px;
     }
 
     QRadioButton::indicator {
         width: 16px;
         height: 16px;
-        border: 2px solid #666666;
-        border-radius: 8px;
+        border: 2px solid #888888;
+        border-radius: 10px;
         background-color: #242424;
     }
 
@@ -559,9 +562,10 @@ if PYQT_AVAILABLE:
     }
 
     QRadioButton::indicator:checked {
-        border: none;
-        background: transparent;
-        image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0Ij48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMSIgZmlsbD0iIzAwN2FjYyIvPjxjaXJjbGUgY3g9IjEyIiBjeT0iMTIiIHI9IjQiIGZpbGw9IiNmZmZmZmYiLz48L3N2Zz4=");
+        border: 2px solid #007acc;
+        border-radius: 10px;
+        background-color: #007acc;
+        image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9JzAgMCAyNCAyNCcgd2lkdGg9JzI0JyBoZWlnaHQ9JzI0Jz48Y2lyY2xlIGN4PScxMicgY3k9JzEyJyByPSc2JyBmaWxsPScjZmZmZmZmJy8+PC9zdmc+");
     }
 
     QRadioButton::indicator:disabled {
@@ -570,9 +574,10 @@ if PYQT_AVAILABLE:
     }
 
     QRadioButton::indicator:checked:disabled {
-        border: none;
-        background: transparent;
-        image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0Ij48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMSIgZmlsbD0iIzQ0NDQ0NCIvPjxjaXJjbGUgY3g9IjEyIiBjeT0iMTIiIHI9IjQiIGZpbGw9IiNhYWFhYWEiLz48L3N2Zz4=");
+        border: 2px solid #444444;
+        border-radius: 10px;
+        background-color: #444444;
+        image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9JzAgMCAyNCAyNCcgd2lkdGg9JzI0JyBoZWlnaHQ9JzI0Jz48Y2lyY2xlIGN4PScxMicgY3k9JzEyJyByPSc2JyBmaWxsPScjODg4ODg4Jy8+PC9zdmc+");
     }
 
     QRadioButton::disabled {
@@ -851,7 +856,7 @@ if PYQT_AVAILABLE:
             self.input_edit = QLineEdit()
             self.input_edit.setPlaceholderText("Выберите папку с DICOM файлами...")
             self.input_edit.textChanged.connect(self.check_for_rtstruct)
-            self.btn_input = QPushButton("📂 Обзор...")
+            self.btn_input = QPushButton("📂 Источник")
             self.btn_input.setObjectName("btnBrowse")
             self.btn_input.clicked.connect(self.select_input_dir)
 
@@ -864,8 +869,9 @@ if PYQT_AVAILABLE:
             # Группа: Работа с существующими контурами (перенесено из Tab 1)
             merge_group = QGroupBox("Работа с существующими контурами")
             merge_group_layout = QVBoxLayout(merge_group)
+            merge_group_layout.setSpacing(10)
             
-            self.status_rtstruct_label = QLabel("Статус: Путь не выбран")
+            self.status_rtstruct_label = QLabel("RTSTRUCT: путь не выбран")
             self.status_rtstruct_label.setStyleSheet("color: #888888;")
             self.status_rtstruct_label.setWordWrap(True)
             merge_group_layout.addWidget(self.status_rtstruct_label)
@@ -890,6 +896,7 @@ if PYQT_AVAILABLE:
             # Группа 1: Вычислительное устройство
             device_group = QGroupBox("Вычислительное устройство")
             device_group_layout = QVBoxLayout(device_group)
+            device_group_layout.setSpacing(10)
             self.radio_cpu = QRadioButton("Использовать CPU (Центральный процессор)")
             self.radio_gpu = QRadioButton("Использовать GPU CUDA (Рекомендуется)")
             
@@ -1605,7 +1612,7 @@ if PYQT_AVAILABLE:
                     
                     str_status = self.series_table.item(row, 2).text()
                     if str_status == "Нет" or str_status == "No":
-                        self.status_rtstruct_label.setText("Существующий RTSTRUCT не обнаружен (будет создан новый)")
+                        self.status_rtstruct_label.setText("RTSTRUCT: не найден (будет создан новый)")
                         self.status_rtstruct_label.setStyleSheet("color: #888888;")
                         self.radio_merge_merge.setEnabled(False)
                         self.radio_merge_overwrite.setEnabled(False)
@@ -1614,9 +1621,9 @@ if PYQT_AVAILABLE:
                         # Если хотим вывести имя файла, можно взять из self.existing_rtstruct_path
                         if self.existing_rtstruct_path:
                             basename = os.path.basename(self.existing_rtstruct_path)
-                            self.status_rtstruct_label.setText(f"Обнаружен существующий RTSTRUCT: {basename}")
+                            self.status_rtstruct_label.setText(f"RTSTRUCT: обнаружен {basename}")
                         else:
-                            self.status_rtstruct_label.setText("Обнаружен существующий RTSTRUCT")
+                            self.status_rtstruct_label.setText("RTSTRUCT: обнаружен")
                         self.status_rtstruct_label.setStyleSheet("color: #2ecc71; font-weight: bold;")
                         self.radio_merge_merge.setEnabled(True)
                         self.radio_merge_overwrite.setEnabled(True)
