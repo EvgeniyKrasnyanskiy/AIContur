@@ -1918,16 +1918,16 @@ if PYQT_AVAILABLE:
 
                 final_log = f"[INFO]: Пайплайн успешно завершен! Добавлено структур: {count}. Общее время работы: {time_str} сек."
                 self.log_edit.appendHtml(f"<br><span style='background-color: #107c41; color: white; font-weight: bold; padding: 4px;'>{final_log}</span><br>")
-                QMessageBox.information(self, "Успех", "Автоматическое оконтурирование завершено успешно!")
+                QTimer.singleShot(100, lambda: QMessageBox.information(self, "Успех", "Автоматическое оконтурирование завершено успешно!"))
             else:
                 self.progress_bar.setValue(0)
                 if "отменена пользователем" in message.lower() or "отменен пользователем" in message.lower():
                     self.status_step_label.setText("Текущий шаг: Расчет отменен!")
                     self.status_step_label.setStyleSheet("color: #e74c3c; font-weight: bold;")
-                    QMessageBox.warning(self, "Предупреждение", "Процесс оконтурирования был прерван.")
+                    QTimer.singleShot(100, lambda: QMessageBox.warning(self, "Предупреждение", "Процесс оконтурирования был прерван."))
                 else:
                     self.status_step_label.setText("Текущий шаг: Ошибка!")
-                    QMessageBox.critical(self, "Критическая ошибка", f"Произошел сбой при сегментации:\n{message}")
+                    QTimer.singleShot(100, lambda msg=message: QMessageBox.critical(self, "Критическая ошибка", f"Произошел сбой при сегментации:\n{msg}"))
 
         def on_step_changed(self, step_text: str):
             self.current_step_base_text = step_text
