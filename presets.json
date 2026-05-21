@@ -72,27 +72,63 @@
       }
     ],
     "Все структуры / Full Total": [
+      "abdominal_cavity",
       "adrenal_gland_left",
       "adrenal_gland_right",
+      "anterior_scalene_left",
+      "anterior_scalene_right",
       "aorta",
       "atrial_appendage_left",
+      "auditory_canal_left",
+      "auditory_canal_right",
       "autochthon_left",
       "autochthon_right",
+      "body_extremities",
+      "body_trunc",
       "brachiocephalic_trunk",
       "brachiocephalic_vein_left",
       "brachiocephalic_vein_right",
       "brain",
+      "brain_aneurysm",
+      "brainstem",
+      "breast",
+      "bridge",
+      "carpal",
+      "caudate_nucleus",
+      "central_sulcus",
+      "cerebellum",
       "clavicula_left",
       "clavicula_right",
       "colon",
       "common_carotid_artery_left",
       "common_carotid_artery_right",
+      "coracobrachial",
+      "coronary_arteries",
       "costal_cartilages",
+      "cricoid_cartilage",
+      "crown",
+      "deltoid",
+      "digastric_left",
+      "digastric_right",
       "duodenum",
+      "erector_spinae_left",
+      "erector_spinae_right",
       "esophagus",
+      "external_oblique_left",
+      "external_oblique_right",
+      "eye_left",
+      "eye_lens_left",
+      "eye_lens_right",
+      "eye_right",
+      "eyeball_left",
+      "eyeball_right",
       "face",
+      "femur",
       "femur_left",
       "femur_right",
+      "fibula",
+      "fourth_ventricle",
+      "frontal_lobe",
       "gallbladder",
       "gluteus_maximus_left",
       "gluteus_maximus_right",
@@ -100,38 +136,185 @@
       "gluteus_medius_right",
       "gluteus_minimus_left",
       "gluteus_minimus_right",
+      "hard_palate",
+      "head",
       "heart",
       "heart_atrium_left",
       "heart_atrium_right",
       "heart_myocardium",
       "heart_ventricle_left",
       "heart_ventricle_right",
+      "hip_implant",
       "hip_left",
       "hip_right",
+      "humerus",
       "humerus_left",
       "humerus_right",
+      "hyoid",
+      "hypopharynx",
       "iliac_artery_left",
       "iliac_artery_right",
       "iliac_vena_left",
       "iliac_vena_right",
       "iliopsoas_left",
       "iliopsoas_right",
+      "implant",
+      "inferior_oblique_muscle_left",
+      "inferior_oblique_muscle_right",
+      "inferior_pharyngeal_constrictor",
+      "inferior_rectus_muscle_left",
+      "inferior_rectus_muscle_right",
       "inferior_vena_cava",
+      "infraspinatus",
+      "insular_cortex",
+      "intermuscular_fat",
+      "internal_capsule",
+      "internal_carotid_artery_left",
+      "internal_carotid_artery_right",
+      "internal_jugular_vein_left",
+      "internal_jugular_vein_right",
+      "internal_oblique_left",
+      "internal_oblique_right",
+      "intervertebral_discs",
+      "intracerebral_hemorrhage",
       "kidney_cyst_left",
       "kidney_cyst_right",
       "kidney_left",
       "kidney_right",
+      "larynx_air",
+      "lateral_pterygoid_left",
+      "lateral_pterygoid_right",
+      "lateral_rectus_muscle_left",
+      "lateral_rectus_muscle_right",
+      "latissimus_dorsi_left",
+      "latissimus_dorsi_right",
+      "left_coronary_cusp",
+      "left_inferior_alveolar_canal",
+      "left_mandibular_incisive_canal_fdi103",
+      "left_maxillary_sinus",
+      "left_ventricular_outflow_tract",
+      "lentiform_nucleus",
+      "levator_palpebrae_superioris_left",
+      "levator_palpebrae_superioris_right",
+      "levator_scapulae_left",
+      "levator_scapulae_right",
+      "lingual_canal",
       "liver",
+      "liver_lesions",
+      "liver_segment_1",
+      "liver_segment_2",
+      "liver_segment_3",
+      "liver_segment_4",
+      "liver_segment_5",
+      "liver_segment_6",
+      "liver_segment_7",
+      "liver_segment_8",
+      "liver_tumor",
+      "liver_vessels",
+      "lower_jawbone",
+      "lower_left_canine_fdi33",
+      "lower_left_canine_pulp_fdi133",
+      "lower_left_central_incisor_fdi31",
+      "lower_left_central_incisor_pulp_fdi131",
+      "lower_left_first_molar_fdi36",
+      "lower_left_first_molar_pulp_fdi136",
+      "lower_left_first_premolar_fdi34",
+      "lower_left_first_premolar_pulp_fdi134",
+      "lower_left_lateral_incisor_fdi32",
+      "lower_left_lateral_incisor_pulp_fdi132",
+      "lower_left_second_molar_fdi37",
+      "lower_left_second_molar_pulp_fdi137",
+      "lower_left_second_premolar_fdi35",
+      "lower_left_second_premolar_pulp_fdi135",
+      "lower_left_third_molar_fdi38",
+      "lower_left_third_molar_pulp_fdi138",
+      "lower_right_canine_fdi43",
+      "lower_right_canine_pulp_fdi143",
+      "lower_right_central_incisor_fdi41",
+      "lower_right_central_incisor_pulp_fdi141",
+      "lower_right_first_molar_fdi46",
+      "lower_right_first_molar_pulp_fdi146",
+      "lower_right_first_premolar_fdi44",
+      "lower_right_first_premolar_pulp_fdi144",
+      "lower_right_lateral_incisor_fdi42",
+      "lower_right_lateral_incisor_pulp_fdi142",
+      "lower_right_second_molar_fdi47",
+      "lower_right_second_molar_pulp_fdi147",
+      "lower_right_second_premolar_fdi45",
+      "lower_right_second_premolar_pulp_fdi145",
+      "lower_right_third_molar_fdi48",
+      "lower_right_third_molar_pulp_fdi148",
+      "lung",
+      "lung_airways",
+      "lung_airways_wall",
+      "lung_arteries",
+      "lung_covid_infiltrate",
+      "lung_left",
       "lung_lower_lobe_left",
       "lung_lower_lobe_right",
       "lung_middle_lobe_right",
+      "lung_nodules",
+      "lung_pleural",
+      "lung_right",
+      "lung_trachea_bronchia",
       "lung_upper_lobe_left",
       "lung_upper_lobe_right",
+      "lung_veins",
+      "lung_vessels",
+      "mandible",
+      "masseter_left",
+      "masseter_right",
+      "medial_pterygoid_left",
+      "medial_pterygoid_right",
+      "medial_rectus_muscle_left",
+      "medial_rectus_muscle_right",
+      "mediastinum",
+      "metacarpal",
+      "metatarsal",
+      "middle_pharyngeal_constrictor",
+      "middle_scalene_left",
+      "middle_scalene_right",
+      "nasal_cavity_left",
+      "nasal_cavity_right",
+      "nasopharynx",
+      "non_coronary_cusp",
+      "occipital_lobe",
+      "optic_nerve_left",
+      "optic_nerve_right",
+      "oropharynx",
       "pancreas",
+      "parietal_lobe",
+      "parotid_gland_left",
+      "parotid_gland_right",
+      "patella",
+      "pectoralis_major_left",
+      "pectoralis_major_right",
+      "pectoralis_minor",
+      "pericardial_effusion",
+      "pericardium",
+      "phalanges_feet",
+      "phalanges_hand",
+      "pharynx",
+      "platysma_left",
+      "platysma_right",
+      "pleural_effusion",
       "portal_vein_and_splenic_vein",
+      "posterior_scalene_left",
+      "posterior_scalene_right",
+      "prevertebral_left",
+      "prevertebral_right",
       "prostate",
+      "psoas_major_left",
+      "psoas_major_right",
       "pulmonary_artery",
       "pulmonary_vein",
+      "quadratus_lumborum_left",
+      "quadratus_lumborum_right",
+      "quadriceps_femoris_left",
+      "quadriceps_femoris_right",
+      "radius",
+      "rectus_abdominis_left",
+      "rectus_abdominis_right",
       "rib_left_1",
       "rib_left_10",
       "rib_left_11",
@@ -156,21 +339,125 @@
       "rib_right_7",
       "rib_right_8",
       "rib_right_9",
+      "right_coronary_cusp",
+      "right_inferior_alveolar_canal",
+      "right_mandibular_incisive_canal_fdi104",
+      "right_maxillary_sinus",
       "sacrum",
+      "sartorius_left",
+      "sartorius_right",
       "scapula_left",
       "scapula_right",
+      "septum_pellucidum",
+      "serratus_anterior",
+      "serratus_anterior_left",
+      "serratus_anterior_right",
+      "sinus_frontal",
+      "sinus_maxillary",
+      "skeletal_muscle",
       "skull",
       "small_bowel",
+      "soft_palate",
       "spinal_cord",
       "spleen",
+      "sterno_thyroid_left",
+      "sterno_thyroid_right",
+      "sternocleidomastoid_left",
+      "sternocleidomastoid_right",
       "sternum",
       "stomach",
+      "styloid_process_left",
+      "styloid_process_right",
+      "subarachnoid_space",
       "subclavian_artery_left",
       "subclavian_artery_right",
+      "subcutaneous_fat",
+      "submandibular_gland_left",
+      "submandibular_gland_right",
+      "subscapularis",
+      "superior_oblique_muscle_left",
+      "superior_oblique_muscle_right",
+      "superior_pharyngeal_constrictor",
+      "superior_rectus_muscle_left",
+      "superior_rectus_muscle_right",
       "superior_vena_cava",
+      "supraspinatus",
+      "tarsal",
+      "teeth_lower",
+      "teeth_upper",
+      "temporal_lobe",
+      "temporalis_left",
+      "temporalis_right",
+      "teres_major",
+      "thalamus",
+      "thigh_medial_compartment_left",
+      "thigh_medial_compartment_right",
+      "thigh_posterior_compartment_left",
+      "thigh_posterior_compartment_right",
+      "third_ventricle",
+      "thoracic_cavity",
+      "thyrohyoid_left",
+      "thyrohyoid_right",
+      "thyroid_cartilage",
       "thyroid_gland",
+      "tibia",
+      "tongue",
+      "torso_fat",
       "trachea",
+      "transversospinalis_left",
+      "transversospinalis_right",
+      "trapezius",
+      "trapezius_left",
+      "trapezius_right",
+      "triceps_brachii",
+      "ulna",
+      "upper_jawbone",
+      "upper_left_canine_fdi23",
+      "upper_left_canine_pulp_fdi123",
+      "upper_left_central_incisor_fdi21",
+      "upper_left_central_incisor_pulp_fdi121",
+      "upper_left_first_molar_fdi26",
+      "upper_left_first_molar_pulp_fdi126",
+      "upper_left_first_premolar_fdi24",
+      "upper_left_first_premolar_pulp_fdi124",
+      "upper_left_lateral_incisor_fdi22",
+      "upper_left_lateral_incisor_pulp_fdi122",
+      "upper_left_second_molar_fdi27",
+      "upper_left_second_molar_pulp_fdi127",
+      "upper_left_second_premolar_fdi25",
+      "upper_left_second_premolar_pulp_fdi125",
+      "upper_left_third_molar_fdi28",
+      "upper_left_third_molar_pulp_fdi128",
+      "upper_right_canine_fdi13",
+      "upper_right_canine_pulp_fdi113",
+      "upper_right_central_incisor_fdi11",
+      "upper_right_central_incisor_pulp_fdi111",
+      "upper_right_first_molar_fdi16",
+      "upper_right_first_molar_pulp_fdi116",
+      "upper_right_first_premolar_fdi14",
+      "upper_right_first_premolar_pulp_fdi114",
+      "upper_right_lateral_incisor_fdi12",
+      "upper_right_lateral_incisor_pulp_fdi112",
+      "upper_right_second_molar_fdi17",
+      "upper_right_second_molar_pulp_fdi117",
+      "upper_right_second_premolar_fdi15",
+      "upper_right_second_premolar_pulp_fdi115",
+      "upper_right_third_molar_fdi18",
+      "upper_right_third_molar_pulp_fdi118",
       "urinary_bladder",
+      "venous_sinuses",
+      "ventricle",
+      "ventricle_body_left",
+      "ventricle_body_right",
+      "ventricle_frontal_horn_left",
+      "ventricle_frontal_horn_right",
+      "ventricle_occipital_horn_left",
+      "ventricle_occipital_horn_right",
+      "ventricle_temporal_horn_left",
+      "ventricle_temporal_horn_right",
+      "ventricle_trigone_left",
+      "ventricle_trigone_right",
+      "vertebrae",
       "vertebrae_C1",
       "vertebrae_C2",
       "vertebrae_C3",
@@ -195,7 +482,10 @@
       "vertebrae_T6",
       "vertebrae_T7",
       "vertebrae_T8",
-      "vertebrae_T9"
+      "vertebrae_T9",
+      "vertebrae_body",
+      "zygomatic_arch_left",
+      "zygomatic_arch_right"
     ]
   },
   "colors": {
@@ -868,6 +1158,1426 @@
       240,
       230,
       140
+    ],
+    "abdominal_cavity": [
+      227,
+      210,
+      125
+    ],
+    "anterior_scalene_left": [
+      185,
+      149,
+      108
+    ],
+    "anterior_scalene_right": [
+      120,
+      251,
+      99
+    ],
+    "auditory_canal_left": [
+      50,
+      189,
+      50
+    ],
+    "auditory_canal_right": [
+      211,
+      50,
+      50
+    ],
+    "body_extremities": [
+      140,
+      231,
+      65
+    ],
+    "body_trunc": [
+      114,
+      165,
+      179
+    ],
+    "brain_aneurysm": [
+      50,
+      51,
+      174
+    ],
+    "brainstem": [
+      85,
+      113,
+      102
+    ],
+    "breast": [
+      93,
+      125,
+      54
+    ],
+    "bridge": [
+      152,
+      172,
+      107
+    ],
+    "carpal": [
+      225,
+      209,
+      81
+    ],
+    "caudate_nucleus": [
+      94,
+      132,
+      195
+    ],
+    "central_sulcus": [
+      202,
+      62,
+      255
+    ],
+    "cerebellum": [
+      50,
+      139,
+      252
+    ],
+    "coracobrachial": [
+      95,
+      107,
+      203
+    ],
+    "coronary_arteries": [
+      165,
+      150,
+      104
+    ],
+    "cricoid_cartilage": [
+      50,
+      50,
+      112
+    ],
+    "crown": [
+      64,
+      142,
+      105
+    ],
+    "deltoid": [
+      173,
+      155,
+      196
+    ],
+    "digastric_left": [
+      172,
+      179,
+      181
+    ],
+    "digastric_right": [
+      50,
+      239,
+      227
+    ],
+    "erector_spinae_left": [
+      143,
+      254,
+      50
+    ],
+    "erector_spinae_right": [
+      93,
+      167,
+      50
+    ],
+    "external_oblique_left": [
+      102,
+      236,
+      163
+    ],
+    "external_oblique_right": [
+      249,
+      50,
+      246
+    ],
+    "eye_lens_left": [
+      50,
+      50,
+      81
+    ],
+    "eye_lens_right": [
+      85,
+      225,
+      122
+    ],
+    "eyeball_left": [
+      51,
+      122,
+      134
+    ],
+    "eyeball_right": [
+      120,
+      154,
+      204
+    ],
+    "femur": [
+      213,
+      114,
+      50
+    ],
+    "fibula": [
+      236,
+      156,
+      83
+    ],
+    "fourth_ventricle": [
+      110,
+      123,
+      50
+    ],
+    "frontal_lobe": [
+      50,
+      74,
+      201
+    ],
+    "hard_palate": [
+      116,
+      223,
+      180
+    ],
+    "head": [
+      150,
+      232,
+      154
+    ],
+    "hip_implant": [
+      102,
+      248,
+      243
+    ],
+    "humerus": [
+      50,
+      58,
+      86
+    ],
+    "hyoid": [
+      239,
+      78,
+      133
+    ],
+    "hypopharynx": [
+      88,
+      172,
+      206
+    ],
+    "implant": [
+      153,
+      78,
+      50
+    ],
+    "inferior_oblique_muscle_left": [
+      252,
+      59,
+      105
+    ],
+    "inferior_oblique_muscle_right": [
+      91,
+      182,
+      234
+    ],
+    "inferior_pharyngeal_constrictor": [
+      205,
+      149,
+      68
+    ],
+    "inferior_rectus_muscle_left": [
+      50,
+      154,
+      116
+    ],
+    "inferior_rectus_muscle_right": [
+      150,
+      50,
+      50
+    ],
+    "infraspinatus": [
+      89,
+      122,
+      50
+    ],
+    "insular_cortex": [
+      211,
+      50,
+      142
+    ],
+    "intermuscular_fat": [
+      50,
+      103,
+      107
+    ],
+    "internal_capsule": [
+      122,
+      221,
+      128
+    ],
+    "internal_carotid_artery_left": [
+      53,
+      50,
+      243
+    ],
+    "internal_carotid_artery_right": [
+      50,
+      136,
+      73
+    ],
+    "internal_jugular_vein_left": [
+      57,
+      77,
+      74
+    ],
+    "internal_jugular_vein_right": [
+      198,
+      74,
+      50
+    ],
+    "internal_oblique_left": [
+      73,
+      83,
+      63
+    ],
+    "internal_oblique_right": [
+      50,
+      110,
+      140
+    ],
+    "intervertebral_discs": [
+      184,
+      50,
+      162
+    ],
+    "intracerebral_hemorrhage": [
+      74,
+      229,
+      179
+    ],
+    "larynx_air": [
+      140,
+      196,
+      50
+    ],
+    "lateral_pterygoid_left": [
+      94,
+      57,
+      50
+    ],
+    "lateral_pterygoid_right": [
+      177,
+      50,
+      81
+    ],
+    "lateral_rectus_muscle_left": [
+      186,
+      131,
+      50
+    ],
+    "lateral_rectus_muscle_right": [
+      88,
+      106,
+      201
+    ],
+    "latissimus_dorsi_left": [
+      154,
+      185,
+      78
+    ],
+    "latissimus_dorsi_right": [
+      183,
+      50,
+      182
+    ],
+    "left_coronary_cusp": [
+      51,
+      50,
+      235
+    ],
+    "left_inferior_alveolar_canal": [
+      133,
+      166,
+      153
+    ],
+    "left_mandibular_incisive_canal_fdi103": [
+      143,
+      227,
+      70
+    ],
+    "left_maxillary_sinus": [
+      50,
+      181,
+      101
+    ],
+    "left_ventricular_outflow_tract": [
+      154,
+      156,
+      50
+    ],
+    "lentiform_nucleus": [
+      211,
+      218,
+      169
+    ],
+    "levator_palpebrae_superioris_left": [
+      126,
+      221,
+      254
+    ],
+    "levator_palpebrae_superioris_right": [
+      254,
+      107,
+      63
+    ],
+    "levator_scapulae_left": [
+      78,
+      193,
+      230
+    ],
+    "levator_scapulae_right": [
+      100,
+      160,
+      50
+    ],
+    "lingual_canal": [
+      245,
+      69,
+      219
+    ],
+    "liver_lesions": [
+      107,
+      137,
+      204
+    ],
+    "liver_segment_1": [
+      214,
+      88,
+      189
+    ],
+    "liver_segment_2": [
+      67,
+      75,
+      77
+    ],
+    "liver_segment_3": [
+      119,
+      204,
+      208
+    ],
+    "liver_segment_4": [
+      61,
+      106,
+      50
+    ],
+    "liver_segment_5": [
+      223,
+      85,
+      186
+    ],
+    "liver_segment_6": [
+      136,
+      236,
+      50
+    ],
+    "liver_segment_7": [
+      90,
+      92,
+      71
+    ],
+    "liver_segment_8": [
+      115,
+      120,
+      112
+    ],
+    "liver_tumor": [
+      151,
+      218,
+      237
+    ],
+    "liver_vessels": [
+      181,
+      108,
+      255
+    ],
+    "lower_jawbone": [
+      50,
+      91,
+      172
+    ],
+    "lower_left_canine_fdi33": [
+      114,
+      248,
+      180
+    ],
+    "lower_left_canine_pulp_fdi133": [
+      224,
+      50,
+      90
+    ],
+    "lower_left_central_incisor_fdi31": [
+      146,
+      107,
+      111
+    ],
+    "lower_left_central_incisor_pulp_fdi131": [
+      50,
+      117,
+      62
+    ],
+    "lower_left_first_molar_fdi36": [
+      254,
+      172,
+      88
+    ],
+    "lower_left_first_molar_pulp_fdi136": [
+      65,
+      167,
+      162
+    ],
+    "lower_left_first_premolar_fdi34": [
+      210,
+      247,
+      244
+    ],
+    "lower_left_first_premolar_pulp_fdi134": [
+      234,
+      202,
+      50
+    ],
+    "lower_left_lateral_incisor_fdi32": [
+      90,
+      165,
+      157
+    ],
+    "lower_left_lateral_incisor_pulp_fdi132": [
+      50,
+      131,
+      63
+    ],
+    "lower_left_second_molar_fdi37": [
+      50,
+      210,
+      66
+    ],
+    "lower_left_second_molar_pulp_fdi137": [
+      50,
+      50,
+      241
+    ],
+    "lower_left_second_premolar_fdi35": [
+      50,
+      126,
+      244
+    ],
+    "lower_left_second_premolar_pulp_fdi135": [
+      95,
+      122,
+      50
+    ],
+    "lower_left_third_molar_fdi38": [
+      50,
+      193,
+      223
+    ],
+    "lower_left_third_molar_pulp_fdi138": [
+      234,
+      198,
+      178
+    ],
+    "lower_right_canine_fdi43": [
+      72,
+      50,
+      50
+    ],
+    "lower_right_canine_pulp_fdi143": [
+      51,
+      56,
+      50
+    ],
+    "lower_right_central_incisor_fdi41": [
+      108,
+      79,
+      50
+    ],
+    "lower_right_central_incisor_pulp_fdi141": [
+      122,
+      102,
+      89
+    ],
+    "lower_right_first_molar_fdi46": [
+      201,
+      113,
+      85
+    ],
+    "lower_right_first_molar_pulp_fdi146": [
+      128,
+      166,
+      169
+    ],
+    "lower_right_first_premolar_fdi44": [
+      192,
+      144,
+      236
+    ],
+    "lower_right_first_premolar_pulp_fdi144": [
+      237,
+      155,
+      211
+    ],
+    "lower_right_lateral_incisor_fdi42": [
+      170,
+      129,
+      62
+    ],
+    "lower_right_lateral_incisor_pulp_fdi142": [
+      207,
+      169,
+      212
+    ],
+    "lower_right_second_molar_fdi47": [
+      158,
+      155,
+      108
+    ],
+    "lower_right_second_molar_pulp_fdi147": [
+      71,
+      104,
+      50
+    ],
+    "lower_right_second_premolar_fdi45": [
+      54,
+      254,
+      229
+    ],
+    "lower_right_second_premolar_pulp_fdi145": [
+      197,
+      52,
+      50
+    ],
+    "lower_right_third_molar_fdi48": [
+      252,
+      219,
+      248
+    ],
+    "lower_right_third_molar_pulp_fdi148": [
+      147,
+      113,
+      134
+    ],
+    "lung": [
+      50,
+      241,
+      130
+    ],
+    "lung_airways": [
+      113,
+      114,
+      79
+    ],
+    "lung_airways_wall": [
+      252,
+      191,
+      50
+    ],
+    "lung_arteries": [
+      90,
+      154,
+      50
+    ],
+    "lung_covid_infiltrate": [
+      134,
+      147,
+      82
+    ],
+    "lung_nodules": [
+      79,
+      50,
+      174
+    ],
+    "lung_pleural": [
+      50,
+      240,
+      51
+    ],
+    "lung_trachea_bronchia": [
+      216,
+      50,
+      207
+    ],
+    "lung_veins": [
+      186,
+      228,
+      105
+    ],
+    "lung_vessels": [
+      116,
+      50,
+      50
+    ],
+    "mandible": [
+      194,
+      138,
+      50
+    ],
+    "masseter_left": [
+      71,
+      202,
+      50
+    ],
+    "masseter_right": [
+      102,
+      100,
+      210
+    ],
+    "medial_pterygoid_left": [
+      100,
+      120,
+      83
+    ],
+    "medial_pterygoid_right": [
+      73,
+      155,
+      80
+    ],
+    "medial_rectus_muscle_left": [
+      218,
+      197,
+      204
+    ],
+    "medial_rectus_muscle_right": [
+      240,
+      50,
+      50
+    ],
+    "mediastinum": [
+      219,
+      71,
+      201
+    ],
+    "metacarpal": [
+      77,
+      224,
+      174
+    ],
+    "metatarsal": [
+      167,
+      82,
+      50
+    ],
+    "middle_pharyngeal_constrictor": [
+      254,
+      79,
+      64
+    ],
+    "middle_scalene_left": [
+      238,
+      71,
+      140
+    ],
+    "middle_scalene_right": [
+      50,
+      222,
+      235
+    ],
+    "nasal_cavity_left": [
+      129,
+      67,
+      149
+    ],
+    "nasal_cavity_right": [
+      158,
+      178,
+      186
+    ],
+    "nasopharynx": [
+      68,
+      132,
+      144
+    ],
+    "non_coronary_cusp": [
+      174,
+      123,
+      50
+    ],
+    "occipital_lobe": [
+      221,
+      211,
+      50
+    ],
+    "oropharynx": [
+      128,
+      173,
+      81
+    ],
+    "parietal_lobe": [
+      225,
+      248,
+      149
+    ],
+    "parotid_gland_left": [
+      50,
+      163,
+      50
+    ],
+    "parotid_gland_right": [
+      255,
+      138,
+      115
+    ],
+    "patella": [
+      50,
+      185,
+      89
+    ],
+    "pectoralis_major_left": [
+      217,
+      213,
+      132
+    ],
+    "pectoralis_major_right": [
+      232,
+      252,
+      122
+    ],
+    "pectoralis_minor": [
+      178,
+      109,
+      208
+    ],
+    "pericardial_effusion": [
+      177,
+      180,
+      248
+    ],
+    "pericardium": [
+      193,
+      50,
+      200
+    ],
+    "phalanges_feet": [
+      200,
+      69,
+      201
+    ],
+    "phalanges_hand": [
+      115,
+      50,
+      238
+    ],
+    "pharynx": [
+      52,
+      50,
+      243
+    ],
+    "platysma_left": [
+      188,
+      50,
+      109
+    ],
+    "platysma_right": [
+      59,
+      50,
+      121
+    ],
+    "pleural_effusion": [
+      164,
+      127,
+      161
+    ],
+    "posterior_scalene_left": [
+      99,
+      68,
+      71
+    ],
+    "posterior_scalene_right": [
+      50,
+      199,
+      52
+    ],
+    "prevertebral_left": [
+      200,
+      180,
+      50
+    ],
+    "prevertebral_right": [
+      249,
+      50,
+      50
+    ],
+    "psoas_major_left": [
+      96,
+      50,
+      149
+    ],
+    "psoas_major_right": [
+      204,
+      89,
+      89
+    ],
+    "quadratus_lumborum_left": [
+      128,
+      162,
+      56
+    ],
+    "quadratus_lumborum_right": [
+      250,
+      248,
+      50
+    ],
+    "quadriceps_femoris_left": [
+      53,
+      50,
+      119
+    ],
+    "quadriceps_femoris_right": [
+      50,
+      203,
+      228
+    ],
+    "radius": [
+      252,
+      50,
+      50
+    ],
+    "rectus_abdominis_left": [
+      209,
+      229,
+      50
+    ],
+    "rectus_abdominis_right": [
+      62,
+      224,
+      164
+    ],
+    "right_coronary_cusp": [
+      222,
+      50,
+      103
+    ],
+    "right_inferior_alveolar_canal": [
+      121,
+      215,
+      121
+    ],
+    "right_mandibular_incisive_canal_fdi104": [
+      50,
+      50,
+      50
+    ],
+    "right_maxillary_sinus": [
+      72,
+      66,
+      229
+    ],
+    "sartorius_left": [
+      95,
+      179,
+      238
+    ],
+    "sartorius_right": [
+      60,
+      50,
+      128
+    ],
+    "septum_pellucidum": [
+      115,
+      156,
+      58
+    ],
+    "serratus_anterior": [
+      67,
+      50,
+      104
+    ],
+    "serratus_anterior_left": [
+      168,
+      50,
+      252
+    ],
+    "serratus_anterior_right": [
+      88,
+      139,
+      145
+    ],
+    "sinus_frontal": [
+      56,
+      97,
+      255
+    ],
+    "sinus_maxillary": [
+      50,
+      50,
+      97
+    ],
+    "skeletal_muscle": [
+      50,
+      135,
+      99
+    ],
+    "soft_palate": [
+      50,
+      81,
+      198
+    ],
+    "sterno_thyroid_left": [
+      50,
+      80,
+      181
+    ],
+    "sterno_thyroid_right": [
+      50,
+      234,
+      75
+    ],
+    "sternocleidomastoid_left": [
+      199,
+      141,
+      233
+    ],
+    "sternocleidomastoid_right": [
+      234,
+      70,
+      235
+    ],
+    "styloid_process_left": [
+      50,
+      102,
+      50
+    ],
+    "styloid_process_right": [
+      50,
+      150,
+      179
+    ],
+    "subarachnoid_space": [
+      203,
+      50,
+      250
+    ],
+    "subcutaneous_fat": [
+      234,
+      50,
+      171
+    ],
+    "submandibular_gland_left": [
+      70,
+      50,
+      221
+    ],
+    "submandibular_gland_right": [
+      77,
+      98,
+      169
+    ],
+    "subscapularis": [
+      50,
+      243,
+      105
+    ],
+    "superior_oblique_muscle_left": [
+      186,
+      50,
+      233
+    ],
+    "superior_oblique_muscle_right": [
+      235,
+      150,
+      72
+    ],
+    "superior_pharyngeal_constrictor": [
+      255,
+      122,
+      50
+    ],
+    "superior_rectus_muscle_left": [
+      101,
+      169,
+      64
+    ],
+    "superior_rectus_muscle_right": [
+      50,
+      65,
+      175
+    ],
+    "supraspinatus": [
+      172,
+      245,
+      79
+    ],
+    "tarsal": [
+      50,
+      148,
+      154
+    ],
+    "teeth_lower": [
+      231,
+      123,
+      247
+    ],
+    "teeth_upper": [
+      50,
+      109,
+      203
+    ],
+    "temporal_lobe": [
+      50,
+      244,
+      162
+    ],
+    "temporalis_left": [
+      50,
+      143,
+      125
+    ],
+    "temporalis_right": [
+      224,
+      207,
+      76
+    ],
+    "teres_major": [
+      50,
+      50,
+      50
+    ],
+    "thalamus": [
+      159,
+      236,
+      226
+    ],
+    "thigh_medial_compartment_left": [
+      253,
+      228,
+      104
+    ],
+    "thigh_medial_compartment_right": [
+      61,
+      131,
+      50
+    ],
+    "thigh_posterior_compartment_left": [
+      50,
+      119,
+      102
+    ],
+    "thigh_posterior_compartment_right": [
+      50,
+      167,
+      90
+    ],
+    "third_ventricle": [
+      159,
+      93,
+      50
+    ],
+    "thoracic_cavity": [
+      135,
+      218,
+      245
+    ],
+    "thyrohyoid_left": [
+      62,
+      137,
+      50
+    ],
+    "thyrohyoid_right": [
+      50,
+      210,
+      202
+    ],
+    "thyroid_cartilage": [
+      243,
+      69,
+      110
+    ],
+    "tibia": [
+      50,
+      76,
+      100
+    ],
+    "tongue": [
+      204,
+      153,
+      84
+    ],
+    "torso_fat": [
+      50,
+      50,
+      73
+    ],
+    "transversospinalis_left": [
+      174,
+      98,
+      57
+    ],
+    "transversospinalis_right": [
+      53,
+      116,
+      50
+    ],
+    "trapezius": [
+      230,
+      184,
+      174
+    ],
+    "trapezius_left": [
+      227,
+      84,
+      141
+    ],
+    "trapezius_right": [
+      175,
+      56,
+      59
+    ],
+    "triceps_brachii": [
+      91,
+      194,
+      112
+    ],
+    "ulna": [
+      123,
+      50,
+      65
+    ],
+    "upper_jawbone": [
+      135,
+      50,
+      77
+    ],
+    "upper_left_canine_fdi23": [
+      50,
+      50,
+      94
+    ],
+    "upper_left_canine_pulp_fdi123": [
+      65,
+      170,
+      50
+    ],
+    "upper_left_central_incisor_fdi21": [
+      234,
+      50,
+      50
+    ],
+    "upper_left_central_incisor_pulp_fdi121": [
+      50,
+      63,
+      188
+    ],
+    "upper_left_first_molar_fdi26": [
+      50,
+      147,
+      165
+    ],
+    "upper_left_first_molar_pulp_fdi126": [
+      50,
+      148,
+      186
+    ],
+    "upper_left_first_premolar_fdi24": [
+      211,
+      50,
+      129
+    ],
+    "upper_left_first_premolar_pulp_fdi124": [
+      171,
+      79,
+      50
+    ],
+    "upper_left_lateral_incisor_fdi22": [
+      188,
+      252,
+      50
+    ],
+    "upper_left_lateral_incisor_pulp_fdi122": [
+      238,
+      206,
+      83
+    ],
+    "upper_left_second_molar_fdi27": [
+      200,
+      133,
+      153
+    ],
+    "upper_left_second_molar_pulp_fdi127": [
+      222,
+      178,
+      154
+    ],
+    "upper_left_second_premolar_fdi25": [
+      82,
+      178,
+      50
+    ],
+    "upper_left_second_premolar_pulp_fdi125": [
+      129,
+      197,
+      197
+    ],
+    "upper_left_third_molar_fdi28": [
+      139,
+      190,
+      174
+    ],
+    "upper_left_third_molar_pulp_fdi128": [
+      138,
+      238,
+      125
+    ],
+    "upper_right_canine_fdi13": [
+      54,
+      50,
+      147
+    ],
+    "upper_right_canine_pulp_fdi113": [
+      52,
+      50,
+      97
+    ],
+    "upper_right_central_incisor_fdi11": [
+      50,
+      50,
+      205
+    ],
+    "upper_right_central_incisor_pulp_fdi111": [
+      92,
+      136,
+      135
+    ],
+    "upper_right_first_molar_fdi16": [
+      229,
+      65,
+      84
+    ],
+    "upper_right_first_molar_pulp_fdi116": [
+      218,
+      128,
+      218
+    ],
+    "upper_right_first_premolar_fdi14": [
+      253,
+      50,
+      157
+    ],
+    "upper_right_first_premolar_pulp_fdi114": [
+      107,
+      50,
+      231
+    ],
+    "upper_right_lateral_incisor_fdi12": [
+      113,
+      106,
+      50
+    ],
+    "upper_right_lateral_incisor_pulp_fdi112": [
+      50,
+      155,
+      50
+    ],
+    "upper_right_second_molar_fdi17": [
+      138,
+      105,
+      82
+    ],
+    "upper_right_second_molar_pulp_fdi117": [
+      149,
+      153,
+      156
+    ],
+    "upper_right_second_premolar_fdi15": [
+      207,
+      208,
+      186
+    ],
+    "upper_right_second_premolar_pulp_fdi115": [
+      187,
+      89,
+      50
+    ],
+    "upper_right_third_molar_fdi18": [
+      76,
+      77,
+      153
+    ],
+    "upper_right_third_molar_pulp_fdi118": [
+      50,
+      173,
+      168
+    ],
+    "venous_sinuses": [
+      133,
+      211,
+      50
+    ],
+    "ventricle": [
+      130,
+      175,
+      70
+    ],
+    "ventricle_body_left": [
+      83,
+      218,
+      208
+    ],
+    "ventricle_body_right": [
+      204,
+      227,
+      172
+    ],
+    "ventricle_frontal_horn_left": [
+      239,
+      169,
+      124
+    ],
+    "ventricle_frontal_horn_right": [
+      50,
+      171,
+      50
+    ],
+    "ventricle_occipital_horn_left": [
+      58,
+      194,
+      195
+    ],
+    "ventricle_occipital_horn_right": [
+      175,
+      109,
+      88
+    ],
+    "ventricle_temporal_horn_left": [
+      50,
+      60,
+      192
+    ],
+    "ventricle_temporal_horn_right": [
+      217,
+      80,
+      169
+    ],
+    "ventricle_trigone_left": [
+      219,
+      215,
+      133
+    ],
+    "ventricle_trigone_right": [
+      50,
+      52,
+      108
+    ],
+    "vertebrae": [
+      50,
+      71,
+      158
+    ],
+    "vertebrae_body": [
+      132,
+      119,
+      50
+    ],
+    "zygomatic_arch_left": [
+      50,
+      167,
+      197
+    ],
+    "zygomatic_arch_right": [
+      78,
+      79,
+      125
     ]
   },
   "ru_names": {
@@ -1004,6 +2714,290 @@
     "lens_right": "Правый хрусталик (Lens R)",
     "brain_stem": "Ствол мозга (Brain Stem)",
     "optic_nerve_left": "Левый зрительный нерв (Optic Nerve L)",
-    "optic_nerve_right": "Правый зрительный нерв (Optic Nerve R)"
+    "optic_nerve_right": "Правый зрительный нерв (Optic Nerve R)",
+    "abdominal_cavity": "abdominal_cavity",
+    "anterior_scalene_left": "anterior_scalene_left",
+    "anterior_scalene_right": "anterior_scalene_right",
+    "auditory_canal_left": "auditory_canal_left",
+    "auditory_canal_right": "auditory_canal_right",
+    "body_extremities": "body_extremities",
+    "body_trunc": "body_trunc",
+    "brain_aneurysm": "brain_aneurysm",
+    "brainstem": "brainstem",
+    "breast": "breast",
+    "bridge": "bridge",
+    "carpal": "carpal",
+    "caudate_nucleus": "caudate_nucleus",
+    "central_sulcus": "central_sulcus",
+    "cerebellum": "cerebellum",
+    "coracobrachial": "coracobrachial",
+    "coronary_arteries": "coronary_arteries",
+    "cricoid_cartilage": "cricoid_cartilage",
+    "crown": "crown",
+    "deltoid": "deltoid",
+    "digastric_left": "digastric_left",
+    "digastric_right": "digastric_right",
+    "erector_spinae_left": "erector_spinae_left",
+    "erector_spinae_right": "erector_spinae_right",
+    "external_oblique_left": "external_oblique_left",
+    "external_oblique_right": "external_oblique_right",
+    "eye_lens_left": "eye_lens_left",
+    "eye_lens_right": "eye_lens_right",
+    "eyeball_left": "eyeball_left",
+    "eyeball_right": "eyeball_right",
+    "femur": "femur",
+    "fibula": "fibula",
+    "fourth_ventricle": "fourth_ventricle",
+    "frontal_lobe": "frontal_lobe",
+    "hard_palate": "hard_palate",
+    "head": "head",
+    "hip_implant": "hip_implant",
+    "humerus": "humerus",
+    "hyoid": "hyoid",
+    "hypopharynx": "hypopharynx",
+    "implant": "implant",
+    "inferior_oblique_muscle_left": "inferior_oblique_muscle_left",
+    "inferior_oblique_muscle_right": "inferior_oblique_muscle_right",
+    "inferior_pharyngeal_constrictor": "inferior_pharyngeal_constrictor",
+    "inferior_rectus_muscle_left": "inferior_rectus_muscle_left",
+    "inferior_rectus_muscle_right": "inferior_rectus_muscle_right",
+    "infraspinatus": "infraspinatus",
+    "insular_cortex": "insular_cortex",
+    "intermuscular_fat": "intermuscular_fat",
+    "internal_capsule": "internal_capsule",
+    "internal_carotid_artery_left": "internal_carotid_artery_left",
+    "internal_carotid_artery_right": "internal_carotid_artery_right",
+    "internal_jugular_vein_left": "internal_jugular_vein_left",
+    "internal_jugular_vein_right": "internal_jugular_vein_right",
+    "internal_oblique_left": "internal_oblique_left",
+    "internal_oblique_right": "internal_oblique_right",
+    "intervertebral_discs": "intervertebral_discs",
+    "intracerebral_hemorrhage": "intracerebral_hemorrhage",
+    "larynx_air": "larynx_air",
+    "lateral_pterygoid_left": "lateral_pterygoid_left",
+    "lateral_pterygoid_right": "lateral_pterygoid_right",
+    "lateral_rectus_muscle_left": "lateral_rectus_muscle_left",
+    "lateral_rectus_muscle_right": "lateral_rectus_muscle_right",
+    "latissimus_dorsi_left": "latissimus_dorsi_left",
+    "latissimus_dorsi_right": "latissimus_dorsi_right",
+    "left_coronary_cusp": "left_coronary_cusp",
+    "left_inferior_alveolar_canal": "left_inferior_alveolar_canal",
+    "left_mandibular_incisive_canal_fdi103": "left_mandibular_incisive_canal_fdi103",
+    "left_maxillary_sinus": "left_maxillary_sinus",
+    "left_ventricular_outflow_tract": "left_ventricular_outflow_tract",
+    "lentiform_nucleus": "lentiform_nucleus",
+    "levator_palpebrae_superioris_left": "levator_palpebrae_superioris_left",
+    "levator_palpebrae_superioris_right": "levator_palpebrae_superioris_right",
+    "levator_scapulae_left": "levator_scapulae_left",
+    "levator_scapulae_right": "levator_scapulae_right",
+    "lingual_canal": "lingual_canal",
+    "liver_lesions": "liver_lesions",
+    "liver_segment_1": "liver_segment_1",
+    "liver_segment_2": "liver_segment_2",
+    "liver_segment_3": "liver_segment_3",
+    "liver_segment_4": "liver_segment_4",
+    "liver_segment_5": "liver_segment_5",
+    "liver_segment_6": "liver_segment_6",
+    "liver_segment_7": "liver_segment_7",
+    "liver_segment_8": "liver_segment_8",
+    "liver_tumor": "liver_tumor",
+    "liver_vessels": "liver_vessels",
+    "lower_jawbone": "lower_jawbone",
+    "lower_left_canine_fdi33": "lower_left_canine_fdi33",
+    "lower_left_canine_pulp_fdi133": "lower_left_canine_pulp_fdi133",
+    "lower_left_central_incisor_fdi31": "lower_left_central_incisor_fdi31",
+    "lower_left_central_incisor_pulp_fdi131": "lower_left_central_incisor_pulp_fdi131",
+    "lower_left_first_molar_fdi36": "lower_left_first_molar_fdi36",
+    "lower_left_first_molar_pulp_fdi136": "lower_left_first_molar_pulp_fdi136",
+    "lower_left_first_premolar_fdi34": "lower_left_first_premolar_fdi34",
+    "lower_left_first_premolar_pulp_fdi134": "lower_left_first_premolar_pulp_fdi134",
+    "lower_left_lateral_incisor_fdi32": "lower_left_lateral_incisor_fdi32",
+    "lower_left_lateral_incisor_pulp_fdi132": "lower_left_lateral_incisor_pulp_fdi132",
+    "lower_left_second_molar_fdi37": "lower_left_second_molar_fdi37",
+    "lower_left_second_molar_pulp_fdi137": "lower_left_second_molar_pulp_fdi137",
+    "lower_left_second_premolar_fdi35": "lower_left_second_premolar_fdi35",
+    "lower_left_second_premolar_pulp_fdi135": "lower_left_second_premolar_pulp_fdi135",
+    "lower_left_third_molar_fdi38": "lower_left_third_molar_fdi38",
+    "lower_left_third_molar_pulp_fdi138": "lower_left_third_molar_pulp_fdi138",
+    "lower_right_canine_fdi43": "lower_right_canine_fdi43",
+    "lower_right_canine_pulp_fdi143": "lower_right_canine_pulp_fdi143",
+    "lower_right_central_incisor_fdi41": "lower_right_central_incisor_fdi41",
+    "lower_right_central_incisor_pulp_fdi141": "lower_right_central_incisor_pulp_fdi141",
+    "lower_right_first_molar_fdi46": "lower_right_first_molar_fdi46",
+    "lower_right_first_molar_pulp_fdi146": "lower_right_first_molar_pulp_fdi146",
+    "lower_right_first_premolar_fdi44": "lower_right_first_premolar_fdi44",
+    "lower_right_first_premolar_pulp_fdi144": "lower_right_first_premolar_pulp_fdi144",
+    "lower_right_lateral_incisor_fdi42": "lower_right_lateral_incisor_fdi42",
+    "lower_right_lateral_incisor_pulp_fdi142": "lower_right_lateral_incisor_pulp_fdi142",
+    "lower_right_second_molar_fdi47": "lower_right_second_molar_fdi47",
+    "lower_right_second_molar_pulp_fdi147": "lower_right_second_molar_pulp_fdi147",
+    "lower_right_second_premolar_fdi45": "lower_right_second_premolar_fdi45",
+    "lower_right_second_premolar_pulp_fdi145": "lower_right_second_premolar_pulp_fdi145",
+    "lower_right_third_molar_fdi48": "lower_right_third_molar_fdi48",
+    "lower_right_third_molar_pulp_fdi148": "lower_right_third_molar_pulp_fdi148",
+    "lung": "lung",
+    "lung_airways": "lung_airways",
+    "lung_airways_wall": "lung_airways_wall",
+    "lung_arteries": "lung_arteries",
+    "lung_covid_infiltrate": "lung_covid_infiltrate",
+    "lung_nodules": "lung_nodules",
+    "lung_pleural": "lung_pleural",
+    "lung_trachea_bronchia": "lung_trachea_bronchia",
+    "lung_veins": "lung_veins",
+    "lung_vessels": "lung_vessels",
+    "mandible": "mandible",
+    "masseter_left": "masseter_left",
+    "masseter_right": "masseter_right",
+    "medial_pterygoid_left": "medial_pterygoid_left",
+    "medial_pterygoid_right": "medial_pterygoid_right",
+    "medial_rectus_muscle_left": "medial_rectus_muscle_left",
+    "medial_rectus_muscle_right": "medial_rectus_muscle_right",
+    "mediastinum": "mediastinum",
+    "metacarpal": "metacarpal",
+    "metatarsal": "metatarsal",
+    "middle_pharyngeal_constrictor": "middle_pharyngeal_constrictor",
+    "middle_scalene_left": "middle_scalene_left",
+    "middle_scalene_right": "middle_scalene_right",
+    "nasal_cavity_left": "nasal_cavity_left",
+    "nasal_cavity_right": "nasal_cavity_right",
+    "nasopharynx": "nasopharynx",
+    "non_coronary_cusp": "non_coronary_cusp",
+    "occipital_lobe": "occipital_lobe",
+    "oropharynx": "oropharynx",
+    "parietal_lobe": "parietal_lobe",
+    "parotid_gland_left": "parotid_gland_left",
+    "parotid_gland_right": "parotid_gland_right",
+    "patella": "patella",
+    "pectoralis_major_left": "pectoralis_major_left",
+    "pectoralis_major_right": "pectoralis_major_right",
+    "pectoralis_minor": "pectoralis_minor",
+    "pericardial_effusion": "pericardial_effusion",
+    "pericardium": "pericardium",
+    "phalanges_feet": "phalanges_feet",
+    "phalanges_hand": "phalanges_hand",
+    "pharynx": "pharynx",
+    "platysma_left": "platysma_left",
+    "platysma_right": "platysma_right",
+    "pleural_effusion": "pleural_effusion",
+    "posterior_scalene_left": "posterior_scalene_left",
+    "posterior_scalene_right": "posterior_scalene_right",
+    "prevertebral_left": "prevertebral_left",
+    "prevertebral_right": "prevertebral_right",
+    "psoas_major_left": "psoas_major_left",
+    "psoas_major_right": "psoas_major_right",
+    "quadratus_lumborum_left": "quadratus_lumborum_left",
+    "quadratus_lumborum_right": "quadratus_lumborum_right",
+    "quadriceps_femoris_left": "quadriceps_femoris_left",
+    "quadriceps_femoris_right": "quadriceps_femoris_right",
+    "radius": "radius",
+    "rectus_abdominis_left": "rectus_abdominis_left",
+    "rectus_abdominis_right": "rectus_abdominis_right",
+    "right_coronary_cusp": "right_coronary_cusp",
+    "right_inferior_alveolar_canal": "right_inferior_alveolar_canal",
+    "right_mandibular_incisive_canal_fdi104": "right_mandibular_incisive_canal_fdi104",
+    "right_maxillary_sinus": "right_maxillary_sinus",
+    "sartorius_left": "sartorius_left",
+    "sartorius_right": "sartorius_right",
+    "septum_pellucidum": "septum_pellucidum",
+    "serratus_anterior": "serratus_anterior",
+    "serratus_anterior_left": "serratus_anterior_left",
+    "serratus_anterior_right": "serratus_anterior_right",
+    "sinus_frontal": "sinus_frontal",
+    "sinus_maxillary": "sinus_maxillary",
+    "skeletal_muscle": "skeletal_muscle",
+    "soft_palate": "soft_palate",
+    "sterno_thyroid_left": "sterno_thyroid_left",
+    "sterno_thyroid_right": "sterno_thyroid_right",
+    "sternocleidomastoid_left": "sternocleidomastoid_left",
+    "sternocleidomastoid_right": "sternocleidomastoid_right",
+    "styloid_process_left": "styloid_process_left",
+    "styloid_process_right": "styloid_process_right",
+    "subarachnoid_space": "subarachnoid_space",
+    "subcutaneous_fat": "subcutaneous_fat",
+    "submandibular_gland_left": "submandibular_gland_left",
+    "submandibular_gland_right": "submandibular_gland_right",
+    "subscapularis": "subscapularis",
+    "superior_oblique_muscle_left": "superior_oblique_muscle_left",
+    "superior_oblique_muscle_right": "superior_oblique_muscle_right",
+    "superior_pharyngeal_constrictor": "superior_pharyngeal_constrictor",
+    "superior_rectus_muscle_left": "superior_rectus_muscle_left",
+    "superior_rectus_muscle_right": "superior_rectus_muscle_right",
+    "supraspinatus": "supraspinatus",
+    "tarsal": "tarsal",
+    "teeth_lower": "teeth_lower",
+    "teeth_upper": "teeth_upper",
+    "temporal_lobe": "temporal_lobe",
+    "temporalis_left": "temporalis_left",
+    "temporalis_right": "temporalis_right",
+    "teres_major": "teres_major",
+    "thalamus": "thalamus",
+    "thigh_medial_compartment_left": "thigh_medial_compartment_left",
+    "thigh_medial_compartment_right": "thigh_medial_compartment_right",
+    "thigh_posterior_compartment_left": "thigh_posterior_compartment_left",
+    "thigh_posterior_compartment_right": "thigh_posterior_compartment_right",
+    "third_ventricle": "third_ventricle",
+    "thoracic_cavity": "thoracic_cavity",
+    "thyrohyoid_left": "thyrohyoid_left",
+    "thyrohyoid_right": "thyrohyoid_right",
+    "thyroid_cartilage": "thyroid_cartilage",
+    "tibia": "tibia",
+    "tongue": "tongue",
+    "torso_fat": "torso_fat",
+    "transversospinalis_left": "transversospinalis_left",
+    "transversospinalis_right": "transversospinalis_right",
+    "trapezius": "trapezius",
+    "trapezius_left": "trapezius_left",
+    "trapezius_right": "trapezius_right",
+    "triceps_brachii": "triceps_brachii",
+    "ulna": "ulna",
+    "upper_jawbone": "upper_jawbone",
+    "upper_left_canine_fdi23": "upper_left_canine_fdi23",
+    "upper_left_canine_pulp_fdi123": "upper_left_canine_pulp_fdi123",
+    "upper_left_central_incisor_fdi21": "upper_left_central_incisor_fdi21",
+    "upper_left_central_incisor_pulp_fdi121": "upper_left_central_incisor_pulp_fdi121",
+    "upper_left_first_molar_fdi26": "upper_left_first_molar_fdi26",
+    "upper_left_first_molar_pulp_fdi126": "upper_left_first_molar_pulp_fdi126",
+    "upper_left_first_premolar_fdi24": "upper_left_first_premolar_fdi24",
+    "upper_left_first_premolar_pulp_fdi124": "upper_left_first_premolar_pulp_fdi124",
+    "upper_left_lateral_incisor_fdi22": "upper_left_lateral_incisor_fdi22",
+    "upper_left_lateral_incisor_pulp_fdi122": "upper_left_lateral_incisor_pulp_fdi122",
+    "upper_left_second_molar_fdi27": "upper_left_second_molar_fdi27",
+    "upper_left_second_molar_pulp_fdi127": "upper_left_second_molar_pulp_fdi127",
+    "upper_left_second_premolar_fdi25": "upper_left_second_premolar_fdi25",
+    "upper_left_second_premolar_pulp_fdi125": "upper_left_second_premolar_pulp_fdi125",
+    "upper_left_third_molar_fdi28": "upper_left_third_molar_fdi28",
+    "upper_left_third_molar_pulp_fdi128": "upper_left_third_molar_pulp_fdi128",
+    "upper_right_canine_fdi13": "upper_right_canine_fdi13",
+    "upper_right_canine_pulp_fdi113": "upper_right_canine_pulp_fdi113",
+    "upper_right_central_incisor_fdi11": "upper_right_central_incisor_fdi11",
+    "upper_right_central_incisor_pulp_fdi111": "upper_right_central_incisor_pulp_fdi111",
+    "upper_right_first_molar_fdi16": "upper_right_first_molar_fdi16",
+    "upper_right_first_molar_pulp_fdi116": "upper_right_first_molar_pulp_fdi116",
+    "upper_right_first_premolar_fdi14": "upper_right_first_premolar_fdi14",
+    "upper_right_first_premolar_pulp_fdi114": "upper_right_first_premolar_pulp_fdi114",
+    "upper_right_lateral_incisor_fdi12": "upper_right_lateral_incisor_fdi12",
+    "upper_right_lateral_incisor_pulp_fdi112": "upper_right_lateral_incisor_pulp_fdi112",
+    "upper_right_second_molar_fdi17": "upper_right_second_molar_fdi17",
+    "upper_right_second_molar_pulp_fdi117": "upper_right_second_molar_pulp_fdi117",
+    "upper_right_second_premolar_fdi15": "upper_right_second_premolar_fdi15",
+    "upper_right_second_premolar_pulp_fdi115": "upper_right_second_premolar_pulp_fdi115",
+    "upper_right_third_molar_fdi18": "upper_right_third_molar_fdi18",
+    "upper_right_third_molar_pulp_fdi118": "upper_right_third_molar_pulp_fdi118",
+    "venous_sinuses": "venous_sinuses",
+    "ventricle": "ventricle",
+    "ventricle_body_left": "ventricle_body_left",
+    "ventricle_body_right": "ventricle_body_right",
+    "ventricle_frontal_horn_left": "ventricle_frontal_horn_left",
+    "ventricle_frontal_horn_right": "ventricle_frontal_horn_right",
+    "ventricle_occipital_horn_left": "ventricle_occipital_horn_left",
+    "ventricle_occipital_horn_right": "ventricle_occipital_horn_right",
+    "ventricle_temporal_horn_left": "ventricle_temporal_horn_left",
+    "ventricle_temporal_horn_right": "ventricle_temporal_horn_right",
+    "ventricle_trigone_left": "ventricle_trigone_left",
+    "ventricle_trigone_right": "ventricle_trigone_right",
+    "vertebrae": "vertebrae",
+    "vertebrae_body": "vertebrae_body",
+    "zygomatic_arch_left": "zygomatic_arch_left",
+    "zygomatic_arch_right": "zygomatic_arch_right"
   }
 }

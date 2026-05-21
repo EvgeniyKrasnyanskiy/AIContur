@@ -479,22 +479,19 @@ class ContourEngine:
                     logger.warning(f"Пресет '{preset_name}' не найден. Будут экспортированы все найденные OAR.")
                     target_organs = None
             
-            # Динамически получаем список поддерживаемых органов в TotalSegmentator
-            supported_organs = set()
+            # ---- АДАПТАЦИЯ И РАЗДЕЛЕНИЕ ОРГАНОВ ПО ЗАДАЧАМ ----
+            # Получаем список органов только базовой модели (total) — для валидации фолбэков
+            total_supported = set()
             try:
                 from totalsegmentator.map_to_binary import class_map
-                # Пытаемся получить карту классов
                 if "total" in class_map:
-                    supported_organs = set(class_map["total"].values())
-                elif "total_v1" in class_map:
-                    supported_organs = set(class_map["total_v1"].values())
-                else:
-                    for subset in class_map.values():
-                        supported_organs.update(subset.values())
-                logger.info(f"Динамически загружено классов TotalSegmentator: {len(supported_organs)}")
+                    total_supported = set(class_map["total"].values())
+                if "total_v1" in class_map:
+                    total_supported.update(class_map["total_v1"].values())
+                logger.info(f"Динамически загружено классов total TotalSegmentator: {len(total_supported)}")
             except Exception as e:
                 logger.warning(f"Не удалось динамически получить список классов TotalSegmentator: {e}. Резервный набор.")
-                supported_organs = set(self.colors.keys())
+                total_supported = set(self.colors.keys())
 
             # Карта виртуальных органов, которые мы можем собрать из долей/частей
             VIRTUAL_ORGANS_MAP = {
@@ -503,32 +500,10 @@ class ContourEngine:
                 "brain_stem": ["brainstem"]
             }
 
-            # Адаптируем список целевых органов под поддерживаемые классы TotalSegmentator
-            totalseg_rois = []
-            if target_organs:
-                for organ in target_organs:
-                    if organ in supported_organs:
-                        totalseg_rois.append(organ)
-                    elif organ in VIRTUAL_ORGANS_MAP:
-                        parts = VIRTUAL_ORGANS_MAP[organ]
-                        supported_parts = [p for p in parts if p in supported_organs]
-                        if supported_parts:
-                            totalseg_rois.extend(supported_parts)
-                            logger.info(f"Орган '{organ}' будет собран из частей: {supported_parts}")
-                        else:
-                            logger.warning(f"Орган '{organ}' задекларирован как виртуальный, но части не поддерживаются ИИ.")
-                    else:
-                        logger.warning(f"Орган '{organ}' не поддерживается текущей версией TotalSegmentator и будет пропущен.")
-                
             # "body" — специальный орган: требует отдельного вызова TotalSegmentator --task body
             need_body_task = target_organs is not None and "body" in target_organs
             if need_body_task:
                 logger.info("Contour 'body' запрошен: будет выполнен отдельный вызов TotalSegmentator --task body.")
-            # Удаляем 'body' из списка для основного запуска (в total-задаче его нет)
-            totalseg_rois = [r for r in totalseg_rois if r != "body"]
-
-            totalseg_rois = sorted(list(set(totalseg_rois)))
-            logger.info(f"Адаптированный список ROI для TotalSegmentator: {totalseg_rois}")
 
             # Находим путь к исполняемому файлу TotalSegmentator в виртуальном окружении
             exe_dir = Path(sys.executable).parent
@@ -537,21 +512,73 @@ class ContourEngine:
                 totalseg_exe = exe_dir / "TotalSegmentator"
             if not totalseg_exe.exists():
                 totalseg_exe = Path("TotalSegmentator")
-                
+
             # ---- ДИНАМИЧЕСКОЕ РАЗДЕЛЕНИЕ ПО ЗАДАЧАМ ----
+            # Маршрутизируем каждый орган напрямую в нужный таск через ROI_TO_TASK_MAP.
+            # Органы из суб-моделей (eye_left -> head_glands_cavities и т.д.) НЕ проходят
+            # через фильтр total_supported и не выбрасываются.
             tasks_to_run = {}
+            skipped_organs = []
+
             if precision_mode == "faster":
                 tasks_to_run["body"] = []
-            else:
+            elif target_organs:
                 if preset_name == "head_neck_oar" or preset_name == "Голова и Шея (Head & Neck)":
                     logger.info("Анализ пресета Голова и Шея: разбиение на задачи total, brain_structures и др.")
-                
-                for organ in totalseg_rois:
-                    task = ROI_TO_TASK_MAP.get(organ, 'total') # fallback на total
-                    if task not in tasks_to_run:
-                        tasks_to_run[task] = []
-                    tasks_to_run[task].append(organ)
-            
+
+                for organ in target_organs:
+                    if organ == "body":
+                        continue
+
+                    # Если орган явно прописан в ROI_TO_TASK_MAP — направляем в его таск
+                    if organ in ROI_TO_TASK_MAP:
+                        task = ROI_TO_TASK_MAP[organ]
+                        if task not in tasks_to_run:
+                            tasks_to_run[task] = []
+                        tasks_to_run[task].append(organ)
+
+                    # Виртуальный орган (lung_left, brain_stem и др.) — разбиваем на части
+                    elif organ in VIRTUAL_ORGANS_MAP:
+                        parts = VIRTUAL_ORGANS_MAP[organ]
+                        routed = False
+                        for part in parts:
+                            part_task = ROI_TO_TASK_MAP.get(part)
+                            if part_task:
+                                if part_task not in tasks_to_run:
+                                    tasks_to_run[part_task] = []
+                                tasks_to_run[part_task].append(part)
+                                routed = True
+                            elif part in total_supported:
+                                if "total" not in tasks_to_run:
+                                    tasks_to_run["total"] = []
+                                tasks_to_run["total"].append(part)
+                                routed = True
+                        if routed:
+                            logger.info(f"Орган '{organ}' разбит на составные части: {parts}")
+                        else:
+                            logger.warning(f"Орган '{organ}' задекларирован как виртуальный, но составные части не поддерживаются ИИ.")
+                            skipped_organs.append(organ)
+
+                    # Фолбэк: орган не в маппинге, но есть в total
+                    elif organ in total_supported:
+                        if "total" not in tasks_to_run:
+                            tasks_to_run["total"] = []
+                        tasks_to_run["total"].append(organ)
+
+                    # Орган полностью неизвестен
+                    else:
+                        logger.warning(f"Орган '{organ}' отсутствует в ROI_TO_TASK_MAP и не найден в total. Будет пропущен.")
+                        skipped_organs.append(organ)
+
+                if skipped_organs:
+                    logger.warning(f"Итого пропущено органов: {skipped_organs}")
+
+            # Дедупликация ROI внутри каждой задачи
+            for task_name in tasks_to_run:
+                tasks_to_run[task_name] = sorted(list(set(tasks_to_run[task_name])))
+
+            logger.info(f"Итоговый план задач ИИ: { {t: rois for t, rois in tasks_to_run.items()} }")
+
             if not tasks_to_run and precision_mode != "faster":
                 raise RuntimeError(
                     "Ни один из выбранных органов не поддерживается текущей версией TotalSegmentator.\n"
