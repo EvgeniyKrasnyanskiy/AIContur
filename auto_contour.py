@@ -1328,18 +1328,28 @@ if PYQT_AVAILABLE:
                 row = selected[0].row()
                 selected_path = self.series_table.item(row, 6).text()
                 
-                # Меняем радио-кнопки ТОЛЬКО при ручном клике пользователя
+                # Фоновый поиск реального пути файла
+                self.check_for_rtstruct(selected_path)
+                
+                # Меняем UI (радиокнопки и текстовую надпись) ТОЛЬКО при ручном клике пользователя
                 if not getattr(self, "_is_updating_table", False):
                     str_status = self.series_table.item(row, 2).text()
                     if str_status == "No":
+                        self.status_rtstruct_label.setText("Существующий RTSTRUCT не обнаружен (будет создан новый)")
+                        self.status_rtstruct_label.setStyleSheet("color: #888888;")
                         self.radio_merge_merge.setEnabled(False)
                         self.radio_merge_overwrite.setEnabled(False)
                         self.radio_merge_new.setChecked(True)
                     else:
+                        # Если хотим вывести имя файла, можно взять из self.existing_rtstruct_path
+                        if self.existing_rtstruct_path:
+                            basename = os.path.basename(self.existing_rtstruct_path)
+                            self.status_rtstruct_label.setText(f"Обнаружен существующий RTSTRUCT: {basename}")
+                        else:
+                            self.status_rtstruct_label.setText("Обнаружен существующий RTSTRUCT")
+                        self.status_rtstruct_label.setStyleSheet("color: #2ecc71; font-weight: bold;")
                         self.radio_merge_merge.setEnabled(True)
                         self.radio_merge_overwrite.setEnabled(True)
-                        
-                self.check_for_rtstruct(selected_path)
 
         def on_table_double_clicked(self, row, col):
             path = self.series_table.item(row, 6).text()
@@ -1382,46 +1392,25 @@ if PYQT_AVAILABLE:
                 self.scan_timer.start(15000)
 
         def check_for_rtstruct(self, directory: str):
-            """Автоматически сканирует папку КТ на наличие существующего RTSTRUCT файла."""
+            """Находит путь к существующему RTSTRUCT файлу в выбранной папке без изменения UI."""
             self.existing_rtstruct_path = None
             if not directory or not os.path.isdir(directory):
-                self.status_rtstruct_label.setText("Статус: Путь не выбран или недействителен")
-                self.status_rtstruct_label.setStyleSheet("color: #888888;")
-                # removed radio_merge and radio_new disables
                 return
-
-            self.status_rtstruct_label.setText("Сканирование папки на наличие RTSTRUCT...")
-            self.status_rtstruct_label.setStyleSheet("color: #f1c40f;")
-            QApplication.processEvents()
 
             try:
                 import pydicom
-                found_file = None
-                
                 for filename in os.listdir(directory):
                     filepath = os.path.join(directory, filename)
                     if os.path.isfile(filepath):
                         try:
                             ds = pydicom.dcmread(filepath, stop_before_pixels=True)
                             if getattr(ds, "Modality", None) == "RTSTRUCT":
-                                found_file = filepath
+                                self.existing_rtstruct_path = filepath
                                 break
                         except Exception:
                             continue
-                
-                if found_file:
-                    self.existing_rtstruct_path = found_file
-                    basename = os.path.basename(found_file)
-                    self.status_rtstruct_label.setText(f"Обнаружен существующий RTSTRUCT: {basename}")
-                    self.status_rtstruct_label.setStyleSheet("color: #2ecc71; font-weight: bold;")
-                else:
-                    self.status_rtstruct_label.setText("Существующий RTSTRUCT не обнаружен (будет создан новый)")
-                    self.status_rtstruct_label.setStyleSheet("color: #e74c3c;")
-                    
-
             except Exception as e:
-                self.status_rtstruct_label.setText(f"Ошибка при сканировании RTSTRUCT: {str(e)}")
-                self.status_rtstruct_label.setStyleSheet("color: #e74c3c;")
+                logger.debug(f"Ошибка при поиске пути RTSTRUCT: {e}")
                 # error opening dir
 
         def select_all_organs(self):
