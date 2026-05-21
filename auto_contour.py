@@ -119,6 +119,52 @@ if PYQT_AVAILABLE:
             except Exception:
                 self.handleError(record)
 
+    class DicomScanWorker(QThread):
+        """Фоновый поток для сканирования папок на наличие DICOM серий."""
+        series_found = pyqtSignal(str, str, str, str)  # name, id, date, path
+        finished_scan = pyqtSignal()
+        error_signal = pyqtSignal(str)
+
+        def __init__(self, root_dir: str):
+            super().__init__()
+            self.root_dir = root_dir
+            self.is_cancelled = False
+
+        def cancel(self):
+            self.is_cancelled = True
+
+        def run(self):
+            import os
+            import pydicom
+            from pathlib import Path
+            try:
+                for dirpath, dirnames, filenames in os.walk(self.root_dir):
+                    if self.is_cancelled:
+                        break
+                    
+                    dcm_files = [f for f in filenames if f.lower().endswith('.dcm')]
+                    if not dcm_files:
+                        continue
+                        
+                    first_dcm = Path(dirpath) / dcm_files[0]
+                    try:
+                        ds = pydicom.dcmread(str(first_dcm), stop_before_pixels=True)
+                        p_name = str(getattr(ds, 'PatientName', 'Неизвестно')).replace('^', ' ').strip()
+                        p_id = str(getattr(ds, 'PatientID', 'Без ID'))
+                        s_date = str(getattr(ds, 'StudyDate', ''))
+                        
+                        if len(s_date) == 8:
+                            s_date = f"{s_date[6:8]}.{s_date[4:6]}.{s_date[0:4]}"
+                        elif not s_date:
+                            s_date = "Нет даты"
+                            
+                        self.series_found.emit(p_name, p_id, s_date, dirpath)
+                    except Exception:
+                        pass
+                self.finished_scan.emit()
+            except Exception as e:
+                self.error_signal.emit(str(e))
+
     class SegmentationWorker(QThread):
         """Поток для вычислений сегментации TotalSegmentator, чтобы GUI не зависал."""
         finished_signal = pyqtSignal(bool, str)
@@ -488,6 +534,7 @@ if PYQT_AVAILABLE:
             super().__init__()
             self.setWindowTitle("AI Contour - Автооконтурирование КТ органов риска")
             self.setMinimumSize(960, 760)
+            self.showMaximized()
             self.existing_rtstruct_path = None
             self.is_updating_presets = False
             self.worker = None
@@ -773,6 +820,32 @@ if PYQT_AVAILABLE:
             self.log_edit.setReadOnly(True)
             self.log_edit.setPlaceholderText("Здесь будет отображаться ход выполнения автооконтурирования...")
 
+            # --- Таблица выбора серии DICOM ---
+            table_header = QLabel("Выбор пациента (результат сканирования):")
+            table_header.setStyleSheet("font-weight: bold; color: #ffffff;")
+            self.series_table = QTableWidget(0, 4)
+            self.series_table.setHorizontalHeaderLabels(["ФИО", "ID", "Дата исследования", "Путь"])
+            self.series_table.setColumnHidden(3, True) # Скрываем путь
+            self.series_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+            self.series_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+            self.series_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+            self.series_table.setStyleSheet("""
+                QTableWidget {
+                    background-color: #2d2d2d;
+                    color: #ffffff;
+                    border: 1px solid #3c3c3c;
+                    border-radius: 4px;
+                }
+                QHeaderView::section {
+                    background-color: #333333;
+                    color: #007acc;
+                    font-weight: bold;
+                    border: 1px solid #2d2d2d;
+                }
+            """)
+            self.series_table.itemSelectionChanged.connect(self.on_series_selected)
+            # ----------------------------------
+
             progress_header = QLabel("Индикатор прогресса:")
             progress_header.setStyleSheet("font-weight: bold; color: #ffffff;")
             self.status_step_label = QLabel("Текущий шаг: Ожидание запуска...")
@@ -787,6 +860,8 @@ if PYQT_AVAILABLE:
             self.btn_run.setObjectName("btnRun")
             self.btn_run.clicked.connect(self.start_segmentation)
 
+            right_layout.addWidget(table_header)
+            right_layout.addWidget(self.series_table)
             right_layout.addWidget(logs_header)
             right_layout.addWidget(self.log_edit)
             right_layout.addWidget(progress_header)
@@ -1025,6 +1100,45 @@ if PYQT_AVAILABLE:
             if dir_path:
                 self.input_edit.setText(dir_path)
                 self.save_settings()
+                self.start_dicom_scan(dir_path)
+
+        def start_dicom_scan(self, dir_path: str):
+            self.series_table.setRowCount(0)
+            self.btn_run.setEnabled(False)
+            self.btn_run.setText("СКАНИРОВАНИЕ ПАПОК...")
+            
+            if hasattr(self, 'scan_worker') and self.scan_worker.isRunning():
+                self.scan_worker.cancel()
+                self.scan_worker.wait()
+                
+            self.scan_worker = DicomScanWorker(dir_path)
+            self.scan_worker.series_found.connect(self.on_series_found)
+            self.scan_worker.finished_scan.connect(self.on_scan_finished)
+            self.scan_worker.error_signal.connect(lambda e: logging.getLogger("ContourEngine").error(f"Ошибка сканирования: {e}"))
+            self.scan_worker.start()
+
+        def on_series_found(self, p_name, p_id, s_date, path):
+            row = self.series_table.rowCount()
+            self.series_table.insertRow(row)
+            self.series_table.setItem(row, 0, QTableWidgetItem(p_name))
+            self.series_table.setItem(row, 1, QTableWidgetItem(p_id))
+            self.series_table.setItem(row, 2, QTableWidgetItem(s_date))
+            self.series_table.setItem(row, 3, QTableWidgetItem(path))
+            
+        def on_scan_finished(self):
+            if self.series_table.rowCount() == 0:
+                self.btn_run.setText("КТ-СЕРИИ НЕ НАЙДЕНЫ")
+            else:
+                self.btn_run.setText("ВЫБЕРИТЕ ПАЦИЕНТА В ТАБЛИЦЕ")
+                
+        def on_series_selected(self):
+            selected = self.series_table.selectedItems()
+            if selected:
+                self.btn_run.setEnabled(True)
+                self.btn_run.setText("ЗАПУСТИТЬ АВТООКОНТУРИРОВАНИЕ")
+                row = selected[0].row()
+                selected_path = self.series_table.item(row, 3).text()
+                self.check_for_rtstruct(selected_path)
 
         def check_for_rtstruct(self, directory: str):
             """Автоматически сканирует папку КТ на наличие существующего RTSTRUCT файла."""
@@ -1358,9 +1472,16 @@ if PYQT_AVAILABLE:
                     self.worker.cancel()
                 return
 
-            dicom_dir = self.input_edit.text().strip()
+            selected = self.series_table.selectedItems()
+            if not selected:
+                QMessageBox.critical(self, "Ошибка", "Выберите пациента из таблицы для начала оконтурирования.")
+                return
+                
+            row = selected[0].row()
+            dicom_dir = self.series_table.item(row, 3).text()
+
             if not dicom_dir or not os.path.isdir(dicom_dir):
-                QMessageBox.critical(self, "Ошибка", "Укажите корректный путь к папке с КТ DICOM снимками!")
+                QMessageBox.critical(self, "Ошибка", "Путь к DICOM-серии недействителен!")
                 return
                 
             # Проверяем доступность папки DICOM на запись (поддержка read-only)
@@ -1561,16 +1682,17 @@ if PYQT_AVAILABLE:
             self.current_step_base_text = step_text
             self.status_step_label.setText(f"{step_text} {self.SPINNER_FRAMES[self.spinner_index]}")
             
-            if "Шаг 1" in step_text:
-                self.progress_bar.setValue(10)
-            elif "Шаг 2" in step_text:
-                self.progress_bar.setValue(30)
+            if "Шаг 1" in step_text or "Шаг 2" in step_text:
+                self.progress_bar.setRange(0, 0)
             elif "Шаг 3" in step_text:
+                self.progress_bar.setRange(0, 100)
                 self.progress_bar.setValue(75)
             elif "Шаг 4" in step_text:
-                self.progress_bar.setValue(85)
+                self.progress_bar.setRange(0, 100)
+                self.progress_bar.setValue(90)
             elif "Шаг 5" in step_text:
-                self.progress_bar.setValue(95)
+                self.progress_bar.setRange(0, 100)
+                self.progress_bar.setValue(100)
 
         def show_help(self):
             dialog = QDialog(self)

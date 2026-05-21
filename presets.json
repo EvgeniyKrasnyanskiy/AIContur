@@ -193,209 +193,209 @@
   },
   "colors": {
     "spleen": [
-      156,
-      39,
-      176
+      160,
+      32,
+      240
     ],
     "kidney_right": [
-      3,
-      169,
-      244
+      0,
+      0,
+      255
     ],
     "kidney_left": [
-      33,
-      150,
-      243
+      30,
+      144,
+      255
     ],
     "gallbladder": [
-      76,
-      175,
-      80
-    ],
-    "liver": [
-      139,
-      195,
-      74
-    ],
-    "stomach": [
+      0,
       255,
-      152,
       0
     ],
+    "liver": [
+      34,
+      139,
+      34
+    ],
+    "stomach": [
+      218,
+      165,
+      32
+    ],
     "aorta": [
-      244,
-      67,
-      54
+      55,
+      197,
+      94
     ],
     "inferior_vena_cava": [
-      63,
-      81,
-      181
+      194,
+      166,
+      130
     ],
     "urinary_bladder": [
       255,
-      235,
-      59
-    ],
-    "heart": [
-      233,
-      30,
-      99
-    ],
-    "lung_left": [
-      0,
-      150,
-      136
-    ],
-    "lung_right": [
-      0,
-      188,
-      212
-    ],
-    "trachea": [
-      121,
-      85,
-      72
-    ],
-    "esophagus": [
-      158,
-      158,
-      158
-    ],
-    "pancreas": [
-      255,
-      193,
-      7
-    ],
-    "duodenum": [
-      173,
-      20,
-      87
-    ],
-    "adrenal_gland_left": [
-      255,
-      87,
-      34
-    ],
-    "adrenal_gland_right": [
-      255,
-      112,
-      67
-    ],
-    "pulmonary_artery": [
-      0,
-      150,
-      255
-    ],
-    "small_bowel": [
-      103,
-      58,
-      183
-    ],
-    "prostate": [
-      233,
-      30,
-      99
-    ],
-    "rectum": [
-      121,
-      85,
-      72
-    ],
-    "colon": [
-      0,
-      121,
-      107
-    ],
-    "femur_left": [
-      255,
-      224,
-      178
-    ],
-    "femur_right": [
-      255,
-      224,
-      178
-    ],
-    "hip_left": [
-      230,
-      238,
-      156
-    ],
-    "hip_right": [
-      230,
-      238,
-      156
-    ],
-    "sacrum": [
-      141,
-      110,
-      99
-    ],
-    "spinal_cord": [
-      0,
-      255,
+      215,
       0
     ],
-    "thyroid_gland": [
+    "heart": [
       255,
-      105,
-      180
-    ],
-    "skull": [
-      255,
-      228,
-      196
-    ],
-    "brain": [
-      135,
-      206,
-      250
-    ],
-    "common_carotid_artery_left": [
-      220,
-      20,
-      60
-    ],
-    "common_carotid_artery_right": [
-      220,
-      20,
-      60
-    ],
-    "superior_vena_cava": [
-      70,
-      130,
-      180
-    ],
-    "portal_vein_and_splenic_vein": [
       0,
-      139,
+      0
+    ],
+    "lung_left": [
+      86,
+      123,
+      174
+    ],
+    "lung_right": [
+      195,
+      54,
+      110
+    ],
+    "trachea": [
+      149,
+      58,
+      171
+    ],
+    "esophagus": [
+      138,
+      127,
+      103
+    ],
+    "pancreas": [
+      153,
+      97,
+      184
+    ],
+    "duodenum": [
+      168,
+      85,
+      61
+    ],
+    "adrenal_gland_left": [
+      114,
+      125,
+      152
+    ],
+    "adrenal_gland_right": [
+      161,
+      157,
+      200
+    ],
+    "pulmonary_artery": [
+      98,
+      122,
       139
     ],
+    "small_bowel": [
+      177,
+      66,
+      127
+    ],
+    "prostate": [
+      152,
+      133,
+      118
+    ],
+    "rectum": [
+      139,
+      69,
+      19
+    ],
+    "colon": [
+      191,
+      68,
+      120
+    ],
+    "femur_left": [
+      135,
+      139,
+      183
+    ],
+    "femur_right": [
+      159,
+      155,
+      157
+    ],
+    "hip_left": [
+      146,
+      175,
+      165
+    ],
+    "hip_right": [
+      85,
+      193,
+      174
+    ],
+    "sacrum": [
+      96,
+      111,
+      190
+    ],
+    "spinal_cord": [
+      116,
+      98,
+      57
+    ],
+    "thyroid_gland": [
+      113,
+      52,
+      117
+    ],
+    "skull": [
+      94,
+      188,
+      72
+    ],
+    "brain": [
+      155,
+      169,
+      192
+    ],
+    "common_carotid_artery_left": [
+      51,
+      115,
+      144
+    ],
+    "common_carotid_artery_right": [
+      86,
+      147,
+      196
+    ],
+    "superior_vena_cava": [
+      84,
+      137,
+      160
+    ],
+    "portal_vein_and_splenic_vein": [
+      113,
+      127,
+      112
+    ],
     "clavicula_left": [
-      244,
-      164,
-      96
+      144,
+      51,
+      84
     ],
     "clavicula_right": [
-      244,
-      164,
-      96
+      176,
+      73,
+      124
     ],
     "sternum": [
-      222,
-      184,
-      135
+      85,
+      68,
+      152
     ],
     "iliac_artery_left": [
-      255,
-      99,
-      71
+      134,
+      69,
+      129
     ],
     "iliac_artery_right": [
-      255,
-      99,
-      71
+      78,
+      137,
+      190
     ],
     "atrial_appendage_left": [
       50,
@@ -836,7 +836,7 @@
     "liver": "Печень (Liver)",
     "stomach": "Желудок (Stomach)",
     "aorta": "Аорта (Aorta)",
-    "inferior_vena_cava": "Нижняя полая вена (Vena Cava)",
+    "inferior_vena_cava": "Нижняя полая вена (Vena Cava Inf)",
     "urinary_bladder": "Мочевой пузырь (Bladder)",
     "heart": "Сердце (Heart)",
     "lung_left": "Левое легкое (Lung L)",
@@ -852,10 +852,10 @@
     "prostate": "Предстательная железа (Prostate)",
     "rectum": "Прямая кишка (Rectum)",
     "colon": "Кишечник (Colon)",
-    "femur_left": "Левое бедро (Femur L)",
-    "femur_right": "Правое бедро (Femur R)",
-    "hip_left": "Левый таз (Hip L)",
-    "hip_right": "Правый таз (Hip R)",
+    "femur_left": "Левая бедренная кость (Femur L)",
+    "femur_right": "Правая бедренная кость (Femur R)",
+    "hip_left": "Левая тазовая кость (Hip L)",
+    "hip_right": "Правая тазовая кость (Hip R)",
     "sacrum": "Крестец (Sacrum)",
     "spinal_cord": "Спинной мозг (Spinal Cord)",
     "thyroid_gland": "Щитовидная железа (Thyroid Gland)",
@@ -864,97 +864,97 @@
     "common_carotid_artery_left": "Левая сонная артерия (Carotid A L)",
     "common_carotid_artery_right": "Правая сонная артерия (Carotid A R)",
     "superior_vena_cava": "Верхняя полая вена (Vena Cava Sup)",
-    "portal_vein_and_splenic_vein": "Воротная вена (Portal/Splenic V)",
+    "portal_vein_and_splenic_vein": "Воротная и селезеночная вены (Portal/Splenic V)",
     "clavicula_left": "Левая ключица (Clavicle L)",
     "clavicula_right": "Правая ключица (Clavicle R)",
     "sternum": "Грудина (Sternum)",
     "iliac_artery_left": "Левая подвздошная артерия (Iliac A L)",
     "iliac_artery_right": "Правая подвздошная артерия (Iliac A R)",
-    "atrial_appendage_left": "atrial_appendage_left",
-    "autochthon_left": "autochthon_left",
-    "autochthon_right": "autochthon_right",
-    "brachiocephalic_trunk": "brachiocephalic_trunk",
-    "brachiocephalic_vein_left": "brachiocephalic_vein_left",
-    "brachiocephalic_vein_right": "brachiocephalic_vein_right",
-    "costal_cartilages": "costal_cartilages",
-    "face": "face",
-    "gluteus_maximus_left": "gluteus_maximus_left",
-    "gluteus_maximus_right": "gluteus_maximus_right",
-    "gluteus_medius_left": "gluteus_medius_left",
-    "gluteus_medius_right": "gluteus_medius_right",
-    "gluteus_minimus_left": "gluteus_minimus_left",
-    "gluteus_minimus_right": "gluteus_minimus_right",
-    "heart_atrium_left": "heart_atrium_left",
-    "heart_atrium_right": "heart_atrium_right",
-    "heart_myocardium": "heart_myocardium",
-    "heart_ventricle_left": "heart_ventricle_left",
-    "heart_ventricle_right": "heart_ventricle_right",
-    "humerus_left": "humerus_left",
-    "humerus_right": "humerus_right",
-    "iliac_vena_left": "iliac_vena_left",
-    "iliac_vena_right": "iliac_vena_right",
-    "iliopsoas_left": "iliopsoas_left",
-    "iliopsoas_right": "iliopsoas_right",
-    "kidney_cyst_left": "kidney_cyst_left",
-    "kidney_cyst_right": "kidney_cyst_right",
-    "lung_lower_lobe_left": "lung_lower_lobe_left",
-    "lung_lower_lobe_right": "lung_lower_lobe_right",
-    "lung_middle_lobe_right": "lung_middle_lobe_right",
-    "lung_upper_lobe_left": "lung_upper_lobe_left",
-    "lung_upper_lobe_right": "lung_upper_lobe_right",
-    "pulmonary_vein": "pulmonary_vein",
-    "rib_left_1": "rib_left_1",
-    "rib_left_10": "rib_left_10",
-    "rib_left_11": "rib_left_11",
-    "rib_left_12": "rib_left_12",
-    "rib_left_2": "rib_left_2",
-    "rib_left_3": "rib_left_3",
-    "rib_left_4": "rib_left_4",
-    "rib_left_5": "rib_left_5",
-    "rib_left_6": "rib_left_6",
-    "rib_left_7": "rib_left_7",
-    "rib_left_8": "rib_left_8",
-    "rib_left_9": "rib_left_9",
-    "rib_right_1": "rib_right_1",
-    "rib_right_10": "rib_right_10",
-    "rib_right_11": "rib_right_11",
-    "rib_right_12": "rib_right_12",
-    "rib_right_2": "rib_right_2",
-    "rib_right_3": "rib_right_3",
-    "rib_right_4": "rib_right_4",
-    "rib_right_5": "rib_right_5",
-    "rib_right_6": "rib_right_6",
-    "rib_right_7": "rib_right_7",
-    "rib_right_8": "rib_right_8",
-    "rib_right_9": "rib_right_9",
-    "scapula_left": "scapula_left",
-    "scapula_right": "scapula_right",
-    "subclavian_artery_left": "subclavian_artery_left",
-    "subclavian_artery_right": "subclavian_artery_right",
-    "vertebrae_C1": "vertebrae_C1",
-    "vertebrae_C2": "vertebrae_C2",
-    "vertebrae_C3": "vertebrae_C3",
-    "vertebrae_C4": "vertebrae_C4",
-    "vertebrae_C5": "vertebrae_C5",
-    "vertebrae_C6": "vertebrae_C6",
-    "vertebrae_C7": "vertebrae_C7",
-    "vertebrae_L1": "vertebrae_L1",
-    "vertebrae_L2": "vertebrae_L2",
-    "vertebrae_L3": "vertebrae_L3",
-    "vertebrae_L4": "vertebrae_L4",
-    "vertebrae_L5": "vertebrae_L5",
-    "vertebrae_S1": "vertebrae_S1",
-    "vertebrae_T1": "vertebrae_T1",
-    "vertebrae_T10": "vertebrae_T10",
-    "vertebrae_T11": "vertebrae_T11",
-    "vertebrae_T12": "vertebrae_T12",
-    "vertebrae_T2": "vertebrae_T2",
-    "vertebrae_T3": "vertebrae_T3",
-    "vertebrae_T4": "vertebrae_T4",
-    "vertebrae_T5": "vertebrae_T5",
-    "vertebrae_T6": "vertebrae_T6",
-    "vertebrae_T7": "vertebrae_T7",
-    "vertebrae_T8": "vertebrae_T8",
-    "vertebrae_T9": "vertebrae_T9"
+    "atrial_appendage_left": "Левое ушко предсердия (Atrial Appendage L)",
+    "autochthon_left": "Глубокие мышцы спины слева (Autochthon L)",
+    "autochthon_right": "Глубокие мышцы спины справа (Autochthon R)",
+    "brachiocephalic_trunk": "Плечеголовной ствол (Brachiocephalic Trunk)",
+    "brachiocephalic_vein_left": "Левая плечеголовная вена (Brachiocephalic V L)",
+    "brachiocephalic_vein_right": "Правая плечеголовная вена (Brachiocephalic V R)",
+    "costal_cartilages": "Реберные хрящи (Costal Cartilages)",
+    "face": "Мягкие ткани лица (Face)",
+    "gluteus_maximus_left": "Левая большая ягодичная мышца (Gluteus Max L)",
+    "gluteus_maximus_right": "Правая большая ягодичная мышца (Gluteus Max R)",
+    "gluteus_medius_left": "Левая средняя ягодичная мышца (Gluteus Med L)",
+    "gluteus_medius_right": "Правая средняя ягодичная мышца (Gluteus Med R)",
+    "gluteus_minimus_left": "Левая малая ягодичная мышца (Gluteus Min L)",
+    "gluteus_minimus_right": "Правая малая ягодичная мышца (Gluteus Min R)",
+    "heart_atrium_left": "Левое предсердие (Heart Atrium L)",
+    "heart_atrium_right": "Правое предсердие (Heart Atrium R)",
+    "heart_myocardium": "Миокард (Heart Myocardium)",
+    "heart_ventricle_left": "Левый желудочек (Heart Ventricle L)",
+    "heart_ventricle_right": "Правый желудочек (Heart Ventricle R)",
+    "humerus_left": "Левая плечевая кость (Humerus L)",
+    "humerus_right": "Правая плечевая кость (Humerus R)",
+    "iliac_vena_left": "Левая подвздошная вена (Iliac V L)",
+    "iliac_vena_right": "Правая подвздошная вена (Iliac V R)",
+    "iliopsoas_left": "Левая подвздошно-поясничная мышца (Iliopsoas L)",
+    "iliopsoas_right": "Правая подвздошно-поясничная мышца (Iliopsoas R)",
+    "kidney_cyst_left": "Киста левой почки (Kidney Cyst L)",
+    "kidney_cyst_right": "Киста правой почки (Kidney Cyst R)",
+    "lung_lower_lobe_left": "Нижняя доля левого легкого (Lung Low L)",
+    "lung_lower_lobe_right": "Нижняя доля правого легкого (Lung Low R)",
+    "lung_middle_lobe_right": "Средняя доля правого легкого (Lung Mid R)",
+    "lung_upper_lobe_left": "Верхняя доля левого легкого (Lung Upper L)",
+    "lung_upper_lobe_right": "Верхняя доля правого легкого (Lung Upper R)",
+    "pulmonary_vein": "Легочная вена (Pulmonary Vein)",
+    "rib_left_1": "Левое ребро 1 (Rib L1)",
+    "rib_left_10": "Левое ребро 10 (Rib L10)",
+    "rib_left_11": "Левое ребро 11 (Rib L11)",
+    "rib_left_12": "Левое ребро 12 (Rib L12)",
+    "rib_left_2": "Левое ребро 2 (Rib L2)",
+    "rib_left_3": "Левое ребро 3 (Rib L3)",
+    "rib_left_4": "Левое ребро 4 (Rib L4)",
+    "rib_left_5": "Левое ребро 5 (Rib L5)",
+    "rib_left_6": "Левое ребро 6 (Rib L6)",
+    "rib_left_7": "Левое ребро 7 (Rib L7)",
+    "rib_left_8": "Левое ребро 8 (Rib L8)",
+    "rib_left_9": "Левое ребро 9 (Rib L9)",
+    "rib_right_1": "Правое ребро 1 (Rib R1)",
+    "rib_right_10": "Правое ребро 10 (Rib R10)",
+    "rib_right_11": "Правое ребро 11 (Rib R11)",
+    "rib_right_12": "Правое ребро 12 (Rib R12)",
+    "rib_right_2": "Правое ребро 2 (Rib R2)",
+    "rib_right_3": "Правое ребро 3 (Rib R3)",
+    "rib_right_4": "Правое ребро 4 (Rib R4)",
+    "rib_right_5": "Правое ребро 5 (Rib R5)",
+    "rib_right_6": "Правое ребро 6 (Rib R6)",
+    "rib_right_7": "Правое ребро 7 (Rib R7)",
+    "rib_right_8": "Правое ребро 8 (Rib R8)",
+    "rib_right_9": "Правое ребро 9 (Rib R9)",
+    "scapula_left": "Левая лопатка (Scapula L)",
+    "scapula_right": "Правая лопатка (Scapula R)",
+    "subclavian_artery_left": "Левая подключичная артерия (Subclavian A L)",
+    "subclavian_artery_right": "Правая подключичная артерия (Subclavian A R)",
+    "vertebrae_C1": "Шейный позвонок C1 (Atlas)",
+    "vertebrae_C2": "Шейный позвонок C2 (Axis)",
+    "vertebrae_C3": "Шейный позвонок C3 (Vertebra C3)",
+    "vertebrae_C4": "Шейный позвонок C4 (Vertebra C4)",
+    "vertebrae_C5": "Шейный позвонок C5 (Vertebra C5)",
+    "vertebrae_C6": "Шейный позвонок C6 (Vertebra C6)",
+    "vertebrae_C7": "Шейный позвонок C7 (Vertebra C7)",
+    "vertebrae_L1": "Поясничный позвонок L1 (Vertebra L1)",
+    "vertebrae_L2": "Поясничный позвонок L2 (Vertebra L2)",
+    "vertebrae_L3": "Поясничный позвонок L3 (Vertebra L3)",
+    "vertebrae_L4": "Поясничный позвонок L4 (Vertebra L4)",
+    "vertebrae_L5": "Поясничный позвонок L5 (Vertebra L5)",
+    "vertebrae_S1": "Крестцовый позвонок S1 (Vertebra S1)",
+    "vertebrae_T1": "Грудной позвонок T1 (Vertebra T1)",
+    "vertebrae_T10": "Грудной позвонок T10 (Vertebra T10)",
+    "vertebrae_T11": "Грудной позвонок T11 (Vertebra T11)",
+    "vertebrae_T12": "Грудной позвонок T12 (Vertebra T12)",
+    "vertebrae_T2": "Грудной позвонок T2 (Vertebra T2)",
+    "vertebrae_T3": "Грудной позвонок T3 (Vertebra T3)",
+    "vertebrae_T4": "Грудной позвонок T4 (Vertebra T4)",
+    "vertebrae_T5": "Грудной позвонок T5 (Vertebra T5)",
+    "vertebrae_T6": "Грудной позвонок T6 (Vertebra T6)",
+    "vertebrae_T7": "Грудной позвонок T7 (Vertebra T7)",
+    "vertebrae_T8": "Грудной позвонок T8 (Vertebra T8)",
+    "vertebrae_T9": "Грудной позвонок T9 (Vertebra T9)"
   }
 }

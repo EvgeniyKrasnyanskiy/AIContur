@@ -376,7 +376,7 @@ class ContourEngine:
             # Шаг 1: Конвертация DICOM -> NIfTI
             # ----------------------------------------------------------------------
             if step_callback:
-                step_callback("Шаг 1 из 5: Конвертация DICOM в NIfTI 3D объем...")
+                step_callback("Шаг 1 из 5: Конвертация DICOM в NIfTI...")
             logger.info("--- Шаг 1 из 5: Конвертация DICOM в 3D NIfTI объем ---")
             
             d2n_settings.disable_validate_slice_increment()
@@ -398,7 +398,7 @@ class ContourEngine:
             # Шаг 2: ИИ-сегментация через TotalSegmentator
             # ----------------------------------------------------------------------
             if step_callback:
-                step_callback("Шаг 2 из 5: Сегментация органов нейросетью TotalSegmentator...")
+                step_callback("Шаг 2 из 5: ИИ сегментирует органы на CPU (это займет 2-4 минуты)...")
             logger.info("--- Шаг 2 из 5: ИИ-сегментация с помощью TotalSegmentator ---")
             
             step_start = time.time()
@@ -642,8 +642,8 @@ class ContourEngine:
             # Шаг 3: Очистка временных файлов
             # ----------------------------------------------------------------------
             if step_callback:
-                step_callback("Шаг 3 из 5: Удаление временных файлов и очистка ОЗУ...")
-            logger.info("--- Шаг 3 из 5: Удаление временного NIfTI КТ и очистка ОЗУ ---")
+                step_callback("Шаг 3 из 5: Фильтрация артефактов и сглаживание масок...")
+            logger.info("--- Шаг 3 из 5: Очистка ОЗУ перед фильтрацией ---")
             step_start = time.time()
             
             if nifti_ct_path.exists():
@@ -659,8 +659,8 @@ class ContourEngine:
             # Шаг 4: Сборка масок в DICOM RTSTRUCT с 3D Постобработкой (Blobs / Smoothing)
             # ----------------------------------------------------------------------
             if step_callback:
-                step_callback("Шаг 4 из 5: Сборка RTSTRUCT и привязка к геометрии DICOM...")
-            logger.info("--- Шаг 4 из 5: Сборка RTSTRUCT и привязка к геометрии DICOM ---")
+                step_callback("Шаг 4 из 5: Формирование DICOM RTSTRUCT и привязка геометрии...")
+            logger.info("--- Шаг 4 из 5: Формирование DICOM RTSTRUCT и привязка к геометрии ---")
             
             step_start = time.time()
             
@@ -830,7 +830,7 @@ class ContourEngine:
             # Шаг 5: Сохранение итогового файла
             # ----------------------------------------------------------------------
             if step_callback:
-                step_callback("Шаг 5 из 5: Запись итогового DICOM RTSTRUCT...")
+                step_callback("Шаг 5 из 5: Успешно сохранено!")
             logger.info("--- Шаг 5 из 5: Запись итогового DICOM RTSTRUCT ---")
             output_dir.mkdir(parents=True, exist_ok=True)
             
