@@ -661,22 +661,6 @@ if PYQT_AVAILABLE:
             tab1_layout.setSpacing(10)
 
             # Выбор пресета
-            status_frame = QFrame()
-            status_frame.setObjectName("statusCard")
-            status_layout = QVBoxLayout(status_frame)
-            status_layout.setSpacing(6)
-
-            status_title = QLabel("Работа с существующими контурами:")
-            status_title.setStyleSheet("font-weight: bold; color: #b0b0b0;")
-            self.status_rtstruct_label = QLabel("Статус: Путь не выбран")
-            self.status_rtstruct_label.setStyleSheet("color: #888888;")
-            self.status_rtstruct_label.setWordWrap(True)
-
-            status_layout.addWidget(status_title)
-            status_layout.addWidget(self.status_rtstruct_label)
-            tab1_layout.addWidget(status_frame)
-
-            # Выбор пресета
             preset_label = QLabel("Выбор пресета органов (OAR):")
             preset_label.setStyleSheet("font-weight: bold; color: #ffffff;")
             self.preset_combo = QComboBox()
@@ -741,6 +725,31 @@ if PYQT_AVAILABLE:
             input_box.addWidget(self.btn_input)
             input_group_layout.addLayout(input_box)
             tab2_layout.addWidget(input_group)
+            
+            # Группа: Работа с существующими контурами (перенесено из Tab 1)
+            merge_group = QGroupBox("Работа с существующими контурами")
+            merge_group_layout = QVBoxLayout(merge_group)
+            
+            self.status_rtstruct_label = QLabel("Статус: Путь не выбран")
+            self.status_rtstruct_label.setStyleSheet("color: #888888;")
+            self.status_rtstruct_label.setWordWrap(True)
+            merge_group_layout.addWidget(self.status_rtstruct_label)
+            
+            self.merge_btn_group = QButtonGroup(self)
+            self.radio_merge_new = QRadioButton("Создать новый файл RTSTRUCT")
+            self.radio_merge_merge = QRadioButton("Дополнить существующий файл")
+            self.radio_merge_overwrite = QRadioButton("Перезаписать существующий файл")
+            
+            self.radio_merge_merge.setChecked(True)
+            self.merge_btn_group.addButton(self.radio_merge_new, 1)
+            self.merge_btn_group.addButton(self.radio_merge_merge, 2)
+            self.merge_btn_group.addButton(self.radio_merge_overwrite, 3)
+            
+            merge_group_layout.addWidget(self.radio_merge_new)
+            merge_group_layout.addWidget(self.radio_merge_merge)
+            merge_group_layout.addWidget(self.radio_merge_overwrite)
+            tab2_layout.addWidget(merge_group)
+            
             gpu_available = self.engine.is_gpu_available()
 
             # Группа 1: Вычислительное устройство
@@ -1762,8 +1771,13 @@ if PYQT_AVAILABLE:
                 QMessageBox.warning(self, "Предупреждение", "Не выбрано ни одного органа для сегментирования!")
                 return
                 
-            merge_mode = bool(self.existing_rtstruct_path)
-            
+            if self.radio_merge_new.isChecked():
+                merge_mode = "new"
+            elif self.radio_merge_overwrite.isChecked():
+                merge_mode = "overwrite"
+            else:
+                merge_mode = "merge"
+                
             # Блокируем интерфейс
             self.set_ui_enabled(False)
             self.log_edit.clear()

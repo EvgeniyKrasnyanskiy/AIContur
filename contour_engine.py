@@ -329,7 +329,7 @@ class ContourEngine:
         preset_name: str,
         precision_mode: str = "normal",  # "normal", "fast", "faster"
         selected_organs: Optional[List[str]] = None,
-        merge_mode: bool = False,
+        merge_mode: str = "merge",
         existing_rtstruct_path: Optional[str] = None,
         use_gpu: bool = False,
         remove_blobs: bool = False,
@@ -710,7 +710,7 @@ class ContourEngine:
             existing_rois = []
             rtstruct = None
             
-            if merge_mode and existing_rtstruct_path:
+            if merge_mode == "merge" and existing_rtstruct_path:
                 rt_path = Path(existing_rtstruct_path)
                 if rt_path.exists():
                     try:
@@ -740,9 +740,10 @@ class ContourEngine:
                         "Пайплайн переключен в режим создания НОВОГО файла."
                     )
                     existing_rtstruct_path = None
-
+                    
             if rtstruct is None:
-                logger.info("Инициализация нового RTSTRUCT считыванием оригинальной геометрии DICOM серии...")
+                # В режимах "new" или "overwrite" (или если "merge" не удался), создаем чистый RTSTRUCT
+                logger.info("Создание НОВОГО файла RTSTRUCT (без слияния)...")
                 rtstruct = RTStructBuilder.create_new(dicom_series_path=str(dicom_dir))
                 existing_rtstruct_path = None
 
@@ -839,19 +840,17 @@ class ContourEngine:
                 
                 # Добавление в RTSTRUCT
                 for roi_name, roi_color in roi_names_to_add:
-                    # Умное слияние с существующими контурами
-                    final_name = roi_name
-                    if final_name in existing_rois:
-                        final_name = f"{final_name} (AI)"
-                        logger.warning(f"Орган '{roi_name}' уже размечен. Добавлен как '{final_name}'")
+                    if merge_mode == "merge" and roi_name in existing_rois:
+                        logger.info(f"Структура {roi_name} уже существует в исходном файле, пропускаем обработку ИИ.")
+                        continue
                     
                     rtstruct.add_roi(
                         mask=mask_bool,
                         color=roi_color,
-                        name=final_name
+                        name=roi_name
                     )
                     added_count += 1
-                    logger.info(f"Успешно добавлен ROI '{final_name}' (цвет: {roi_color})")
+                    logger.info(f"Успешно добавлен ROI '{roi_name}' (цвет: {roi_color})")
                 
                 # Очистка памяти после обработки маски органа
                 del mask_data
@@ -885,7 +884,7 @@ class ContourEngine:
             if not clean_study_date:
                 clean_study_date = "Unknown"
 
-            if existing_rtstruct_path:
+            if existing_rtstruct_path and merge_mode in ["merge", "overwrite"]:
                 # Берем исходное имя существующего файла структур без изменений
                 rtstruct_filename = Path(existing_rtstruct_path).name
             else:
