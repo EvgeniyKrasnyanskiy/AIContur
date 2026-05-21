@@ -1212,6 +1212,12 @@ if PYQT_AVAILABLE:
                 self.progress_dialog.close()
                 self.progress_dialog = None
                 
+            selected_study_path = None
+            if self.series_table.selectedItems():
+                selected_row = self.series_table.selectedItems()[0].row()
+                if selected_row >= 0:
+                    selected_study_path = self.series_table.item(selected_row, 6).text()
+                
             self.series_table.setUpdatesEnabled(False)
             
             existing_paths = {}
@@ -1274,6 +1280,20 @@ if PYQT_AVAILABLE:
             
             self.series_table.setSortingEnabled(True)
             self.series_table.sortByColumn(0, Qt.SortOrder.AscendingOrder)
+            
+            # Восстанавливаем выделение
+            if selected_study_path:
+                target_row = -1
+                for r in range(self.series_table.rowCount()):
+                    if self.series_table.item(r, 6).text() == selected_study_path:
+                        target_row = r
+                        break
+                if target_row >= 0:
+                    self.series_table.setCurrentCell(target_row, 0)
+                    self.series_table.selectRow(target_row)
+                else:
+                    self.series_table.clearSelection()
+
             self.series_table.setUpdatesEnabled(True)
             
             self.on_scan_finished()
@@ -1281,8 +1301,13 @@ if PYQT_AVAILABLE:
         def on_scan_finished(self):
             if self.series_table.rowCount() == 0:
                 self.btn_run.setText("КТ-СЕРИИ НЕ НАЙДЕНЫ")
+                self.btn_run.setEnabled(False)
             else:
-                self.btn_run.setText("ВЫБЕРИТЕ ПАЦИЕНТА В ТАБЛИЦЕ")
+                if self.series_table.selectedItems():
+                    self.on_series_selected()
+                else:
+                    self.btn_run.setText("ВЫБЕРИТЕ ПАЦИЕНТА В ТАБЛИЦЕ")
+                    self.btn_run.setEnabled(False)
                 
         def on_series_selected(self):
             selected = self.series_table.selectedItems()
