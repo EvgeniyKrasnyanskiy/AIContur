@@ -575,7 +575,10 @@ class ContourEngine:
                 ]
                 
                 if precision_mode == "fast" or precision_mode == "faster":
-                    cmd.append("--fast")
+                    if task_name == "total" or task_name == "body":
+                        cmd.append("--fast")
+                    else:
+                        logger.info(f"Для задачи {task_name} режим --fast принудительно отключен, так как суб-модели требуют высокого разрешения.")
                 
                 if task_name != "total":
                     cmd.extend(["--task", task_name])
