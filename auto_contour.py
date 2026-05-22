@@ -1474,6 +1474,75 @@ if PYQT_AVAILABLE:
             pixmap.fill(QColor(color_rgb[0], color_rgb[1], color_rgb[2]))
             item.setIcon(QIcon(pixmap))
 
+        def update_organs_list_highlighting(self):
+            """
+            Подсвечивает бирюзовым цветом (#00ffd0) и делает полужирными
+            те органы в списке, которые присутствуют в текущем загруженном RTSTRUCT.
+            Отсутствующие органы затеняет серым цветом (#777777).
+            Если галочка 'Отображать структуры' выключена, возвращает белый цвет (#ffffff).
+            """
+            from PyQt6.QtGui import QBrush, QColor
+            from PyQt6.QtCore import Qt
+            import re
+            
+            is_highlight_active = getattr(self, 'chk_show_structures', None) and self.chk_show_structures.isChecked()
+            has_rtstruct = getattr(self, '_cached_rtstruct', None) is not None
+            
+            self.organs_list.blockSignals(True)
+            try:
+                file_organs = set()
+                if is_highlight_active and has_rtstruct:
+                    roi_names = self._cached_rtstruct.get_roi_names()
+                    normalize_name = lambda n: re.sub(r'[^a-z0-9]', '', n.lower())
+                    all_supported_organs = self.engine.get_all_supported_organs()
+                    
+                    supported_norm_map = {}
+                    for org in all_supported_organs:
+                        supported_norm_map[normalize_name(org)] = org
+                        mon_pretty = self.engine.get_monaco_pretty_name(org)
+                        if mon_pretty:
+                            supported_norm_map[normalize_name(mon_pretty)] = org
+
+                    def get_mapped_organ(roi_name_str: str) -> str:
+                        norm = normalize_name(roi_name_str)
+                        if norm in EXTERNAL_ALIASES:
+                            return EXTERNAL_ALIASES[norm]
+                        if norm in supported_norm_map:
+                            return supported_norm_map[norm]
+                        return roi_name_str.lower().replace(" ", "_")
+
+                    file_organs = set(get_mapped_organ(r) for r in roi_names)
+
+                for i in range(self.organs_list.count()):
+                    item = self.organs_list.item(i)
+                    itm_data = item.data(Qt.ItemDataRole.UserRole)
+                    if itm_data != "header" and itm_data:
+                        if isinstance(itm_data, dict):
+                            org_name = itm_data.get("name") or (list(itm_data.keys())[0] if itm_data else "")
+                        else:
+                            org_name = itm_data
+                            
+                        if not org_name:
+                            continue
+                            
+                        font = item.font()
+                        if is_highlight_active and has_rtstruct:
+                            mapped = get_mapped_organ(org_name)
+                            if mapped in file_organs:
+                                item.setForeground(QBrush(QColor("#00ffd0")))
+                                font.setBold(True)
+                            else:
+                                item.setForeground(QBrush(QColor("#777777")))
+                                font.setBold(False)
+                        else:
+                            item.setForeground(QBrush(QColor("#ffffff")))
+                            font.setBold(False)
+                        item.setFont(font)
+            except Exception as e:
+                logger.error(f"Ошибка при обновлении подсветки списка органов: {e}")
+            finally:
+                self.organs_list.blockSignals(False)
+
         def load_settings(self):
             """Загружает сохраненное состояние интерфейса."""
             self.preset_combo.blockSignals(True)
@@ -1911,6 +1980,9 @@ if PYQT_AVAILABLE:
                 
                 # Принудительно очищаем старый оверлей из вьюера полностью
                 self._clear_roi_overlay(permanent=True)
+                
+                # Принудительно сбрасываем подсветку списка органов
+                self.update_organs_list_highlighting()
             
             self.rtstruct_files = []
             if not directory or not os.path.isdir(directory):
@@ -1942,6 +2014,8 @@ if PYQT_AVAILABLE:
                     self.rtstruct_combo.blockSignals(False)
                     if self.chk_show_structures.isChecked():
                         self.on_show_structures_changed()
+                    else:
+                        self.update_organs_list_highlighting()
 
         def _clear_roi_overlay(self, permanent: bool = False):
             if hasattr(self, 'roi_overlay_item') and self.roi_overlay_item is not None:
@@ -1966,16 +2040,19 @@ if PYQT_AVAILABLE:
             
             if not getattr(self, 'current_dicom_dir', None) or getattr(self, 'volume_3d_base', None) is None:
                 self._clear_roi_overlay(permanent=False)
+                self.update_organs_list_highlighting()
                 return
                 
             if not getattr(self, 'chk_show_structures', None) or not self.chk_show_structures.isChecked():
                 # Не сбрасываем _last_loaded_rtstruct, чтобы кэш сохранялся при простом скрытии/показе
                 self._clear_roi_overlay(permanent=False)
+                self.update_organs_list_highlighting()
                 return
                 
             rtstruct_path = self.rtstruct_combo.currentData()
             if not rtstruct_path or not os.path.exists(rtstruct_path):
                 self._clear_roi_overlay(permanent=False)
+                self.update_organs_list_highlighting()
                 return
             
             is_new_rtstruct = (getattr(self, "_last_loaded_rtstruct", None) != rtstruct_path)
@@ -2172,9 +2249,13 @@ if PYQT_AVAILABLE:
                 self.roi_overlay_3d = overlay_3d
                 self.update_roi_overlay_frame()
                 self.status_step_label.setText("Текущий шаг: Ожидание запуска...")
+                
+                # Обновляем подсветку списка органов в GUI
+                self.update_organs_list_highlighting()
             except Exception as e:
                 logger.error(f"Ошибка загрузки структур во вьюер: {e}")
                 self.status_step_label.setText("Текущий шаг: Ожидание запуска...")
+                self.update_organs_list_highlighting()
             finally:
                 if progress_dialog:
                     progress_dialog.close()

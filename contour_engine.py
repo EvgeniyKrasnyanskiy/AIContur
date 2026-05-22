@@ -239,6 +239,18 @@ class ContourEngine:
             "thyroid_gland": "Щитовидная железа (Thyroid Gland)",
             "spinal_canal": "Спинномозговой канал (Spinal Canal)",
             "brain_stem": "Ствол мозга (Brain Stem)",
+            "cerebellum": "Мозжечок (Cerebellum)",
+            "ventricle_system": "Система желудочков мозга (Ventricles)",
+            "lingual_tonsil": "Язычная миндалина (Lingual Tonsil)",
+            "nasopharynx": "Носоглотка (Nasopharynx)",
+            "oropharynx": "Ротоглотка (Oropharynx)",
+            "hypopharynx": "Гортаноглотка (Hypopharynx)",
+            "larynx": "Гортань (Larynx)",
+            "epiglottis": "Надгортанник (Epiglottis)",
+            "hyoid_bone": "Подъязычная кость (Hyoid Bone)",
+            "thyroid_cartilage": "Щитовидный хрящ (Thyroid Cartilage)",
+            "cricoid_cartilage": "Перстневидный хрящ (Cricoid Cartilage)",
+            "teeth": "Зубы (Teeth)",
         }
         
         if org in exact_translations:
@@ -283,6 +295,54 @@ class ContourEngine:
                 "lens": ("хрусталик", "Lens", "m"),
                 "optic_nerve": ("зрительный нерв", "Optic Nerve", "m"),
                 
+                # Слюнные и другие железы
+                "submandibular_gland": ("поднижнечелюстная слюнная железа", "Submandibular Gland", "f"),
+                "parotid_gland": ("околоушная слюнная железа", "Parotid Gland", "f"),
+                "sublingual_gland": ("подъязычная слюнная железа", "Sublingual Gland", "f"),
+                "parathyroid_gland": ("околощитовидная железа", "Parathyroid Gland", "f"),
+
+                # Мозг и нервная система
+                "caudate_nucleus": ("хвостатое ядро", "Caudate Nucleus", "n"),
+                "caudate": ("хвостатое ядро", "Caudate", "n"),
+                "putamen": ("скорлупа мозга", "Putamen", "f"),
+                "thalamus": ("таламус", "Thalamus", "m"),
+                "globus_pallidus": ("бледный шар", "Globus Pallidus", "m"),
+                "pallidum": ("бледный шар", "Pallidum", "m"),
+                "amygdala": ("миндалевидное тело", "Amygdala", "n"),
+                "hippocampus": ("гиппокамп", "Hippocampus", "m"),
+                "internal_capsule": ("внутренняя капсула", "Internal Capsule", "f"),
+                "ventricle": ("желудочек мозга", "Ventricle", "m"),
+
+                # Кости черепа и лица
+                "nasal_bone": ("носовая кость", "Nasal Bone", "f"),
+                "lacrimal_bone": ("слезная кость", "Lacrimal Bone", "f"),
+                "palatine_bone": ("небная кость", "Palatine Bone", "f"),
+                "zygomatic_arch": ("скуловая дуга", "Zygomatic Arch", "f"),
+                "mandible": ("нижняя челюсть", "Mandible", "f"),
+                "maxilla": ("верхняя челюсть", "Maxilla", "f"),
+
+                # Мышцы шеи и головы
+                "masseter": ("жевательная мышца", "Masseter", "f"),
+                "temporalis": ("височная мышца", "Temporalis", "f"),
+                "buccinator": ("щечная мышца", "Buccinator", "f"),
+                "pterygoid_medial": ("медиальная крыловидная мышца", "Medial Pterygoid", "f"),
+                "pterygoid_lateral": ("латеральная крыловидная мышца", "Lateral Pterygoid", "f"),
+                "digastric": ("двубрюшная мышца", "Digastric", "f"),
+                "mylohyoid": ("челюстно-подъязычная мышца", "Mylohyoid", "f"),
+                "geniohyoid": ("подбородочно-подъязычная мышца", "Geniohyoid", "f"),
+                "sternohyoid": ("грудино-подъязычная мышца", "Sternohyoid", "f"),
+                "omohyoid": ("лопаточно-подъязычная мышца", "Omohyoid", "f"),
+                "thyrohyoid": ("щитоподъязычная мышца", "Thyrohyoid", "f"),
+                "sternothyroid": ("грудино-щитовидная мышца", "Sternothyroid", "f"),
+                "platysma": ("подкожная мышца шеи (платизма)", "Platysma", "f"),
+                "sternocleidomastoid": ("грудино-ключично-сосцевидная мышца", "Sternocleidomastoid", "f"),
+
+                # Сосуды головы и шеи
+                "internal_carotid_artery": ("внутренняя сонная артерия", "Internal Carotid A", "f"),
+                "external_carotid_artery": ("наружная сонная артерия", "External Carotid A", "f"),
+                "vertebral_artery": ("позвоночная артерия", "Vertebral Artery", "f"),
+                "external_jugular_vein": ("наружная яремная вена", "External Jugular Vein", "f"),
+                
                 # Кости
                 "humerus": ("плечевая кость", "Humerus", "f"),
                 "scapula": ("лопатка", "Scapula", "f"),
@@ -312,6 +372,16 @@ class ContourEngine:
                 # Дополнительно
                 "heart_atrium": ("предсердие", "Atrium", "n"),
                 "heart_ventricle": ("желудочек", "Ventricle", "m"),
+                "palatine_tonsil": ("небная миндалина", "Palatine Tonsil", "f"),
+                "vocal_cord": ("голосовая связка", "Vocal Cord", "f"),
+                "vestibular_fold": ("ложная голосовая связка", "Vestibular Fold", "f"),
+
+                # Фаланги пальцев и другие кости конечностей
+                "phalanx_proximal": ("проксимальная фаланга", "Phalanx Proximal", "f"),
+                "phalanx_middle": ("средняя фаланга", "Phalanx Middle", "f"),
+                "phalanx_distal": ("дистальная фаланга", "Phalanx Distal", "f"),
+                "metacarpal": ("пястная кость", "Metacarpal", "f"),
+                "metatarsal": ("плюсневая кость", "Metatarsal", "f"),
             }
             
             if base in base_definitions:
@@ -352,7 +422,9 @@ class ContourEngine:
 
         # Проверим также все существующие ключи в self.ru_names на случай, если там остались латинские дубли
         for org in list(self.ru_names.keys()):
-            if self.ru_names[org] == org:
+            # Проверяем, если значение совпадает с ключом ИЛИ не содержит ни одной кириллической буквы (остался латинский дубль)
+            has_cyrillic = any(u'\u0400' <= char <= u'\u04FF' for char in self.ru_names[org])
+            if self.ru_names[org] == org or not has_cyrillic:
                 self.ru_names[org] = self.translate_organ_to_ru(org)
                 changed = True
 
@@ -1072,72 +1144,92 @@ class ContourEngine:
                     
                 logger.info(f"Обработка органа: {organ_name}...")
                 
-                nii_mask = nib.load(str(mask_file))
-                mask_data = nii_mask.get_fdata() > 0.5
-                
-                # ------------------------------------------------------------------
-                # ПОСТОБРАБОТКА МАСОК (Remove small blobs & Smoothing)
-                # ------------------------------------------------------------------
-                TINY_ORGANS = {"lens_left", "lens_right", "eye_left", "eye_right", "optic_nerve_left", "optic_nerve_right"}
-                
-                if remove_blobs and organ_name not in TINY_ORGANS:
-                    before_pixels = np.sum(mask_data)
-                    mask_data = self.remove_small_blobs(mask_data)
-                    after_pixels = np.sum(mask_data)
-                    removed_pixels = before_pixels - after_pixels
-                    if removed_pixels > 0:
-                        logger.info(f"[{organ_name}] Удалено мелких артефактов (blobs): {removed_pixels} пикселей")
-
-                if smoothing_sigma > 0.0 and organ_name not in TINY_ORGANS:
-                    logger.info(f"[{organ_name}] Применение 3D-сглаживания Гаусса (sigma={smoothing_sigma})...")
-                    mask_data = self.smooth_3d_mask(mask_data, smoothing_sigma)
-
-                # Транспонируем (X, Y, Z) к NumPy (Y, X, Z) [Rows, Cols, Slices]
-                mask_data_transposed = np.transpose(mask_data, (1, 0, 2))
-                mask_bool = mask_data_transposed.astype(bool)
-                
-                if not np.any(mask_bool):
-                    logger.info(f"Пропуск пустого органа: {organ_name} (отсутствует в КТ объеме после постобработки)")
-                    continue
+                try:
+                    nii_mask = nib.load(str(mask_file))
+                    mask_data = nii_mask.get_fdata() > 0.5
                     
-                color = self.colors.get(organ_name, [128, 128, 128])
-                
-                # Локализация ROI строго на английском согласно ТЗ
-                # Определяем имена ROI
-                roi_names_to_add: List[Tuple[str, List[int]]] = []
-                
-                if organ_name in organ_to_aliases:
-                    aliases = organ_to_aliases[organ_name]
-                    for i, alias in enumerate(aliases):
-                        # Слегка меняем цвет дубликатов для визуального отличия
-                        adj_color = color.copy()
-                        if i > 0:
-                            adj_color = [adj_color[0], min(255, adj_color[1] + 40 * i), adj_color[2]]
-                        roi_names_to_add.append((alias, adj_color))
-                else:
-                    # Стандартное английское название, совместимое с Elekta Monaco 5.51
-                    pretty_name = self.get_monaco_pretty_name(organ_name)
-                    roi_names_to_add.append((pretty_name, color))
-                
-                # Добавление в RTSTRUCT
-                for roi_name, roi_color in roi_names_to_add:
-                    if merge_mode == "merge" and roi_name in existing_rois:
-                        logger.info(f"Структура {roi_name} уже существует в исходном файле, пропускаем обработку ИИ.")
+                    # ------------------------------------------------------------------
+                    # ПОСТОБРАБОТКА МАСОК (Remove small blobs & Smoothing)
+                    # ------------------------------------------------------------------
+                    TINY_ORGANS = {"lens_left", "lens_right", "eye_left", "eye_right", "optic_nerve_left", "optic_nerve_right"}
+                    
+                    if remove_blobs and organ_name not in TINY_ORGANS:
+                        before_pixels = np.sum(mask_data)
+                        mask_data = self.remove_small_blobs(mask_data)
+                        after_pixels = np.sum(mask_data)
+                        removed_pixels = before_pixels - after_pixels
+                        if removed_pixels > 0:
+                            logger.info(f"[{organ_name}] Удалено мелких артефактов (blobs): {removed_pixels} пикселей")
+
+                    if smoothing_sigma > 0.0 and organ_name not in TINY_ORGANS:
+                        logger.info(f"[{organ_name}] Применение 3D-сглаживания Гаусса (sigma={smoothing_sigma})...")
+                        mask_data = self.smooth_3d_mask(mask_data, smoothing_sigma)
+
+                    # Транспонируем (X, Y, Z) к NumPy (Y, X, Z) [Rows, Cols, Slices]
+                    mask_data_transposed = np.transpose(mask_data, (1, 0, 2))
+                    mask_bool = mask_data_transposed.astype(bool)
+                    
+                    if not np.any(mask_bool):
+                        logger.info(f"Пропуск пустого органа: {organ_name} (отсутствует в КТ объеме после постобработки)")
                         continue
+                        
+                    color = self.colors.get(organ_name, [128, 128, 128])
                     
-                    rtstruct.add_roi(
-                        mask=mask_bool,
-                        color=roi_color,
-                        name=roi_name
-                    )
-                    added_count += 1
-                    logger.info(f"Успешно добавлен ROI '{roi_name}' (цвет: {roi_color})")
-                
-                # Очистка памяти после обработки маски органа
-                del mask_data
-                del mask_data_transposed
-                del mask_bool
-                gc.collect()
+                    # Локализация ROI строго на английском согласно ТЗ
+                    # Определяем имена ROI
+                    roi_names_to_add: List[Tuple[str, List[int]]] = []
+                    
+                    if organ_name in organ_to_aliases:
+                        aliases = organ_to_aliases[organ_name]
+                        for i, alias in enumerate(aliases):
+                            # Слегка меняем цвет дубликатов для визуального отличия
+                            adj_color = color.copy()
+                            if i > 0:
+                                adj_color = [adj_color[0], min(255, adj_color[1] + 40 * i), adj_color[2]]
+                            roi_names_to_add.append((alias, adj_color))
+                    else:
+                        # Стандартное английское название, совместимое с Elekta Monaco 5.51
+                        pretty_name = self.get_monaco_pretty_name(organ_name)
+                        roi_names_to_add.append((pretty_name, color))
+                    
+                    # Добавление в RTSTRUCT
+                    for roi_name, roi_color in roi_names_to_add:
+                        if merge_mode == "merge" and roi_name in existing_rois:
+                            logger.info(f"Структура {roi_name} уже существует в исходном файле, пропускаем обработку ИИ.")
+                            continue
+                        
+                        rtstruct.add_roi(
+                            mask=mask_bool,
+                            color=roi_color,
+                            name=roi_name
+                        )
+                        added_count += 1
+                        logger.info(f"Успешно добавлен ROI '{roi_name}' (цвет: {roi_color})")
+                    
+                    # Очистка памяти после обработки маски органа
+                    del mask_data
+                    del mask_data_transposed
+                    del mask_bool
+                    gc.collect()
+                except Exception as organ_err:
+                    logger.error(f"Ошибка при обработке органа {organ_name}: {organ_err}", exc_info=True)
+                    # Гарантируем очистку памяти в случае частичной ошибки
+                    if 'mask_data' in locals():
+                        try:
+                            del mask_data
+                        except NameError:
+                            pass
+                    if 'mask_data_transposed' in locals():
+                        try:
+                            del mask_data_transposed
+                        except NameError:
+                            pass
+                    if 'mask_bool' in locals():
+                        try:
+                            del mask_bool
+                        except NameError:
+                            pass
+                    gc.collect()
                 
             if added_count == 0:
                 raise RuntimeError("В RTSTRUCT не было добавлено ни одного OAR. Проверьте область сканирования.")
