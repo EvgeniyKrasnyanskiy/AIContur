@@ -1371,19 +1371,29 @@ if PYQT_AVAILABLE:
             # Группировка списка органов по анатомическим областям
             ORGAN_GROUPS = {
                 "━━━ ГОЛОВА И ШЕЯ ━━━": [
-                    "eye_left", "eye_right", "lens_left", "lens_right", "brain", "brain_stem",
-                    "optic_nerve_left", "optic_nerve_right", "spinal_cord", "thyroid_gland",
-                    "skull", "trachea", "esophagus", "common_carotid_artery_left", "common_carotid_artery_right"
+                    "eye_left", "eye_right", "lens_left", "lens_right", "optic_nerve_left", "optic_nerve_right",
+                    "thyroid_gland", "skull", "common_carotid_artery_left", "common_carotid_artery_right",
+                    "parotid_gland_left", "parotid_gland_right", "submandibular_gland_left", "submandibular_gland_right",
+                    "nasal_cavity_left", "nasal_cavity_right", "nasopharynx", "oropharynx", "hypopharynx",
+                    "soft_palate", "hard_palate", "auditory_canal_left", "auditory_canal_right"
+                ],
+                "━━━ ОТДЕЛЫ ГОЛОВНОГО МОЗГА ━━━": [
+                    "brain", "brain_stem", "cerebellum", "thalamus_left", "thalamus_right", "hippocampus_left", "hippocampus_right",
+                    "amygdala_left", "amygdala_right", "caudate_left", "caudate_right", "putamen_left", "putamen_right",
+                    "pallidum_left", "pallidum_right"
                 ],
                 "━━━ ГРУДНАЯ КЛЕТКА ━━━": [
                     "heart", "lung_left", "lung_right", "trachea", "esophagus", "aorta", "pulmonary_artery",
                     "superior_vena_cava", "sternum", "clavicula_left", "clavicula_right"
                 ],
                 "━━━ БРЮШНАЯ ПОЛОСТЬ ━━━": [
-                    "spleen", "kidney_right", "kidney_left", "gallbladder", "liver", "stomach", "inferior_vena_cava", "pancreas", "duodenum", "adrenal_gland_left", "adrenal_gland_right", "portal_vein_and_splenic_vein"
+                    "spleen", "kidney_right", "kidney_left", "gallbladder", "liver", "stomach", "pancreas", "duodenum",
+                    "adrenal_gland_left", "adrenal_gland_right", "portal_vein_and_splenic_vein", "small_bowel", "colon"
                 ],
                 "━━━ МАЛЫЙ ТАЗ ━━━": [
-                    "urinary_bladder", "prostate", "rectum", "colon", "small_bowel", "femur_left", "femur_right", "hip_left", "hip_right", "sacrum", "iliac_artery_left", "iliac_artery_right"
+                    "urinary_bladder", "sacrum", "iliac_artery_left", "iliac_artery_right", "iliac_vein_left", "iliac_vein_right",
+                    "gluteus_maximus_left", "gluteus_maximus_right", "gluteus_medius_left", "gluteus_medius_right",
+                    "gluteus_minimus_left", "gluteus_minimus_right"
                 ]
             }
 
@@ -1421,7 +1431,7 @@ if PYQT_AVAILABLE:
             # Добавляем оставшиеся органы (total) в отдельную группу
             other_organs = [org for org in all_supported_organs if org not in placed_organs]
             if other_organs:
-                other_header = QListWidgetItem("━━━ ПРОЧИЕ ОРГАНЫ (TOTAL) ━━━")
+                other_header = QListWidgetItem("━━━ ОСТАЛЬНОЕ (OTHER / SPINE) ━━━")
                 other_header.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsUserCheckable)
                 other_header.setCheckState(Qt.CheckState.Unchecked)
                 other_header.setData(Qt.ItemDataRole.UserRole, "header")
@@ -1986,18 +1996,30 @@ if PYQT_AVAILABLE:
                 # Этап 2: Добавляем обратный маппинг для всех поддерживаемых органов
                 for org in self.engine.get_all_supported_organs():
                     pretty_names = []
+                    # Добавляем Monaco-совместимое имя из движка
+                    pretty_names.append(self.engine.get_monaco_pretty_name(org))
+                    
+                    # Резервные полные варианты для обратной совместимости
                     if org == "urinary_bladder":
-                        pretty_names.append("Bladder")
+                        pretty_names.append("Urinary Bladder")
                     elif org == "lens_left":
-                        pretty_names.extend(["Lens L", "Lens Left"])
+                        pretty_names.append("Lens Left")
                     elif org == "lens_right":
-                        pretty_names.extend(["Lens R", "Lens Right"])
+                        pretty_names.append("Lens Right")
                     elif org == "optic_nerve_left":
-                        pretty_names.extend(["Optic Nerve L", "Optic Nerve Left"])
+                        pretty_names.append("Optic Nerve Left")
                     elif org == "optic_nerve_right":
-                        pretty_names.extend(["Optic Nerve R", "Optic Nerve Right"])
+                        pretty_names.append("Optic Nerve Right")
                     else:
                         pretty_names.append(org.replace("_", " ").title())
+                        
+                    # Дополнительные лаконичные суффиксы L/R
+                    if org.endswith("_left"):
+                        pretty_names.append(org.replace("_left", " L").replace("_", " ").title())
+                        pretty_names.append(org.replace("_left", " Left").replace("_", " ").title())
+                    elif org.endswith("_right"):
+                        pretty_names.append(org.replace("_right", " R").replace("_", " ").title())
+                        pretty_names.append(org.replace("_right", " Right").replace("_", " ").title())
                         
                     for pretty_name in pretty_names:
                         rtstruct_name_to_id[pretty_name.lower()] = org

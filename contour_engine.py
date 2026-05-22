@@ -44,59 +44,75 @@ logger = logging.getLogger("ContourEngine")
 
 # Глобальный словарь маппинга органов на таски TotalSegmentator
 ROI_TO_TASK_MAP = {
-    # Базовая модель (total)
-    'skull': 'total', 'trachea': 'total', 'esophagus': 'total', 
-    'thyroid_gland': 'total', 'spinal_cord': 'total',
-    'common_carotid_artery_left': 'total', 'common_carotid_artery_right': 'total',
-    'heart': 'total', 'lung_left': 'total', 'lung_right': 'total', 'aorta': 'total',
-    'pulmonary_artery': 'total', 'superior_vena_cava': 'total', 'sternum': 'total',
-    'clavicula_left': 'total', 'clavicula_right': 'total', 'spleen': 'total',
-    'kidney_right': 'total', 'kidney_left': 'total', 'gallbladder': 'total',
-    'liver': 'total', 'stomach': 'total', 'inferior_vena_cava': 'total',
-    'urinary_bladder': 'total', 'pancreas': 'total', 'duodenum': 'total',
-    'adrenal_gland_left': 'total', 'adrenal_gland_right': 'total',
-    'portal_vein_and_splenic_vein': 'total', 'prostate': 'total', 'rectum': 'total',
-    'colon': 'total', 'small_bowel': 'total', 'femur_left': 'total',
-    'femur_right': 'total', 'hip_left': 'total', 'hip_right': 'total',
-    'sacrum': 'total', 'iliac_artery_left': 'total', 'iliac_artery_right': 'total',
-    'brain': 'total',
-    
-    # Мозг (brain_structures) - требует лицензии
-    'brain_stem': 'brain_structures', 'brainstem': 'brain_structures',
-    
-    # Лицо / Орбиты (в нашей версии это head_glands_cavities)
-    'eye_left': 'head_glands_cavities', 'eye_right': 'head_glands_cavities', 
-    'lens_left': 'head_glands_cavities', 'lens_right': 'head_glands_cavities',
-    'optic_nerve_left': 'head_glands_cavities', 'optic_nerve_right': 'head_glands_cavities'
+    # Отделы головного мозга (brain_structures) - требует лицензии
+    'brain': 'brain_structures',
+    'brain_stem': 'brain_structures',
+    'brainstem': 'brain_structures',
+    'cerebellum': 'brain_structures',
+    'thalamus_left': 'brain_structures',
+    'thalamus_right': 'brain_structures',
+    'hippocampus_left': 'brain_structures',
+    'hippocampus_right': 'brain_structures',
+    'amygdala_left': 'brain_structures',
+    'amygdala_right': 'brain_structures',
+    'caudate_left': 'brain_structures',
+    'caudate_right': 'brain_structures',
+    'putamen_left': 'brain_structures',
+    'putamen_right': 'brain_structures',
+    'pallidum_left': 'brain_structures',
+    'pallidum_right': 'brain_structures',
+
+    # Мелкие органы головы (head_glands_cavities) - требует лицензии
+    'eye_left': 'head_glands_cavities',
+    'eye_right': 'head_glands_cavities',
+    'lens_left': 'head_glands_cavities',
+    'lens_right': 'head_glands_cavities',
+    'optic_nerve_left': 'head_glands_cavities',
+    'optic_nerve_right': 'head_glands_cavities',
+    'parotid_gland_left': 'head_glands_cavities',
+    'parotid_gland_right': 'head_glands_cavities',
+    'submandibular_gland_left': 'head_glands_cavities',
+    'submandibular_gland_right': 'head_glands_cavities',
+    'nasal_cavity_left': 'head_glands_cavities',
+    'nasal_cavity_right': 'head_glands_cavities',
+    'nasopharynx': 'head_glands_cavities',
+    'oropharynx': 'head_glands_cavities',
+    'hypopharynx': 'head_glands_cavities',
+    'soft_palate': 'head_glands_cavities',
+    'hard_palate': 'head_glands_cavities',
+    'auditory_canal_left': 'head_glands_cavities',
+    'auditory_canal_right': 'head_glands_cavities',
 }
 
 # Дефолтные настройки для автогенерации presets.json при его отсутствии
 DEFAULT_PRESETS_DATA = {
     "presets": {
         "Голова и шея (Head & Neck)": [
-            "brain", "spinal_cord", "thyroid_gland", "skull", "trachea", "esophagus",
-            "common_carotid_artery_left", "common_carotid_artery_right"
+            "eye_left", "eye_right", "lens_left", "lens_right", "optic_nerve_left", "optic_nerve_right",
+            "thyroid_gland", "skull", "common_carotid_artery_left", "common_carotid_artery_right",
+            "parotid_gland_left", "parotid_gland_right", "submandibular_gland_left", "submandibular_gland_right",
+            "nasal_cavity_left", "nasal_cavity_right", "nasopharynx", "oropharynx", "hypopharynx",
+            "soft_palate", "hard_palate", "auditory_canal_left", "auditory_canal_right"
         ],
         "Грудная клетка (Thorax)": [
             "heart", "lung_left", "lung_right", "trachea", "esophagus", "aorta", "pulmonary_artery",
             "superior_vena_cava", "sternum", "clavicula_left", "clavicula_right"
         ],
         "Брюшная полость (Abdomen)": [
-            "spleen", "kidney_right", "kidney_left", "gallbladder", "liver", "stomach", "aorta",
-            "inferior_vena_cava", "urinary_bladder", "heart", "pancreas", "duodenum",
-            "adrenal_gland_left", "adrenal_gland_right", "portal_vein_and_splenic_vein"
+            "spleen", "kidney_right", "kidney_left", "gallbladder", "liver", "stomach", "pancreas", "duodenum",
+            "adrenal_gland_left", "adrenal_gland_right", "portal_vein_and_splenic_vein", "small_bowel", "colon"
         ],
         "Малый таз (Pelvis)": [
-            "urinary_bladder", "prostate", "rectum", "colon", "small_bowel", "femur_left", "femur_right",
-            "hip_left", "hip_right", "sacrum", "iliac_artery_left", "iliac_artery_right"
+            "urinary_bladder", "sacrum", "iliac_artery_left", "iliac_artery_right", "iliac_vein_left", "iliac_vein_right",
+            "gluteus_maximus_left", "gluteus_maximus_right", "gluteus_medius_left", "gluteus_medius_right",
+            "gluteus_minimus_left", "gluteus_minimus_right"
         ],
-        "Брахитерапия (Brachytherapy)": [
-            "urinary_bladder", "small_bowel", {"colon": ["Colon", "Colon Dup"]}
+        "Отделы головного мозга (Brain Structures)": [
+            "brain", "brain_stem", "cerebellum", "thalamus_left", "thalamus_right", "hippocampus_left", "hippocampus_right",
+            "amygdala_left", "amygdala_right", "caudate_left", "caudate_right", "putamen_left", "putamen_right",
+            "pallidum_left", "pallidum_right"
         ],
-        "Голова и Шея (Head & Neck)": [
-            "eye_left", "eye_right", "lens_left", "lens_right", "brain", 
-            "brain_stem", "optic_nerve_left", "optic_nerve_right", "spinal_cord"
-        ]
+        "Остальное (Other / Spine)": []
     },
     "colors": {
         "spleen": [156, 39, 176],
@@ -378,13 +394,52 @@ class ContourEngine:
                 self.ru_names[org] = self.translate_organ_to_ru(org)
                 changed = True
 
-        preset_key = "Все структуры / Full Total"
-        if preset_key not in self.presets or len(self.presets[preset_key]) != len(full_total_preset):
-            self.presets[preset_key] = full_total_preset
+        # Обновляем пресеты до 6 строгих групп согласно ТЗ + Full Total
+        head_neck = [
+            "eye_left", "eye_right", "lens_left", "lens_right", "optic_nerve_left", "optic_nerve_right",
+            "thyroid_gland", "skull", "common_carotid_artery_left", "common_carotid_artery_right",
+            "parotid_gland_left", "parotid_gland_right", "submandibular_gland_left", "submandibular_gland_right",
+            "nasal_cavity_left", "nasal_cavity_right", "nasopharynx", "oropharynx", "hypopharynx",
+            "soft_palate", "hard_palate", "auditory_canal_left", "auditory_canal_right"
+        ]
+        thorax = [
+            "heart", "lung_left", "lung_right", "trachea", "esophagus", "aorta", "pulmonary_artery",
+            "superior_vena_cava", "sternum", "clavicula_left", "clavicula_right"
+        ]
+        abdomen = [
+            "spleen", "kidney_right", "kidney_left", "gallbladder", "liver", "stomach", "pancreas", "duodenum",
+            "adrenal_gland_left", "adrenal_gland_right", "portal_vein_and_splenic_vein", "small_bowel", "colon"
+        ]
+        pelvis = [
+            "urinary_bladder", "sacrum", "iliac_artery_left", "iliac_artery_right", "iliac_vein_left", "iliac_vein_right",
+            "gluteus_maximus_left", "gluteus_maximus_right", "gluteus_medius_left", "gluteus_medius_right",
+            "gluteus_minimus_left", "gluteus_minimus_right"
+        ]
+        brain_structs = [
+            "brain", "brain_stem", "cerebellum", "thalamus_left", "thalamus_right", "hippocampus_left", "hippocampus_right",
+            "amygdala_left", "amygdala_right", "caudate_left", "caudate_right", "putamen_left", "putamen_right",
+            "pallidum_left", "pallidum_right"
+        ]
+        placed = set(head_neck + thorax + abdomen + pelvis + brain_structs)
+        other_preset = [org for org in all_organs if org not in placed and org != "body"]
+
+        new_presets = {
+            "Голова и шея (Head & Neck)": head_neck,
+            "Грудная клетка (Thorax)": thorax,
+            "Брюшная полость (Abdomen)": abdomen,
+            "Малый таз (Pelvis)": pelvis,
+            "Отделы головного мозга (Brain Structures)": brain_structs,
+            "Остальное (Other / Spine)": other_preset,
+            "Все структуры / Full Total": full_total_preset
+        }
+
+        # Если пресеты отличаются, обновляем их
+        if self.presets != new_presets:
+            self.presets = new_presets
             changed = True
 
         if changed:
-            logger.info(f"Обнаружены новые структуры TotalSegmentator. Обновление {self.config_path}...")
+            logger.info(f"Обнаружены изменения или новые структуры. Обновление {self.config_path}...")
             self.save_presets_config()
 
 
@@ -431,6 +486,31 @@ class ContourEngine:
             logger.info("Конфигурация пресетов успешно сохранена.")
         except Exception as e:
             logger.error(f"Не удалось сохранить presets.json: {e}")
+
+    @staticmethod
+    def get_monaco_pretty_name(organ_name: str) -> str:
+        """
+        Возвращает красивое имя OAR, совместимое с Elekta Monaco 5.51 и интерфейсом.
+        """
+        if organ_name == "lens_left":
+            return "Lens L"
+        if organ_name == "lens_right":
+            return "Lens R"
+        if organ_name == "optic_nerve_left":
+            return "Optic Nerve L"
+        if organ_name == "optic_nerve_right":
+            return "Optic Nerve R"
+        if organ_name == "urinary_bladder":
+            return "Bladder"
+            
+        pretty = organ_name
+        if pretty.endswith("_left"):
+            pretty = pretty[:-5] + "_l"
+        elif pretty.endswith("_right"):
+            pretty = pretty[:-6] + "_r"
+            
+        pretty = pretty.replace("_", " ").title()
+        return pretty
 
     @staticmethod
     def is_gpu_available() -> bool:
@@ -653,64 +733,31 @@ class ContourEngine:
                 totalseg_exe = Path("TotalSegmentator")
 
             # ---- ДИНАМИЧЕСКОЕ РАЗДЕЛЕНИЕ ПО ЗАДАЧАМ ----
-            # Маршрутизируем каждый орган напрямую в нужный таск через ROI_TO_TASK_MAP.
-            # Органы из суб-моделей (eye_left -> head_glands_cavities и т.д.) НЕ проходят
-            # через фильтр total_supported и не выбрасываются.
             tasks_to_run = {}
             skipped_organs = []
 
             if precision_mode == "faster":
                 tasks_to_run["body"] = []
             elif target_organs:
-                if preset_name == "head_neck_oar" or preset_name == "Голова и Шея (Head & Neck)":
-                    logger.info("Анализ пресета Голова и Шея: разбиение на задачи total, brain_structures и др.")
-
                 for organ in target_organs:
                     if organ == "body":
                         continue
 
-                    # Если орган явно прописан в ROI_TO_TASK_MAP — направляем в его таск
-                    if organ in ROI_TO_TASK_MAP:
-                        task = ROI_TO_TASK_MAP[organ]
+                    # Если это виртуальный орган (например, lung_left или brain_stem), разбиваем его на части
+                    if organ in VIRTUAL_ORGANS_MAP:
+                        parts = VIRTUAL_ORGANS_MAP[organ]
+                        logger.info(f"Орган '{organ}' разбит на составные части: {parts}")
+                        for part in parts:
+                            task = ROI_TO_TASK_MAP.get(part, 'total')
+                            if task not in tasks_to_run:
+                                tasks_to_run[task] = []
+                            tasks_to_run[task].append(part)
+                    else:
+                        # Обычный орган: если есть в карте - берем оттуда, иначе по умолчанию 'total'
+                        task = ROI_TO_TASK_MAP.get(organ, 'total')
                         if task not in tasks_to_run:
                             tasks_to_run[task] = []
                         tasks_to_run[task].append(organ)
-
-                    # Виртуальный орган (lung_left, brain_stem и др.) — разбиваем на части
-                    elif organ in VIRTUAL_ORGANS_MAP:
-                        parts = VIRTUAL_ORGANS_MAP[organ]
-                        routed = False
-                        for part in parts:
-                            part_task = ROI_TO_TASK_MAP.get(part)
-                            if part_task:
-                                if part_task not in tasks_to_run:
-                                    tasks_to_run[part_task] = []
-                                tasks_to_run[part_task].append(part)
-                                routed = True
-                            elif part in total_supported:
-                                if "total" not in tasks_to_run:
-                                    tasks_to_run["total"] = []
-                                tasks_to_run["total"].append(part)
-                                routed = True
-                        if routed:
-                            logger.info(f"Орган '{organ}' разбит на составные части: {parts}")
-                        else:
-                            logger.warning(f"Орган '{organ}' задекларирован как виртуальный, но составные части не поддерживаются ИИ.")
-                            skipped_organs.append(organ)
-
-                    # Фолбэк: орган не в маппинге, но есть в total
-                    elif organ in total_supported:
-                        if "total" not in tasks_to_run:
-                            tasks_to_run["total"] = []
-                        tasks_to_run["total"].append(organ)
-
-                    # Орган полностью неизвестен
-                    else:
-                        logger.warning(f"Орган '{organ}' отсутствует в ROI_TO_TASK_MAP и не найден в total. Будет пропущен.")
-                        skipped_organs.append(organ)
-
-                if skipped_organs:
-                    logger.warning(f"Итого пропущено органов: {skipped_organs}")
 
             # Дедупликация ROI внутри каждой задачи
             for task_name in tasks_to_run:
@@ -1072,19 +1119,8 @@ class ContourEngine:
                             adj_color = [adj_color[0], min(255, adj_color[1] + 40 * i), adj_color[2]]
                         roi_names_to_add.append((alias, adj_color))
                 else:
-                    # Стандартное английское название
-                    pretty_name = organ_name.replace("_", " ").title()
-                    # Исключения для более компактного вида в TPS (в т.ч. требования Elekta Monaco)
-                    if organ_name == "urinary_bladder":
-                        pretty_name = "Bladder"
-                    elif organ_name == "lens_left":
-                        pretty_name = "Lens L"
-                    elif organ_name == "lens_right":
-                        pretty_name = "Lens R"
-                    elif organ_name == "optic_nerve_left":
-                        pretty_name = "Optic Nerve L"
-                    elif organ_name == "optic_nerve_right":
-                        pretty_name = "Optic Nerve R"
+                    # Стандартное английское название, совместимое с Elekta Monaco 5.51
+                    pretty_name = self.get_monaco_pretty_name(organ_name)
                     roi_names_to_add.append((pretty_name, color))
                 
                 # Добавление в RTSTRUCT
