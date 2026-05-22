@@ -1433,7 +1433,7 @@ if PYQT_AVAILABLE:
             # Добавляем оставшиеся органы (total) в отдельную группу
             other_organs = [org for org in all_supported_organs if org not in placed_organs]
             if other_organs:
-                other_header = QListWidgetItem("━━━ ОСТАЛЬНОЕ (OTHER / SPINE) ━━━")
+                other_header = QListWidgetItem("━━━ ОСТАЛЬНОЕ ━━━")
                 other_header.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsUserCheckable)
                 other_header.setCheckState(Qt.CheckState.Unchecked)
                 other_header.setData(Qt.ItemDataRole.UserRole, "header")

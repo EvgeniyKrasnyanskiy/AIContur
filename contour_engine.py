@@ -114,7 +114,7 @@ DEFAULT_PRESETS_DATA = {
             "amygdala_left", "amygdala_right", "caudate_left", "caudate_right", "putamen_left", "putamen_right",
             "pallidum_left", "pallidum_right"
         ],
-        "Остальное (Other / Spine)": []
+        "Остальное": []
     },
     "colors": {
         "spleen": [156, 39, 176],
@@ -397,35 +397,81 @@ class ContourEngine:
                 changed = True
 
         # Обновляем пресеты до 6 строгих групп согласно ТЗ + Full Total
-        head_neck = [
+        head_neck_base = [
             "eye_left", "eye_right", "lens_left", "lens_right", "optic_nerve_left", "optic_nerve_right",
             "spinal_cord", "thyroid_gland", "skull", "common_carotid_artery_left", "common_carotid_artery_right",
             "parotid_gland_left", "parotid_gland_right", "submandibular_gland_left", "submandibular_gland_right",
             "nasal_cavity_left", "nasal_cavity_right", "nasopharynx", "oropharynx", "hypopharynx",
             "soft_palate", "hard_palate", "auditory_canal_left", "auditory_canal_right"
         ]
-        thorax = [
+        thorax_base = [
             "heart", "lung_left", "lung_right", "trachea", "esophagus", "aorta", "pulmonary_artery",
             "superior_vena_cava", "sternum", "clavicula_left", "clavicula_right",
             "scapula_left", "scapula_right", "humerus_left", "humerus_right"
         ]
-        abdomen = [
+        abdomen_base = [
             "spleen", "kidney_right", "kidney_left", "gallbladder", "liver", "stomach", "pancreas", "duodenum",
             "adrenal_gland_left", "adrenal_gland_right", "portal_vein_and_splenic_vein", "small_bowel", "colon"
         ]
-        pelvis = [
+        pelvis_base = [
             "urinary_bladder", "prostate", "rectum", "sacrum", "hip_left", "hip_right", "femur_left", "femur_right",
             "iliac_artery_left", "iliac_artery_right", "iliac_vein_left", "iliac_vein_right",
             "gluteus_maximus_left", "gluteus_maximus_right", "gluteus_medius_left", "gluteus_medius_right",
             "gluteus_minimus_left", "gluteus_minimus_right"
         ]
-        brain_structs = [
+        brain_structs_base = [
             "brain", "brain_stem", "cerebellum", "thalamus_left", "thalamus_right", "hippocampus_left", "hippocampus_right",
             "amygdala_left", "amygdala_right", "caudate_left", "caudate_right", "putamen_left", "putamen_right",
             "pallidum_left", "pallidum_right"
         ]
-        placed = set(head_neck + thorax + abdomen + pelvis + brain_structs)
-        other_preset = [org for org in all_organs if org not in placed and org != "body"]
+
+        # Эвристические списки ключевых слов для автоматического распределения 300+ дополнительных структур
+        brain_keywords = ['brain', 'ventricle', 'thalamus', 'hippocampus', 'amygdala', 'caudate', 'putamen', 'pallidum', 'cerebellum', 'cortex', 'capsule', 'hemorrhage', 'subarachnoid', 'temporal_lobe', 'occipital_lobe', 'frontal_lobe', 'parietal_lobe', 'lentiform']
+        head_neck_keywords = ['eye', 'lens', 'optic', 'thyroid', 'skull', 'carotid', 'jugular', 'parotid', 'submandibular', 'nasal', 'nasopharynx', 'oropharynx', 'hypopharynx', 'palate', 'auditory', 'mandible', 'maxilla', 'jawbone', 'teeth', 'tooth', 'tongue', 'zygomatic', 'vocal_cords', 'larynx', 'pharynx', 'masseter', 'temporalis', 'buccinator', 'pterygoid', 'digastric', 'mylohyoid', 'geniohyoid', 'sternohyoid', 'omohyoid', 'thyrohyoid', 'sternothyroid', 'platysma', 'prevertebral', 'scalene', 'longus', 'capitis', 'sinus', 'alveolar_canal', 'incisive_canal', 'gland', 'face', 'head', 'rectus_muscle', 'oblique_muscle', 'levator_palpebrae', 'constrictor', 'cartilage', 'hyoid', 'vocal']
+        thorax_keywords = ['heart', 'lung', 'trachea', 'esophagus', 'aorta', 'pulmonary', 'superior_vena_cava', 'sternum', 'clavicula', 'clavicle', 'scapula', 'humerus', 'pericardium', 'mediastinum', 'thoracic_cavity', 'subclavian', 'brachiocephalic', 'atrial_appendage', 'left_coronary_cusp', 'right_coronary_cusp', 'non_coronary_cusp', 'coronary', 'pleural', 'bronchia', 'thymus', 'breast']
+        abdomen_keywords = ['spleen', 'kidney', 'gallbladder', 'liver', 'stomach', 'pancreas', 'duodenum', 'adrenal', 'portal_vein', 'splenic_vein', 'small_bowel', 'colon', 'abdominal_cavity', 'inferior_vena_cava', 'celiac', 'mesenteric', 'gastric', 'splenic_artery', 'hepatic', 'renal', 'biliary', 'pancreatic', 'duodenal']
+        pelvis_keywords = ['bladder', 'prostate', 'rectum', 'sacrum', 'hip', 'femur', 'iliac', 'gluteus', 'obturator', 'piriformis', 'levator_ani', 'sphincter', 'urethra', 'seminal_vesicle', 'uterus', 'ovary', 'vagina', 'penis', 'testicle', 'pubic', 'coccyx', 'sartorius', 'pectineus', 'gracilis', 'adductor', 'quadriceps', 'hamstring', 'psoas', 'iliopsoas', 'quadratus_lumborum']
+
+        head_neck = []
+        thorax = []
+        abdomen = []
+        pelvis = []
+        brain_structs = []
+        other_preset = []
+
+        for org in all_organs:
+            if org == "body":
+                continue
+            
+            # 1. Сначала жесткие базовые пресеты (для сохранения красивого Monaco порядка)
+            if org in head_neck_base:
+                head_neck.append(org)
+            elif org in thorax_base:
+                thorax.append(org)
+            elif org in abdomen_base:
+                abdomen.append(org)
+            elif org in pelvis_base:
+                pelvis.append(org)
+            elif org in brain_structs_base:
+                brain_structs.append(org)
+                
+            # 2. Иначе распределяем по эвристикам
+            elif 'adrenal_gland' in org:
+                abdomen.append(org)
+            elif any(k in org for k in ['heart_ventricle', 'heart_atrium', 'heart_myocardium']):
+                thorax.append(org)
+            elif any(k in org for k in brain_keywords) and 'heart_ventricle' not in org:
+                brain_structs.append(org)
+            elif any(k in org for k in head_neck_keywords):
+                head_neck.append(org)
+            elif any(k in org for k in thorax_keywords):
+                thorax.append(org)
+            elif any(k in org for k in abdomen_keywords):
+                abdomen.append(org)
+            elif any(k in org for k in pelvis_keywords):
+                pelvis.append(org)
+            else:
+                other_preset.append(org)
 
         new_presets = {
             "Голова и шея (Head & Neck)": head_neck,
@@ -433,7 +479,7 @@ class ContourEngine:
             "Брюшная полость (Abdomen)": abdomen,
             "Малый таз (Pelvis)": pelvis,
             "Отделы головного мозга (Brain Structures)": brain_structs,
-            "Остальное (Other / Spine)": other_preset,
+            "Остальное": other_preset,
             "Все структуры / Full Total": full_total_preset
         }
 
