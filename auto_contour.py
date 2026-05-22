@@ -856,7 +856,7 @@ if PYQT_AVAILABLE:
             # Двойной клик по элементу списка для выбора цвета
             self.organs_list.itemDoubleClicked.connect(self.pick_organ_color)
             
-            self.tab_widget.addTab(tab1_widget, "🎯 Контуры и снимки")
+            self.tab_widget.addTab(tab1_widget, "🎯 Контуры")
 
             # ------------------------------------------------------------------
             # ВКЛАДКА 2: Параметры ИИ и Цвета
@@ -882,8 +882,8 @@ if PYQT_AVAILABLE:
             input_group_layout.addLayout(input_box)
             tab2_layout.addWidget(input_group)
             
-            # Группа: Работа с существующими контурами (перенесено из Tab 1)
-            merge_group = QGroupBox("Работа с существующими контурами")
+            # Группа: Действия с файлами структур (перенесено из Tab 1)
+            merge_group = QGroupBox("Действия с файлами структур")
             merge_group_layout = QVBoxLayout(merge_group)
             merge_group_layout.setSpacing(10)
             
@@ -895,16 +895,24 @@ if PYQT_AVAILABLE:
             self.merge_btn_group = QButtonGroup(self)
             self.radio_merge_new = QRadioButton("Создать новый файл RTSTRUCT")
             self.radio_merge_merge = QRadioButton("Дополнить существующий файл")
-            self.radio_merge_overwrite = QRadioButton("Перезаписать существующий файл")
             
             self.radio_merge_merge.setChecked(True)
             self.merge_btn_group.addButton(self.radio_merge_new, 1)
             self.merge_btn_group.addButton(self.radio_merge_merge, 2)
-            self.merge_btn_group.addButton(self.radio_merge_overwrite, 3)
             
             merge_group_layout.addWidget(self.radio_merge_new)
             merge_group_layout.addWidget(self.radio_merge_merge)
-            merge_group_layout.addWidget(self.radio_merge_overwrite)
+            
+            # Выпадающий список выбора целевого файла для дополнения
+            self.merge_rtstruct_combo = QComboBox()
+            self.merge_rtstruct_combo.setEnabled(False)
+            self.merge_rtstruct_combo.setStyleSheet("margin-left: 20px; padding: 4px;")
+            merge_group_layout.addWidget(self.merge_rtstruct_combo)
+            
+            self.radio_merge_new.toggled.connect(self.update_merge_combo_state)
+            self.radio_merge_merge.toggled.connect(self.update_merge_combo_state)
+            self.merge_rtstruct_combo.currentIndexChanged.connect(self.on_merge_rtstruct_changed)
+            
             tab2_layout.addWidget(merge_group)
             
             gpu_available = self.engine.is_gpu_available()
@@ -983,14 +991,14 @@ if PYQT_AVAILABLE:
             tab2_layout.addWidget(post_group)
 
             # Группа 4: Кастомизация цветов
-            color_group = QGroupBox("Управление цветами ROI")
+            color_group = QGroupBox("Управление цветом контуров")
             color_group_layout = QVBoxLayout(color_group)
             
             color_preset_label = QLabel("Предопределенный набор цветов:")
             self.color_preset_combo = QComboBox()
             self.color_preset_combo.addItems([
-                "Классический AI Contour",
-                "QUANTEC",
+                "Классический",
+                "Цвета QUANTEC",
                 "Яркий неоновый"
             ])
             self.color_preset_combo.currentTextChanged.connect(self.on_color_preset_changed)
@@ -1000,7 +1008,7 @@ if PYQT_AVAILABLE:
             tab2_layout.addWidget(color_group)
 
             # Звук в конце
-            self.sound_check = QCheckBox("Звуковое оповещение при завершении 🔔")
+            self.sound_check = QCheckBox("🔔 Звуковое оповещение при завершении")
             self.sound_check.setChecked(True)
             tab2_layout.addWidget(self.sound_check)
             
@@ -1085,7 +1093,7 @@ if PYQT_AVAILABLE:
 </style>
 </head>
 <body>
-    <h1>Справка по работе с AI Contour 📖</h1>
+    <h1>Справка по работе с AI Contour (Краснодар)📖</h1>
 
     <p><b>AI Contour</b> — интеллектуальное ПО для автоматического сегментирования органов риска (OAR) на КТ-снимках DICOM с использованием нейросети <b>TotalSegmentator</b>.</p>
 
@@ -1105,7 +1113,7 @@ if PYQT_AVAILABLE:
         <h2>Порядок работы 📋</h2>
         <ul>
             <li>На вкладке <b>«⚙️ Настройки»</b> выберите папку с КТ-снимками DICOM и нажмите <b>«📂 Источник»</b>.</li>
-            <li>На вкладке <b>«🎯 Контуры и снимки»</b> выберите пресет органов и пациента в таблице.</li>
+            <li>На вкладке <b>«🎯 Контуры»</b> выберите пресет органов и пациента в таблице.</li>
             <li>Настройте режим расчёта (CPU/GPU), точность ИИ и постобработку.</li>
             <li>Нажмите <b>«ЗАПУСТИТЬ АВТООКОНТУРИРОВАНИЕ»</b> и дождитесь завершения.</li>
             <li>После завершения включите <b>«Отображать структуры»</b> для просмотра результатов.</li>
@@ -1284,7 +1292,7 @@ if PYQT_AVAILABLE:
             
             self.rtstruct_combo = QComboBox()
             self.rtstruct_combo.setEnabled(False)
-            self.rtstruct_combo.currentIndexChanged.connect(self.on_show_structures_changed)
+            self.rtstruct_combo.currentIndexChanged.connect(self.on_viewer_rtstruct_changed)
             
             viewer_tools_layout.addWidget(self.chk_show_structures)
             viewer_tools_layout.addWidget(QLabel("Файл:"))
@@ -1347,8 +1355,8 @@ if PYQT_AVAILABLE:
             # Инициализация списков пресетов и органов из presets.json движка
             self.init_presets_and_organs()
 
-            # Установка палитры по умолчанию на QUANTEC
-            self.palette_combo.setCurrentText("QUANTEC")
+            # Установка палитры по умолчанию на Цвета QUANTEC
+            self.palette_combo.setCurrentText("Цвета QUANTEC")
 
             # Подключаем сохранение настроек
             self.sound_check.stateChanged.connect(self.on_sound_check_changed)
@@ -1578,7 +1586,7 @@ if PYQT_AVAILABLE:
                 smoothing_idx = self.settings.value("smoothing_idx", 1, type=int)
                 self.smoothing_combo.setCurrentIndex(smoothing_idx)
 
-                color_preset = self.settings.value("color_preset", "QUANTEC")
+                color_preset = self.settings.value("color_preset", "Цвета QUANTEC")
                 self.color_preset_combo.setCurrentText(color_preset)
 
                 play_sound = self.settings.value("play_sound", True, type=bool)
@@ -1851,7 +1859,7 @@ if PYQT_AVAILABLE:
                         self.status_rtstruct_label.setText("RTSTRUCT: не найден (будет создан новый)")
                         self.status_rtstruct_label.setStyleSheet("color: #888888;")
                         self.radio_merge_merge.setEnabled(False)
-                        self.radio_merge_overwrite.setEnabled(False)
+                        self.update_merge_combo_state()
                         self.radio_merge_new.setChecked(True)
                     else:
                         # Если хотим вывести имя файла, можно взять из self.existing_rtstruct_path
@@ -1862,7 +1870,7 @@ if PYQT_AVAILABLE:
                             self.status_rtstruct_label.setText("RTSTRUCT: обнаружен")
                         self.status_rtstruct_label.setStyleSheet("color: #2ecc71; font-weight: bold;")
                         self.radio_merge_merge.setEnabled(True)
-                        self.radio_merge_overwrite.setEnabled(True)
+                        self.update_merge_combo_state()
 
         def on_table_double_clicked(self, row, col):
             path = self.series_table.item(row, 6).text()
@@ -2002,6 +2010,12 @@ if PYQT_AVAILABLE:
                 self.rtstruct_combo.setEnabled(False)
                 self.rtstruct_combo.blockSignals(False)
                 
+            if hasattr(self, 'merge_rtstruct_combo'):
+                self.merge_rtstruct_combo.blockSignals(True)
+                self.merge_rtstruct_combo.clear()
+                self.merge_rtstruct_combo.setEnabled(False)
+                self.merge_rtstruct_combo.blockSignals(False)
+                
                 # Принудительно очищаем старый оверлей из вьюера полностью
                 self._clear_roi_overlay(permanent=True)
                 self._clear_imported_organs()
@@ -2050,6 +2064,7 @@ if PYQT_AVAILABLE:
                 
             if self.rtstruct_files:
                 self.existing_rtstruct_path = self.rtstruct_files[-1]
+                
                 if hasattr(self, 'rtstruct_combo'):
                     self.rtstruct_combo.blockSignals(True)
                     for f in self.rtstruct_files:
@@ -2058,10 +2073,57 @@ if PYQT_AVAILABLE:
                     self.rtstruct_combo.setEnabled(True)
                     self.chk_show_structures.setEnabled(True)
                     self.rtstruct_combo.blockSignals(False)
-                    if self.chk_show_structures.isChecked():
-                        self.on_show_structures_changed()
-                    else:
-                        self.update_organs_list_highlighting()
+                    
+                if hasattr(self, 'merge_rtstruct_combo'):
+                    self.merge_rtstruct_combo.blockSignals(True)
+                    self.merge_rtstruct_combo.clear()
+                    for f in self.rtstruct_files:
+                        self.merge_rtstruct_combo.addItem(os.path.basename(f), f)
+                    self.merge_rtstruct_combo.setCurrentIndex(len(self.rtstruct_files) - 1)
+                    self.merge_rtstruct_combo.blockSignals(False)
+                
+                self.update_merge_combo_state()
+
+                if self.chk_show_structures.isChecked():
+                    self.on_show_structures_changed()
+                else:
+                    self.update_organs_list_highlighting()
+
+        def update_merge_combo_state(self):
+            """Обновляет доступность выпадающего списка RTSTRUCT в настройках."""
+            if hasattr(self, 'merge_rtstruct_combo'):
+                is_merge = self.radio_merge_merge.isChecked()
+                has_files = self.merge_rtstruct_combo.count() > 0
+                self.merge_rtstruct_combo.setEnabled(is_merge and has_files)
+
+        def on_viewer_rtstruct_changed(self, index: int):
+            """Синхронизирует выбор RTSTRUCT во вьюере с комбобоксом в настройках слияния."""
+            if index < 0:
+                return
+            path = self.rtstruct_combo.itemData(index)
+            self.existing_rtstruct_path = path
+            
+            if hasattr(self, 'merge_rtstruct_combo'):
+                self.merge_rtstruct_combo.blockSignals(True)
+                self.merge_rtstruct_combo.setCurrentIndex(index)
+                self.merge_rtstruct_combo.blockSignals(False)
+                
+            self.on_show_structures_changed()
+
+        def on_merge_rtstruct_changed(self, index: int):
+            """Синхронизирует выбор RTSTRUCT в настройках с комбобоксом во вьюере."""
+            if index < 0:
+                return
+            path = self.merge_rtstruct_combo.itemData(index)
+            self.existing_rtstruct_path = path
+            
+            if hasattr(self, 'rtstruct_combo'):
+                self.rtstruct_combo.blockSignals(True)
+                self.rtstruct_combo.setCurrentIndex(index)
+                self.rtstruct_combo.blockSignals(False)
+                
+            if self.chk_show_structures.isChecked():
+                self.on_show_structures_changed()
 
         def _clear_roi_overlay(self, permanent: bool = False):
             if hasattr(self, 'roi_overlay_item') and self.roi_overlay_item is not None:
@@ -2896,8 +2958,8 @@ if PYQT_AVAILABLE:
             """Слот изменения цветового пресета."""
             # Наборы пресетов
             preset_palettes = {
-                "Классический AI Contour": {"spleen": [156, 39, 176], "kidney_right": [3, 169, 244], "kidney_left": [33, 150, 243], "gallbladder": [76, 175, 80], "liver": [139, 195, 74], "stomach": [255, 152, 0], "aorta": [244, 67, 54], "inferior_vena_cava": [63, 81, 181], "urinary_bladder": [255, 235, 59], "heart": [233, 30, 99], "lung_left": [0, 150, 136], "lung_right": [0, 188, 212], "trachea": [121, 85, 72], "esophagus": [158, 158, 158], "pancreas": [255, 193, 7], "duodenum": [173, 20, 87], "adrenal_gland_left": [255, 87, 34], "adrenal_gland_right": [255, 112, 67], "pulmonary_artery": [0, 150, 255], "small_bowel": [103, 58, 183], "prostate": [233, 30, 99], "rectum": [121, 85, 72], "colon": [0, 121, 107], "femur_left": [255, 224, 178], "femur_right": [255, 224, 178], "hip_left": [230, 238, 156], "hip_right": [230, 238, 156], "sacrum": [141, 110, 99], "spinal_cord": [0, 255, 0], "thyroid_gland": [255, 105, 180], "skull": [255, 228, 196], "brain": [135, 206, 250], "common_carotid_artery_left": [220, 20, 60], "common_carotid_artery_right": [220, 20, 60], "superior_vena_cava": [70, 130, 180], "portal_vein_and_splenic_vein": [0, 139, 139], "clavicula_left": [244, 164, 96], "clavicula_right": [244, 164, 96], "sternum": [222, 184, 135], "iliac_artery_left": [255, 99, 71], "iliac_artery_right": [255, 99, 71], "eye_left": [255, 255, 0], "eye_right": [255, 255, 0], "lens_left": [255, 165, 0], "lens_right": [255, 165, 0], "brain_stem": [210, 105, 30], "optic_nerve_left": [240, 230, 140], "optic_nerve_right": [240, 230, 140]},
-                "QUANTEC": {"spleen": [160, 32, 240], "kidney_right": [0, 0, 255], "kidney_left": [30, 144, 255], "gallbladder": [0, 255, 0], "liver": [34, 139, 34], "stomach": [218, 165, 32], "aorta": [55, 197, 94], "inferior_vena_cava": [194, 166, 130], "urinary_bladder": [255, 215, 0], "heart": [255, 0, 0], "lung_left": [86, 123, 174], "lung_right": [195, 54, 110], "trachea": [149, 58, 171], "esophagus": [138, 127, 103], "pancreas": [153, 97, 184], "duodenum": [168, 85, 61], "adrenal_gland_left": [114, 125, 152], "adrenal_gland_right": [161, 157, 200], "pulmonary_artery": [98, 122, 139], "small_bowel": [177, 66, 127], "prostate": [152, 133, 118], "rectum": [139, 69, 19], "colon": [191, 68, 120], "femur_left": [135, 139, 183], "femur_right": [159, 155, 157], "hip_left": [146, 175, 165], "hip_right": [85, 193, 174], "sacrum": [96, 111, 190], "spinal_cord": [116, 98, 57], "thyroid_gland": [113, 52, 117], "skull": [94, 188, 72], "brain": [155, 169, 192], "common_carotid_artery_left": [51, 115, 144], "common_carotid_artery_right": [86, 147, 196], "superior_vena_cava": [84, 137, 160], "portal_vein_and_splenic_vein": [113, 127, 112], "clavicula_left": [144, 51, 84], "clavicula_right": [176, 73, 124], "sternum": [85, 68, 152], "iliac_artery_left": [134, 69, 129], "iliac_artery_right": [78, 137, 190], "eye_left": [255, 255, 100], "eye_right": [255, 255, 100], "lens_left": [255, 140, 0], "lens_right": [255, 140, 0], "brain_stem": [139, 69, 19], "optic_nerve_left": [255, 215, 0], "optic_nerve_right": [255, 215, 0]},
+                "Классический": {"spleen": [156, 39, 176], "kidney_right": [3, 169, 244], "kidney_left": [33, 150, 243], "gallbladder": [76, 175, 80], "liver": [139, 195, 74], "stomach": [255, 152, 0], "aorta": [244, 67, 54], "inferior_vena_cava": [63, 81, 181], "urinary_bladder": [255, 235, 59], "heart": [233, 30, 99], "lung_left": [0, 150, 136], "lung_right": [0, 188, 212], "trachea": [121, 85, 72], "esophagus": [158, 158, 158], "pancreas": [255, 193, 7], "duodenum": [173, 20, 87], "adrenal_gland_left": [255, 87, 34], "adrenal_gland_right": [255, 112, 67], "pulmonary_artery": [0, 150, 255], "small_bowel": [103, 58, 183], "prostate": [233, 30, 99], "rectum": [121, 85, 72], "colon": [0, 121, 107], "femur_left": [255, 224, 178], "femur_right": [255, 224, 178], "hip_left": [230, 238, 156], "hip_right": [230, 238, 156], "sacrum": [141, 110, 99], "spinal_cord": [0, 255, 0], "thyroid_gland": [255, 105, 180], "skull": [255, 228, 196], "brain": [135, 206, 250], "common_carotid_artery_left": [220, 20, 60], "common_carotid_artery_right": [220, 20, 60], "superior_vena_cava": [70, 130, 180], "portal_vein_and_splenic_vein": [0, 139, 139], "clavicula_left": [244, 164, 96], "clavicula_right": [244, 164, 96], "sternum": [222, 184, 135], "iliac_artery_left": [255, 99, 71], "iliac_artery_right": [255, 99, 71], "eye_left": [255, 255, 0], "eye_right": [255, 255, 0], "lens_left": [255, 165, 0], "lens_right": [255, 165, 0], "brain_stem": [210, 105, 30], "optic_nerve_left": [240, 230, 140], "optic_nerve_right": [240, 230, 140]},
+                "Цвета QUANTEC": {"spleen": [160, 32, 240], "kidney_right": [0, 0, 255], "kidney_left": [30, 144, 255], "gallbladder": [0, 255, 0], "liver": [34, 139, 34], "stomach": [218, 165, 32], "aorta": [55, 197, 94], "inferior_vena_cava": [194, 166, 130], "urinary_bladder": [255, 215, 0], "heart": [255, 0, 0], "lung_left": [86, 123, 174], "lung_right": [195, 54, 110], "trachea": [149, 58, 171], "esophagus": [138, 127, 103], "pancreas": [153, 97, 184], "duodenum": [168, 85, 61], "adrenal_gland_left": [114, 125, 152], "adrenal_gland_right": [161, 157, 200], "pulmonary_artery": [98, 122, 139], "small_bowel": [177, 66, 127], "prostate": [152, 133, 118], "rectum": [139, 69, 19], "colon": [191, 68, 120], "femur_left": [135, 139, 183], "femur_right": [159, 155, 157], "hip_left": [146, 175, 165], "hip_right": [85, 193, 174], "sacrum": [96, 111, 190], "spinal_cord": [116, 98, 57], "thyroid_gland": [113, 52, 117], "skull": [94, 188, 72], "brain": [155, 169, 192], "common_carotid_artery_left": [51, 115, 144], "common_carotid_artery_right": [86, 147, 196], "superior_vena_cava": [84, 137, 160], "portal_vein_and_splenic_vein": [113, 127, 112], "clavicula_left": [144, 51, 84], "clavicula_right": [176, 73, 124], "sternum": [85, 68, 152], "iliac_artery_left": [134, 69, 129], "iliac_artery_right": [78, 137, 190], "eye_left": [255, 255, 100], "eye_right": [255, 255, 100], "lens_left": [255, 140, 0], "lens_right": [255, 140, 0], "brain_stem": [139, 69, 19], "optic_nerve_left": [255, 215, 0], "optic_nerve_right": [255, 215, 0]},
                 "Яркий неоновый": {"spleen": [255, 0, 255], "kidney_right": [0, 255, 255], "kidney_left": [0, 191, 255], "gallbladder": [50, 205, 50], "liver": [173, 255, 47], "stomach": [255, 165, 0], "aorta": [255, 255, 0], "inferior_vena_cava": [128, 0, 255], "urinary_bladder": [255, 255, 0], "heart": [255, 20, 147], "lung_left": [255, 0, 255], "lung_right": [255, 0, 255], "trachea": [128, 255, 0], "esophagus": [0, 128, 255], "pancreas": [0, 128, 255], "duodenum": [255, 255, 0], "adrenal_gland_left": [255, 255, 0], "adrenal_gland_right": [255, 0, 128], "pulmonary_artery": [0, 128, 255], "small_bowel": [0, 0, 255], "prostate": [255, 0, 0], "rectum": [210, 105, 30], "colon": [0, 128, 255], "femur_left": [0, 255, 128], "femur_right": [128, 255, 0], "hip_left": [128, 0, 255], "hip_right": [0, 0, 255], "sacrum": [255, 0, 255], "spinal_cord": [255, 0, 128], "thyroid_gland": [0, 0, 255], "skull": [255, 0, 0], "brain": [0, 0, 255], "common_carotid_artery_left": [0, 255, 0], "common_carotid_artery_right": [0, 0, 255], "superior_vena_cava": [0, 128, 255], "portal_vein_and_splenic_vein": [0, 255, 0], "clavicula_left": [0, 0, 255], "clavicula_right": [255, 0, 128], "sternum": [0, 255, 0], "iliac_artery_left": [128, 0, 255], "iliac_artery_right": [128, 0, 255], "eye_left": [255, 255, 0], "eye_right": [255, 255, 0], "lens_left": [255, 69, 0], "lens_right": [255, 69, 0], "brain_stem": [255, 105, 180], "optic_nerve_left": [255, 215, 0], "optic_nerve_right": [255, 215, 0]}
             }
 
@@ -3022,10 +3084,10 @@ if PYQT_AVAILABLE:
                 
             if self.radio_merge_new.isChecked():
                 merge_mode = "new"
-            elif self.radio_merge_overwrite.isChecked():
-                merge_mode = "overwrite"
             else:
                 merge_mode = "merge"
+                if hasattr(self, 'merge_rtstruct_combo') and self.merge_rtstruct_combo.count() > 0:
+                    self.existing_rtstruct_path = self.merge_rtstruct_combo.currentData()
                 
             # Блокируем интерфейс
             self.set_ui_enabled(False)
@@ -3118,15 +3180,16 @@ if PYQT_AVAILABLE:
                     has_structs = (str_status != "Нет" and str_status != "No" and "0 " not in str_status)
                     self.radio_merge_new.setEnabled(True)
                     self.radio_merge_merge.setEnabled(has_structs)
-                    self.radio_merge_overwrite.setEnabled(has_structs)
+                    self.update_merge_combo_state()
                 else:
                     self.radio_merge_new.setEnabled(True)
                     self.radio_merge_merge.setEnabled(False)
-                    self.radio_merge_overwrite.setEnabled(False)
+                    self.update_merge_combo_state()
             else:
                 self.radio_merge_new.setEnabled(False)
                 self.radio_merge_merge.setEnabled(False)
-                self.radio_merge_overwrite.setEnabled(False)
+                if hasattr(self, 'merge_rtstruct_combo'):
+                    self.merge_rtstruct_combo.setEnabled(False)
             
             self.btn_run.setEnabled(True)
             if enabled:
