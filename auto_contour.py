@@ -1008,7 +1008,7 @@ if PYQT_AVAILABLE:
             tab2_layout.addWidget(color_group)
 
             # Звук в конце
-            self.sound_check = QCheckBox("🔔 Звуковое оповещение при завершении")
+            self.sound_check = QCheckBox("🔔 Звук при завершении автооконтуривания")
             self.sound_check.setChecked(True)
             tab2_layout.addWidget(self.sound_check)
             
@@ -1104,7 +1104,7 @@ if PYQT_AVAILABLE:
             <li><b>GPU-ускорение:</b> При наличии Nvidia CUDA расчёты выполняются в 20–30 раз быстрее.</li>
             <li><b>3D постобработка:</b> Очистка мелкого шума (Remove small blobs) и сглаживание Гаусса.</li>
             <li><b>Кастомизация цветов:</b> Двойной клик по органу — выбор цвета. Палитры QUANTEC и Неон.</li>
-            <li><b>Просмотр структур:</b> Включите «Отображать структуры» на вкладке снимков для наложения контуров на КТ.</li>
+            <li><b>Просмотр структур:</b> Включите «Отобразить структуры» на вкладке снимков для наложения контуров на КТ.</li>
             <li><b>Режим слияния:</b> Дополняйте существующий RTSTRUCT или создавайте новый.</li>
         </ul>
     </div>
@@ -1116,7 +1116,7 @@ if PYQT_AVAILABLE:
             <li>На вкладке <b>«🎯 Контуры»</b> выберите пресет органов и пациента в таблице.</li>
             <li>Настройте режим расчёта (CPU/GPU), точность ИИ и постобработку.</li>
             <li>Нажмите <b>«ЗАПУСТИТЬ АВТООКОНТУРИРОВАНИЕ»</b> и дождитесь завершения.</li>
-            <li>После завершения включите <b>«Отображать структуры»</b> для просмотра результатов.</li>
+            <li>После завершения включите <b>«Отобразить структуры»</b> для просмотра результатов.</li>
         </ul>
     </div>
 
@@ -1250,7 +1250,7 @@ if PYQT_AVAILABLE:
             viewer_tools_layout = QHBoxLayout(viewer_tools_panel)
             viewer_tools_layout.setContentsMargins(10, 6, 10, 6)
             
-            self.chk_show_structures = QCheckBox("Отображать структуры")
+            self.chk_show_structures = QCheckBox("Отобразить структуры")
             self.chk_show_structures.setEnabled(False)
             self.chk_show_structures.setStyleSheet("""
                 QCheckBox {
@@ -1488,7 +1488,7 @@ if PYQT_AVAILABLE:
             Подсвечивает бирюзовым цветом (#00ffd0) и делает полужирными
             те органы в списке, которые присутствуют в текущем загруженном RTSTRUCT.
             Отсутствующие органы затеняет серым цветом (#777777).
-            Если галочка 'Отображать структуры' выключена, возвращает белый цвет (#ffffff).
+            Если галочка 'Отобразить структуры' выключена, возвращает белый цвет (#ffffff).
             """
             from PyQt6.QtGui import QBrush, QColor
             from PyQt6.QtCore import Qt
