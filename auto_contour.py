@@ -1909,8 +1909,8 @@ if PYQT_AVAILABLE:
                 self.rtstruct_combo.setEnabled(False)
                 self.rtstruct_combo.blockSignals(False)
                 
-                # Принудительно очищаем старый оверлей из вьюера
-                self.on_show_structures_changed()
+                # Принудительно очищаем старый оверлей из вьюера полностью
+                self._clear_roi_overlay(permanent=True)
             
             self.rtstruct_files = []
             if not directory or not os.path.isdir(directory):
@@ -1943,29 +1943,39 @@ if PYQT_AVAILABLE:
                     if self.chk_show_structures.isChecked():
                         self.on_show_structures_changed()
 
+        def _clear_roi_overlay(self, permanent: bool = False):
+            if hasattr(self, 'roi_overlay_item') and self.roi_overlay_item is not None:
+                if permanent:
+                    try:
+                        if self.roi_overlay_item in self.dicom_viewer.getView().addedItems:
+                            self.dicom_viewer.getView().removeItem(self.roi_overlay_item)
+                    except Exception:
+                        pass
+                    if hasattr(self, 'roi_overlay_item'):
+                        del self.roi_overlay_item
+                else:
+                    self.roi_overlay_item.setVisible(False)
+            if hasattr(self, 'roi_overlay_3d'):
+                del self.roi_overlay_3d
+
         def on_show_structures_changed(self):
             import pyqtgraph as pg
             import numpy as np
             from PyQt6.QtWidgets import QApplication, QProgressDialog
             from PyQt6.QtCore import Qt
             
-            # Удаляем старый оверлей
-            if hasattr(self, 'roi_overlay_item'):
-                if self.roi_overlay_item in self.dicom_viewer.getView().addedItems:
-                    self.dicom_viewer.getView().removeItem(self.roi_overlay_item)
-                del self.roi_overlay_item
-                if hasattr(self, 'roi_overlay_3d'):
-                    del self.roi_overlay_3d
-                    
             if not getattr(self, 'current_dicom_dir', None) or getattr(self, 'volume_3d_base', None) is None:
+                self._clear_roi_overlay(permanent=False)
                 return
                 
             if not getattr(self, 'chk_show_structures', None) or not self.chk_show_structures.isChecked():
                 # Не сбрасываем _last_loaded_rtstruct, чтобы кэш сохранялся при простом скрытии/показе
+                self._clear_roi_overlay(permanent=False)
                 return
                 
             rtstruct_path = self.rtstruct_combo.currentData()
             if not rtstruct_path or not os.path.exists(rtstruct_path):
+                self._clear_roi_overlay(permanent=False)
                 return
             
             is_new_rtstruct = (getattr(self, "_last_loaded_rtstruct", None) != rtstruct_path)
@@ -1975,6 +1985,13 @@ if PYQT_AVAILABLE:
                 self._loaded_roi_masks = {}
                 self._cached_rtstruct = None
                 self._cached_rtstruct_path = None
+                
+            # Убеждаемся, что roi_overlay_item создан и добавлен во вьюер
+            if not hasattr(self, 'roi_overlay_item') or self.roi_overlay_item is None:
+                self.roi_overlay_item = pg.ImageItem()
+                self.roi_overlay_item.setZValue(10)
+                self.dicom_viewer.getView().addItem(self.roi_overlay_item)
+            self.roi_overlay_item.setVisible(True)
             
             progress_dialog = None
             try:
@@ -2047,29 +2064,37 @@ if PYQT_AVAILABLE:
                     self.update_checked_organs_count()
                     self._last_loaded_rtstruct = rtstruct_path
 
-                # Собираем отмеченные органы для фильтрации вьюера
-                checked_organs = set()
+                # Умный сбор поддерживаемых GUI органов и снятых чекбоксов
+                gui_supported_organs = set()
+                unchecked_organs = set()
+                
                 for i in range(self.organs_list.count()):
                     itm = self.organs_list.item(i)
                     itm_data = itm.data(Qt.ItemDataRole.UserRole)
-                    if itm_data != "header" and itm.checkState() == Qt.CheckState.Checked:
+                    if itm_data != "header" and itm_data:
                         if isinstance(itm_data, dict):
                             org_name = itm_data.get("name") or (list(itm_data.keys())[0] if itm_data else "")
                         else:
                             org_name = itm_data
                         if org_name:
-                            checked_organs.add(org_name.lower())
-                
-                # Если ни одна галочка не совпала с органами файла - показываем все (кроме body, который рисуется всегда)
-                file_organs_no_body = file_organs - {"body"}
-                if not checked_organs.intersection(file_organs_no_body):
-                    checked_organs = file_organs_no_body
+                            org_lower = org_name.lower()
+                            gui_supported_organs.add(org_lower)
+                            if itm.checkState() == Qt.CheckState.Unchecked:
+                                unchecked_organs.add(org_lower)
                 
                 # Фильтруем список структур, которые реально будем отрисовывать
                 rois_to_draw = []
                 for roi in roi_names:
                     orig_organ = get_mapped_organ(roi)
-                    if orig_organ == "body" or orig_organ in checked_organs:
+                    orig_organ_lower = orig_organ.lower()
+                    
+                    # Орган должен отображаться, если:
+                    # 1. Это "body" (рисуется всегда).
+                    # 2. Или для него вообще нет чекбокса в GUI (сторонняя структура).
+                    # 3. Или для него есть чекбокс в GUI, и он НЕ снят (Checked или PartiallyChecked).
+                    if (orig_organ_lower == "body" or 
+                        orig_organ_lower not in gui_supported_organs or 
+                        orig_organ_lower not in unchecked_organs):
                         rois_to_draw.append((roi, orig_organ))
 
                 # Проверяем, все ли нужные маски уже есть в кэше оперативной памяти
@@ -2142,11 +2167,9 @@ if PYQT_AVAILABLE:
                     except Exception as roi_e:
                         logger.warning(f"Не удалось отрисовать структуру {roi}: {roi_e}")
                 
+                # Бесшовно обновляем 3D-данные оверлея без пересоздания объекта ImageItem,
+                # чтобы избежать мерцания и сбрасывания контуров с экрана во время расчетов
                 self.roi_overlay_3d = overlay_3d
-                self.roi_overlay_item = pg.ImageItem()
-                self.roi_overlay_item.setZValue(10)
-                self.dicom_viewer.getView().addItem(self.roi_overlay_item)
-                
                 self.update_roi_overlay_frame()
                 self.status_step_label.setText("Текущий шаг: Ожидание запуска...")
             except Exception as e:
@@ -2264,10 +2287,11 @@ if PYQT_AVAILABLE:
             return mask
 
         def update_roi_overlay_frame(self):
-            if hasattr(self, 'roi_overlay_item') and hasattr(self, 'roi_overlay_3d'):
-                idx = self.dicom_viewer.currentIndex
-                if idx < self.roi_overlay_3d.shape[0]:
-                    self.roi_overlay_item.setImage(self.roi_overlay_3d[idx], autoLevels=False)
+            if hasattr(self, 'roi_overlay_item') and hasattr(self, 'roi_overlay_3d') and self.roi_overlay_item is not None:
+                if self.roi_overlay_item.isVisible() and self.roi_overlay_3d is not None:
+                    idx = self.dicom_viewer.currentIndex
+                    if idx < self.roi_overlay_3d.shape[0]:
+                        self.roi_overlay_item.setImage(self.roi_overlay_3d[idx], autoLevels=False)
 
         def select_all_organs(self):
             """Отмечает все органы в списке."""
