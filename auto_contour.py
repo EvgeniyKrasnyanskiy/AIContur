@@ -799,15 +799,15 @@ if PYQT_AVAILABLE:
             main_layout.setSpacing(10)
 
             # Сплиттер
-            splitter = QSplitter(Qt.Orientation.Horizontal)
-            main_layout.addWidget(splitter, 1)
+            self.splitter = QSplitter(Qt.Orientation.Horizontal)
+            main_layout.addWidget(self.splitter, 1)
 
             # --- ЛЕВАЯ КОЛОНКА (Вкладки настроек) ---
-            left_card = QFrame()
-            left_card.setObjectName("card")
-            left_card.setMinimumWidth(400)
-            left_card.setMaximumWidth(480)
-            left_layout = QVBoxLayout(left_card)
+            self.left_card = QFrame()
+            self.left_card.setObjectName("card")
+            self.left_card.setMinimumWidth(400)
+            self.left_card.setMaximumWidth(480)
+            left_layout = QVBoxLayout(self.left_card)
             left_layout.setContentsMargins(5, 5, 5, 5)
 
             self.tab_widget = QTabWidget()
@@ -1135,7 +1135,7 @@ if PYQT_AVAILABLE:
             tab3_layout.addWidget(help_browser, 1)
             self.tab_widget.addTab(tab3_widget, "📖 Справка")
 
-            splitter.addWidget(left_card)
+            self.splitter.addWidget(self.left_card)
 
             # --- ПРАВАЯ КОЛОНКА (Терминал логов и управление) ---
             right_card = QFrame()
@@ -1336,9 +1336,9 @@ if PYQT_AVAILABLE:
             
             right_layout.addWidget(v_splitter, 1)  # stretch=1: v_splitter заполняет right_card
 
-            splitter.addWidget(right_card)
-            splitter.setStretchFactor(0, 0)
-            splitter.setStretchFactor(1, 1)
+            self.splitter.addWidget(right_card)
+            self.splitter.setStretchFactor(0, 0)
+            self.splitter.setStretchFactor(1, 1)
 
             # Псевдонимы для совместимости с требованиями ТЗ
             self.palette_combo = self.color_preset_combo
@@ -1358,7 +1358,7 @@ if PYQT_AVAILABLE:
             self.smoothing_combo.currentIndexChanged.connect(self.save_settings)
             self.color_preset_combo.currentIndexChanged.connect(self.save_settings)
             
-            splitter.setSizes([430, 490])
+            self.splitter.setSizes([430, 490])
 
         def on_sound_check_changed(self):
             self.save_settings()
@@ -1802,8 +1802,8 @@ if PYQT_AVAILABLE:
             
         def update_run_button(self, is_patient_selected: bool, custom_text: str = None):
             if getattr(self, 'chk_show_structures', None) and self.chk_show_structures.isChecked():
-                target_text = "ОТКЛЮЧИТЕ ПРОСМОТР ДЛЯ ЗАПУСКА"
-                target_enabled = False
+                target_text = "ВЫЙТИ ИЗ РЕЖИМА ПРОСМОТРА"
+                target_enabled = True
             else:
                 target_text = custom_text if custom_text else ("ЗАПУСТИТЬ АВТООКОНТУРИРОВАНИЕ" if is_patient_selected else "ВЫБЕРИТЕ ПАЦИЕНТА В ТАБЛИЦЕ")
                 target_enabled = is_patient_selected if custom_text != "КТ-СЕРИИ НЕ НАЙДЕНЫ" else False
@@ -1816,7 +1816,7 @@ if PYQT_AVAILABLE:
                 
             current_style = self.btn_run.styleSheet()
             if getattr(self, 'chk_show_structures', None) and self.chk_show_structures.isChecked():
-                self.btn_run.setStyleSheet("background-color: #2b2b2b; color: #ffaa00; border: 1px solid #ffaa00; font-weight: bold;")
+                self.btn_run.setStyleSheet("background-color: #d87a00; color: white; font-weight: bold; border-radius: 4px; border: none;")
             else:
                 if is_patient_selected and "background-color: #0078d7" not in current_style:
                     self.btn_run.setStyleSheet("background-color: #0078d7; color: white; font-weight: bold;")
@@ -2007,6 +2007,23 @@ if PYQT_AVAILABLE:
                 self._clear_roi_overlay(permanent=True)
                 self._clear_imported_organs()
                 
+                # Принудительно возвращаем видимость всем стандартным органам
+                self.organs_list.blockSignals(True)
+                for i in range(self.organs_list.count()):
+                    self.organs_list.item(i).setHidden(False)
+                self.organs_list.blockSignals(False)
+                
+                # Возвращаем левую панель к стандартным размерам
+                if hasattr(self, 'left_card') and hasattr(self, 'splitter'):
+                    self.left_card.setMinimumWidth(400)
+                    self.left_card.setMaximumWidth(480)
+                    self.splitter.setSizes([430, 490])
+                    if hasattr(self, 'dicom_viewer'):
+                        try:
+                            self.dicom_viewer.getView().autoRange()
+                        except Exception:
+                            pass
+                
                 # Принудительно сбрасываем подсветку списка органов
                 self.update_organs_list_highlighting()
             
@@ -2084,6 +2101,17 @@ if PYQT_AVAILABLE:
                     item.setHidden(False)
                 self.organs_list.blockSignals(False)
                 
+                # Возвращаем левую панель к стандартным размерам
+                if hasattr(self, 'left_card') and hasattr(self, 'splitter'):
+                    self.left_card.setMinimumWidth(400)
+                    self.left_card.setMaximumWidth(480)
+                    self.splitter.setSizes([430, 490])
+                    if hasattr(self, 'dicom_viewer'):
+                        try:
+                            self.dicom_viewer.getView().autoRange()
+                        except Exception:
+                            pass
+                
                 self.update_organs_list_highlighting()
                 self.update_run_button(bool(self.series_table.selectedItems()))
                 return
@@ -2092,9 +2120,32 @@ if PYQT_AVAILABLE:
             if not rtstruct_path or not os.path.exists(rtstruct_path):
                 self._clear_roi_overlay(permanent=False)
                 self._clear_imported_organs()
+                
+                # Возвращаем левую панель к стандартным размерам при отсутствии файла
+                if hasattr(self, 'left_card') and hasattr(self, 'splitter'):
+                    self.left_card.setMinimumWidth(400)
+                    self.left_card.setMaximumWidth(480)
+                    self.splitter.setSizes([430, 490])
+                    if hasattr(self, 'dicom_viewer'):
+                        try:
+                            self.dicom_viewer.getView().autoRange()
+                        except Exception:
+                            pass
+                
                 self.update_organs_list_highlighting()
                 self.update_run_button(bool(self.series_table.selectedItems()))
                 return
+                
+            # Сужаем левую панель для максимального расширения вьюера в режиме просмотра
+            if hasattr(self, 'left_card') and hasattr(self, 'splitter'):
+                self.left_card.setMinimumWidth(220)
+                self.left_card.setMaximumWidth(280)
+                self.splitter.setSizes([250, 750])
+                if hasattr(self, 'dicom_viewer'):
+                    try:
+                        self.dicom_viewer.getView().autoRange()
+                    except Exception:
+                        pass
             
             is_new_rtstruct = (getattr(self, "_last_loaded_rtstruct", None) != rtstruct_path)
             
@@ -2853,6 +2904,10 @@ if PYQT_AVAILABLE:
 
         def start_segmentation(self):
             """Запускает процесс сегментации или отменяет его."""
+            if getattr(self, 'chk_show_structures', None) and self.chk_show_structures.isChecked():
+                self.chk_show_structures.setChecked(False)
+                return
+
             if hasattr(self, 'worker') and self.worker and self.worker.isRunning():
                 reply = QMessageBox.question(
                     self, 
