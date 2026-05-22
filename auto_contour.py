@@ -1211,7 +1211,7 @@ if PYQT_AVAILABLE:
             self.btn_run.clicked.connect(self.start_segmentation)
 
             # Вертикальный сплиттер для главной зоны и зоны логов
-            v_splitter = QSplitter(Qt.Orientation.Vertical)
+            self.v_splitter = QSplitter(Qt.Orientation.Vertical)
             
             # Верхняя панель (Таблица + Вьюер)
             top_panel = QWidget()
@@ -1304,14 +1304,14 @@ if PYQT_AVAILABLE:
             self.dicom_viewer.ui.graphicsView.viewport().installEventFilter(self.viewer_event_filter)
             
             # Горизонтальный сплиттер: 60% таблица / 40% вьюер
-            main_splitter = QSplitter(Qt.Orientation.Horizontal)
-            main_splitter.addWidget(self.series_table)
-            main_splitter.addWidget(viewer_container)
-            main_splitter.setStretchFactor(0, 6)
-            main_splitter.setStretchFactor(1, 4)
-            main_splitter.setSizes([600, 400])
+            self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
+            self.main_splitter.addWidget(self.series_table)
+            self.main_splitter.addWidget(viewer_container)
+            self.main_splitter.setStretchFactor(0, 6)
+            self.main_splitter.setStretchFactor(1, 4)
+            self.main_splitter.setSizes([600, 400])
             
-            top_layout.addWidget(main_splitter, 1)  # stretch=1: main_splitter занимает всё оставшееся пространство
+            top_layout.addWidget(self.main_splitter, 1)  # stretch=1: main_splitter занимает всё оставшееся пространство
             
             # Нижняя панель (Логи + Прогресс)
             bottom_panel = QWidget()
@@ -1327,14 +1327,14 @@ if PYQT_AVAILABLE:
             bottom_layout.addWidget(self.eta_label)
             bottom_layout.addWidget(self.btn_run)
             
-            v_splitter.addWidget(top_panel)
-            v_splitter.addWidget(bottom_panel)
+            self.v_splitter.addWidget(top_panel)
+            self.v_splitter.addWidget(bottom_panel)
             # Вертикальный сплиттер: 50% верхняя зона / 50% логи
-            v_splitter.setStretchFactor(0, 1)
-            v_splitter.setStretchFactor(1, 1)
-            v_splitter.setSizes([500, 500])
+            self.v_splitter.setStretchFactor(0, 1)
+            self.v_splitter.setStretchFactor(1, 1)
+            self.v_splitter.setSizes([500, 500])
             
-            right_layout.addWidget(v_splitter, 1)  # stretch=1: v_splitter заполняет right_card
+            right_layout.addWidget(self.v_splitter, 1)  # stretch=1: v_splitter заполняет right_card
 
             self.splitter.addWidget(right_card)
             self.splitter.setStretchFactor(0, 0)
@@ -2013,16 +2013,20 @@ if PYQT_AVAILABLE:
                     self.organs_list.item(i).setHidden(False)
                 self.organs_list.blockSignals(False)
                 
-                # Возвращаем левую панель к стандартным размерам
+                # Возвращаем левую панель и сплиттеры к стандартным размерам
                 if hasattr(self, 'left_card') and hasattr(self, 'splitter'):
                     self.left_card.setMinimumWidth(400)
                     self.left_card.setMaximumWidth(480)
                     self.splitter.setSizes([430, 490])
-                    if hasattr(self, 'dicom_viewer'):
-                        try:
-                            self.dicom_viewer.getView().autoRange()
-                        except Exception:
-                            pass
+                if hasattr(self, 'main_splitter'):
+                    self.main_splitter.setSizes([600, 400])
+                if hasattr(self, 'v_splitter'):
+                    self.v_splitter.setSizes([500, 500])
+                if hasattr(self, 'dicom_viewer'):
+                    try:
+                        self.dicom_viewer.getView().autoRange()
+                    except Exception:
+                        pass
                 
                 # Принудительно сбрасываем подсветку списка органов
                 self.update_organs_list_highlighting()
@@ -2101,16 +2105,20 @@ if PYQT_AVAILABLE:
                     item.setHidden(False)
                 self.organs_list.blockSignals(False)
                 
-                # Возвращаем левую панель к стандартным размерам
+                # Возвращаем левую панель и сплиттеры к стандартным размерам
                 if hasattr(self, 'left_card') and hasattr(self, 'splitter'):
                     self.left_card.setMinimumWidth(400)
                     self.left_card.setMaximumWidth(480)
                     self.splitter.setSizes([430, 490])
-                    if hasattr(self, 'dicom_viewer'):
-                        try:
-                            self.dicom_viewer.getView().autoRange()
-                        except Exception:
-                            pass
+                if hasattr(self, 'main_splitter'):
+                    self.main_splitter.setSizes([600, 400])
+                if hasattr(self, 'v_splitter'):
+                    self.v_splitter.setSizes([500, 500])
+                if hasattr(self, 'dicom_viewer'):
+                    try:
+                        self.dicom_viewer.getView().autoRange()
+                    except Exception:
+                        pass
                 
                 self.update_organs_list_highlighting()
                 self.update_run_button(bool(self.series_table.selectedItems()))
@@ -2121,31 +2129,39 @@ if PYQT_AVAILABLE:
                 self._clear_roi_overlay(permanent=False)
                 self._clear_imported_organs()
                 
-                # Возвращаем левую панель к стандартным размерам при отсутствии файла
+                # Возвращаем левую панель и сплиттеры к стандартным размерам при отсутствии файла
                 if hasattr(self, 'left_card') and hasattr(self, 'splitter'):
                     self.left_card.setMinimumWidth(400)
                     self.left_card.setMaximumWidth(480)
                     self.splitter.setSizes([430, 490])
-                    if hasattr(self, 'dicom_viewer'):
-                        try:
-                            self.dicom_viewer.getView().autoRange()
-                        except Exception:
-                            pass
-                
-                self.update_organs_list_highlighting()
-                self.update_run_button(bool(self.series_table.selectedItems()))
-                return
-                
-            # Сужаем левую панель для максимального расширения вьюера в режиме просмотра
-            if hasattr(self, 'left_card') and hasattr(self, 'splitter'):
-                self.left_card.setMinimumWidth(220)
-                self.left_card.setMaximumWidth(280)
-                self.splitter.setSizes([250, 750])
+                if hasattr(self, 'main_splitter'):
+                    self.main_splitter.setSizes([600, 400])
+                if hasattr(self, 'v_splitter'):
+                    self.v_splitter.setSizes([500, 500])
                 if hasattr(self, 'dicom_viewer'):
                     try:
                         self.dicom_viewer.getView().autoRange()
                     except Exception:
                         pass
+                
+                self.update_organs_list_highlighting()
+                self.update_run_button(bool(self.series_table.selectedItems()))
+                return
+                
+            # Увеличиваем вьюер за счет сжатия таблицы КТ и логов (левая панель со структурами сохраняет стандартный размер!)
+            if hasattr(self, 'left_card') and hasattr(self, 'splitter'):
+                self.left_card.setMinimumWidth(400)
+                self.left_card.setMaximumWidth(480)
+                self.splitter.setSizes([430, 490])
+            if hasattr(self, 'main_splitter'):
+                self.main_splitter.setSizes([150, 850])
+            if hasattr(self, 'v_splitter'):
+                self.v_splitter.setSizes([850, 150])
+            if hasattr(self, 'dicom_viewer'):
+                try:
+                    self.dicom_viewer.getView().autoRange()
+                except Exception:
+                    pass
             
             is_new_rtstruct = (getattr(self, "_last_loaded_rtstruct", None) != rtstruct_path)
             
