@@ -1978,10 +1978,13 @@ if PYQT_AVAILABLE:
             
             progress_dialog = None
             try:
+                # Всегда меняем курсор на WaitCursor для предупреждения о процессе отрисовки
+                QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+                self.status_step_label.setText("⏳ Отрисовка 3D-структур...")
+                QApplication.processEvents()
+
                 # Избегаем повторного тяжелого парсинга RTSTRUCT с диска
                 if not getattr(self, "_cached_rtstruct", None) or getattr(self, "_cached_rtstruct_path", None) != rtstruct_path:
-                    # Устанавливаем WaitCursor только при реальном чтении файла с диска
-                    QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
                     self.status_step_label.setText("⏳ Подготовка 3D-сцены: чтение DICOM RTSTRUCT файла...")
                     QApplication.processEvents()
                     
@@ -1992,7 +1995,6 @@ if PYQT_AVAILABLE:
                         warn_only=True
                     )
                     self._cached_rtstruct_path = rtstruct_path
-                    QApplication.restoreOverrideCursor()
                 
                 rtstruct = self._cached_rtstruct
                 roi_names = rtstruct.get_roi_names()
@@ -2074,10 +2076,7 @@ if PYQT_AVAILABLE:
                 all_cached = all(roi in self._loaded_roi_masks for roi, _ in rois_to_draw)
 
                 if not all_cached:
-                    # Устанавливаем WaitCursor и показываем прогресс-диалог только при реальных расчетах масок
-                    QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-                    
-                    # Создаем красивое модальное окно прогресса
+                    # Создаем красивое модальное окно прогресса при первом чтении масок
                     progress_dialog = QProgressDialog("⏳ Инициализация 3D-структур...", None, 0, len(rois_to_draw), self)
                     progress_dialog.setWindowTitle("Загрузка 3D-контуров")
                     progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
@@ -2121,9 +2120,14 @@ if PYQT_AVAILABLE:
                             self._loaded_roi_masks[roi] = mask_3d
                         
                         if orig_organ == "body":
-                            import scipy.ndimage
-                            # Получаем тонкую линию силуэта кожи
-                            boundary = mask_3d ^ scipy.ndimage.binary_erosion(mask_3d, structure=np.ones((1, 3, 3)))
+                            if "body_boundary" in self._loaded_roi_masks:
+                                boundary = self._loaded_roi_masks["body_boundary"]
+                            else:
+                                import scipy.ndimage
+                                # Получаем тонкую линию силуэта кожи
+                                boundary = mask_3d ^ scipy.ndimage.binary_erosion(mask_3d, structure=np.ones((1, 3, 3)))
+                                self._loaded_roi_masks["body_boundary"] = boundary
+                                
                             # Закрашиваем светло-серым цветом [220, 220, 220] с высокой непрозрачностью 255
                             overlay_3d[boundary, 0] = 220
                             overlay_3d[boundary, 1] = 220
@@ -2144,16 +2148,14 @@ if PYQT_AVAILABLE:
                 self.dicom_viewer.getView().addItem(self.roi_overlay_item)
                 
                 self.update_roi_overlay_frame()
-                if not all_cached:
-                    self.status_step_label.setText("Текущий шаг: Ожидание запуска...")
+                self.status_step_label.setText("Текущий шаг: Ожидание запуска...")
             except Exception as e:
                 logger.error(f"Ошибка загрузки структур во вьюер: {e}")
                 self.status_step_label.setText("Текущий шаг: Ожидание запуска...")
             finally:
                 if progress_dialog:
                     progress_dialog.close()
-                if not all_cached:
-                    QApplication.restoreOverrideCursor()
+                QApplication.restoreOverrideCursor()
 
         def _get_roi_mask_safe(
             self,
