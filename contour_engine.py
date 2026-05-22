@@ -89,21 +89,23 @@ DEFAULT_PRESETS_DATA = {
     "presets": {
         "Голова и шея (Head & Neck)": [
             "eye_left", "eye_right", "lens_left", "lens_right", "optic_nerve_left", "optic_nerve_right",
-            "thyroid_gland", "skull", "common_carotid_artery_left", "common_carotid_artery_right",
+            "spinal_cord", "thyroid_gland", "skull", "common_carotid_artery_left", "common_carotid_artery_right",
             "parotid_gland_left", "parotid_gland_right", "submandibular_gland_left", "submandibular_gland_right",
             "nasal_cavity_left", "nasal_cavity_right", "nasopharynx", "oropharynx", "hypopharynx",
             "soft_palate", "hard_palate", "auditory_canal_left", "auditory_canal_right"
         ],
         "Грудная клетка (Thorax)": [
             "heart", "lung_left", "lung_right", "trachea", "esophagus", "aorta", "pulmonary_artery",
-            "superior_vena_cava", "sternum", "clavicula_left", "clavicula_right"
+            "superior_vena_cava", "sternum", "clavicula_left", "clavicula_right",
+            "scapula_left", "scapula_right", "humerus_left", "humerus_right"
         ],
         "Брюшная полость (Abdomen)": [
             "spleen", "kidney_right", "kidney_left", "gallbladder", "liver", "stomach", "pancreas", "duodenum",
             "adrenal_gland_left", "adrenal_gland_right", "portal_vein_and_splenic_vein", "small_bowel", "colon"
         ],
         "Малый таз (Pelvis)": [
-            "urinary_bladder", "sacrum", "iliac_artery_left", "iliac_artery_right", "iliac_vein_left", "iliac_vein_right",
+            "urinary_bladder", "prostate", "rectum", "sacrum", "hip_left", "hip_right", "femur_left", "femur_right",
+            "iliac_artery_left", "iliac_artery_right", "iliac_vein_left", "iliac_vein_right",
             "gluteus_maximus_left", "gluteus_maximus_right", "gluteus_medius_left", "gluteus_medius_right",
             "gluteus_minimus_left", "gluteus_minimus_right"
         ],
@@ -397,21 +399,23 @@ class ContourEngine:
         # Обновляем пресеты до 6 строгих групп согласно ТЗ + Full Total
         head_neck = [
             "eye_left", "eye_right", "lens_left", "lens_right", "optic_nerve_left", "optic_nerve_right",
-            "thyroid_gland", "skull", "common_carotid_artery_left", "common_carotid_artery_right",
+            "spinal_cord", "thyroid_gland", "skull", "common_carotid_artery_left", "common_carotid_artery_right",
             "parotid_gland_left", "parotid_gland_right", "submandibular_gland_left", "submandibular_gland_right",
             "nasal_cavity_left", "nasal_cavity_right", "nasopharynx", "oropharynx", "hypopharynx",
             "soft_palate", "hard_palate", "auditory_canal_left", "auditory_canal_right"
         ]
         thorax = [
             "heart", "lung_left", "lung_right", "trachea", "esophagus", "aorta", "pulmonary_artery",
-            "superior_vena_cava", "sternum", "clavicula_left", "clavicula_right"
+            "superior_vena_cava", "sternum", "clavicula_left", "clavicula_right",
+            "scapula_left", "scapula_right", "humerus_left", "humerus_right"
         ]
         abdomen = [
             "spleen", "kidney_right", "kidney_left", "gallbladder", "liver", "stomach", "pancreas", "duodenum",
             "adrenal_gland_left", "adrenal_gland_right", "portal_vein_and_splenic_vein", "small_bowel", "colon"
         ]
         pelvis = [
-            "urinary_bladder", "sacrum", "iliac_artery_left", "iliac_artery_right", "iliac_vein_left", "iliac_vein_right",
+            "urinary_bladder", "prostate", "rectum", "sacrum", "hip_left", "hip_right", "femur_left", "femur_right",
+            "iliac_artery_left", "iliac_artery_right", "iliac_vein_left", "iliac_vein_right",
             "gluteus_maximus_left", "gluteus_maximus_right", "gluteus_medius_left", "gluteus_medius_right",
             "gluteus_minimus_left", "gluteus_minimus_right"
         ]
