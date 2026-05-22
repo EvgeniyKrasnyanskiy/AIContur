@@ -848,6 +848,7 @@ if PYQT_AVAILABLE:
             self.organs_header.setStyleSheet("font-weight: bold; color: #ffffff;")
             self.organs_list = QListWidget()
             self.organs_list.itemChanged.connect(self.on_organ_item_changed)
+            self.imported_items = []
 
             tab1_layout.addWidget(self.organs_header)
             tab1_layout.addWidget(self.organs_list)
@@ -1800,8 +1801,12 @@ if PYQT_AVAILABLE:
                 self._is_updating_table = False
             
         def update_run_button(self, is_patient_selected: bool, custom_text: str = None):
-            target_text = custom_text if custom_text else ("ЗАПУСТИТЬ АВТООКОНТУРИРОВАНИЕ" if is_patient_selected else "ВЫБЕРИТЕ ПАЦИЕНТА В ТАБЛИЦЕ")
-            target_enabled = is_patient_selected if custom_text != "КТ-СЕРИИ НЕ НАЙДЕНЫ" else False
+            if getattr(self, 'chk_show_structures', None) and self.chk_show_structures.isChecked():
+                target_text = "ОТКЛЮЧИТЕ ПРОСМОТР ДЛЯ ЗАПУСКА"
+                target_enabled = False
+            else:
+                target_text = custom_text if custom_text else ("ЗАПУСТИТЬ АВТООКОНТУРИРОВАНИЕ" if is_patient_selected else "ВЫБЕРИТЕ ПАЦИЕНТА В ТАБЛИЦЕ")
+                target_enabled = is_patient_selected if custom_text != "КТ-СЕРИИ НЕ НАЙДЕНЫ" else False
             
             if self.btn_run.text() != target_text:
                 self.btn_run.setText(target_text)
@@ -1810,10 +1815,13 @@ if PYQT_AVAILABLE:
                 self.btn_run.setEnabled(target_enabled)
                 
             current_style = self.btn_run.styleSheet()
-            if is_patient_selected and "background-color: #0078d7" not in current_style:
-                self.btn_run.setStyleSheet("background-color: #0078d7; color: white; font-weight: bold;")
-            elif not is_patient_selected and current_style != "":
-                self.btn_run.setStyleSheet("")
+            if getattr(self, 'chk_show_structures', None) and self.chk_show_structures.isChecked():
+                self.btn_run.setStyleSheet("background-color: #2b2b2b; color: #ffaa00; border: 1px solid #ffaa00; font-weight: bold;")
+            else:
+                if is_patient_selected and "background-color: #0078d7" not in current_style:
+                    self.btn_run.setStyleSheet("background-color: #0078d7; color: white; font-weight: bold;")
+                elif not is_patient_selected and current_style != "":
+                    self.btn_run.setStyleSheet("")
 
         def on_scan_finished(self):
             if self.series_table.rowCount() == 0:
@@ -1957,6 +1965,23 @@ if PYQT_AVAILABLE:
             except Exception as e:
                 logger.warning(f"Не удалось загрузить DICOM во вьюер: {e}")
 
+        def _clear_imported_organs(self):
+            """Удаляет все динамически импортированные сторонние органы из списка."""
+            if not hasattr(self, 'imported_items') or not self.imported_items:
+                return
+            
+            self.organs_list.blockSignals(True)
+            try:
+                for item in self.imported_items:
+                    row = self.organs_list.row(item)
+                    if row != -1:
+                        self.organs_list.takeItem(row)
+                self.imported_items = []
+            except Exception as e:
+                logger.warning(f"Ошибка при очистке импортированных органов: {e}")
+            finally:
+                self.organs_list.blockSignals(False)
+
         def check_for_rtstruct(self, directory: str):
             """Находит все RTSTRUCT файлы в выбранной папке."""
             self.existing_rtstruct_path = None
@@ -1980,6 +2005,7 @@ if PYQT_AVAILABLE:
                 
                 # Принудительно очищаем старый оверлей из вьюера полностью
                 self._clear_roi_overlay(permanent=True)
+                self._clear_imported_organs()
                 
                 # Принудительно сбрасываем подсветку списка органов
                 self.update_organs_list_highlighting()
@@ -2037,22 +2063,37 @@ if PYQT_AVAILABLE:
             import numpy as np
             from PyQt6.QtWidgets import QApplication, QProgressDialog
             from PyQt6.QtCore import Qt
+            from PyQt6.QtGui import QBrush, QColor, QPixmap, QIcon
+            import re
             
             if not getattr(self, 'current_dicom_dir', None) or getattr(self, 'volume_3d_base', None) is None:
                 self._clear_roi_overlay(permanent=False)
+                self._clear_imported_organs()
                 self.update_organs_list_highlighting()
+                self.update_run_button(bool(self.series_table.selectedItems()))
                 return
                 
             if not getattr(self, 'chk_show_structures', None) or not self.chk_show_structures.isChecked():
-                # Не сбрасываем _last_loaded_rtstruct, чтобы кэш сохранялся при простом скрытии/показе
                 self._clear_roi_overlay(permanent=False)
+                self._clear_imported_organs()
+                
+                # Возвращаем видимость всем стандартным органам
+                self.organs_list.blockSignals(True)
+                for i in range(self.organs_list.count()):
+                    item = self.organs_list.item(i)
+                    item.setHidden(False)
+                self.organs_list.blockSignals(False)
+                
                 self.update_organs_list_highlighting()
+                self.update_run_button(bool(self.series_table.selectedItems()))
                 return
                 
             rtstruct_path = self.rtstruct_combo.currentData()
             if not rtstruct_path or not os.path.exists(rtstruct_path):
                 self._clear_roi_overlay(permanent=False)
+                self._clear_imported_organs()
                 self.update_organs_list_highlighting()
+                self.update_run_button(bool(self.series_table.selectedItems()))
                 return
             
             is_new_rtstruct = (getattr(self, "_last_loaded_rtstruct", None) != rtstruct_path)
@@ -2114,6 +2155,84 @@ if PYQT_AVAILABLE:
                         return supported_norm_map[norm]
                     return roi_name_str.lower().replace(" ", "_")
 
+                # Извлекаем оригинальные цвета ROI из DICOM RTSTRUCT
+                roi_colors = {}
+                try:
+                    if hasattr(rtstruct, 'ds'):
+                        roi_number_to_name = {}
+                        for roi_set in getattr(rtstruct.ds, 'StructureSetROISequence', []):
+                            roi_number_to_name[int(roi_set.ROINumber)] = roi_set.ROIName
+                            
+                        for roi_contour in getattr(rtstruct.ds, 'ROIContourSequence', []):
+                            ref_num = int(getattr(roi_contour, 'ReferencedROINumber', -1))
+                            if ref_num in roi_number_to_name:
+                                roi_name = roi_number_to_name[ref_num]
+                                if hasattr(roi_contour, 'ROIDisplayColor'):
+                                    roi_colors[roi_name] = [int(c) for c in roi_contour.ROIDisplayColor]
+                except Exception as ex:
+                    logger.warning(f"Не удалось прочитать оригинальные цвета ROI: {ex}")
+
+                # Собираем перечень стандартных OAR
+                gui_supported_organs = set()
+                for i in range(self.organs_list.count()):
+                    itm = self.organs_list.item(i)
+                    itm_data = itm.data(Qt.ItemDataRole.UserRole)
+                    if itm_data != "header" and itm_data and itm not in self.imported_items:
+                        org_name = itm_data
+                        if org_name:
+                            gui_supported_organs.add(org_name.lower())
+
+                # Распределяем ROI на стандартные (присутствующие в файле) и сторонние (для импорта)
+                file_supported_organs = set()
+                imported_rois = []
+                for roi in roi_names:
+                    orig_organ = get_mapped_organ(roi)
+                    orig_organ_lower = orig_organ.lower()
+                    if orig_organ_lower in gui_supported_organs:
+                        file_supported_organs.add(orig_organ_lower)
+                    else:
+                        imported_rois.append((roi, orig_organ))
+
+                # Пересоздаем динамические импортированные строки
+                self._clear_imported_organs()
+                if imported_rois:
+                    self.organs_list.blockSignals(True)
+                    try:
+                        header_item = QListWidgetItem(f"━━━ ИМПОРТИРОВАННЫЕ OAR ━━━ ({len(imported_rois)})")
+                        header_item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsUserCheckable)
+                        header_item.setCheckState(Qt.CheckState.Unchecked)
+                        header_item.setData(Qt.ItemDataRole.UserRole, "header")
+                        
+                        font = header_item.font()
+                        font.setBold(True)
+                        header_item.setFont(font)
+                        header_item.setForeground(QBrush(QColor("#007acc")))
+                        header_item.setBackground(QBrush(QColor("#242424")))
+                        
+                        self.organs_list.addItem(header_item)
+                        self.imported_items.append(header_item)
+                        
+                        for roi, orig_organ in imported_rois:
+                            color_rgb = roi_colors.get(roi, [0, 255, 128])
+                            # Кэшируем цвет стороннего органа в движке
+                            self.engine.colors[orig_organ] = color_rgb
+                            
+                            ru_name = self.engine.ru_names.get(orig_organ, roi)
+                            item = QListWidgetItem(f"   {ru_name}")
+                            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+                            item.setCheckState(Qt.CheckState.Checked)  # По умолчанию включен
+                            item.setData(Qt.ItemDataRole.UserRole, orig_organ)
+                            
+                            # Устанавливаем цветную иконку
+                            pixmap = QPixmap(14, 14)
+                            pixmap.fill(QColor(color_rgb[0], color_rgb[1], color_rgb[2]))
+                            item.setIcon(QIcon(pixmap))
+                            
+                            self.organs_list.addItem(item)
+                            self.imported_items.append(item)
+                    finally:
+                        self.organs_list.blockSignals(False)
+
                 file_organs = set(get_mapped_organ(r) for r in roi_names)
 
                 # Если это первая загрузка этого файла RTSTRUCT, интеллектуально отмечаем только те органы, которые в нем есть
@@ -2141,23 +2260,50 @@ if PYQT_AVAILABLE:
                     self.update_checked_organs_count()
                     self._last_loaded_rtstruct = rtstruct_path
 
-                # Умный сбор поддерживаемых GUI органов и снятых чекбоксов
-                gui_supported_organs = set()
+                # Управляем видимостью стандартных органов и пустых заголовков групп
+                self.organs_list.blockSignals(True)
+                try:
+                    group_structures = {}
+                    last_header = None
+                    
+                    for i in range(self.organs_list.count()):
+                        item = self.organs_list.item(i)
+                        itm_data = item.data(Qt.ItemDataRole.UserRole)
+                        if itm_data == "header":
+                            last_header = item
+                            group_structures[last_header] = []
+                        elif last_header is not None:
+                            group_structures[last_header].append(item)
+                            
+                    for header, items in group_structures.items():
+                        group_visible = False
+                        for item in items:
+                            if item in self.imported_items:
+                                item.setHidden(False)
+                                group_visible = True
+                            else:
+                                itm_data = item.data(Qt.ItemDataRole.UserRole)
+                                orig_organ_lower = itm_data.lower() if isinstance(itm_data, str) else ""
+                                if orig_organ_lower in file_supported_organs:
+                                    item.setHidden(False)
+                                    group_visible = True
+                                else:
+                                    item.setHidden(True)
+                        
+                        header.setHidden(not group_visible)
+                except Exception as filter_e:
+                    logger.error(f"Ошибка при фильтрации списка органов по видимости: {filter_e}")
+                finally:
+                    self.organs_list.blockSignals(False)
+
+                # Собираем чекбоксы, которые сняты (для фильтрации вывода оверлея)
                 unchecked_organs = set()
-                
                 for i in range(self.organs_list.count()):
                     itm = self.organs_list.item(i)
                     itm_data = itm.data(Qt.ItemDataRole.UserRole)
                     if itm_data != "header" and itm_data:
-                        if isinstance(itm_data, dict):
-                            org_name = itm_data.get("name") or (list(itm_data.keys())[0] if itm_data else "")
-                        else:
-                            org_name = itm_data
-                        if org_name:
-                            org_lower = org_name.lower()
-                            gui_supported_organs.add(org_lower)
-                            if itm.checkState() == Qt.CheckState.Unchecked:
-                                unchecked_organs.add(org_lower)
+                        if itm.checkState() == Qt.CheckState.Unchecked:
+                            unchecked_organs.add(itm_data.lower() if isinstance(itm_data, str) else "")
                 
                 # Фильтруем список структур, которые реально будем отрисовывать
                 rois_to_draw = []
@@ -2167,11 +2313,8 @@ if PYQT_AVAILABLE:
                     
                     # Орган должен отображаться, если:
                     # 1. Это "body" (рисуется всегда).
-                    # 2. Или для него вообще нет чекбокса в GUI (сторонняя структура).
-                    # 3. Или для него есть чекбокс в GUI, и он НЕ снят (Checked или PartiallyChecked).
-                    if (orig_organ_lower == "body" or 
-                        orig_organ_lower not in gui_supported_organs or 
-                        orig_organ_lower not in unchecked_organs):
+                    # 2. Или его чекбокс НЕ снят
+                    if orig_organ_lower == "body" or orig_organ_lower not in unchecked_organs:
                         rois_to_draw.append((roi, orig_organ))
 
                 # Проверяем, все ли нужные маски уже есть в кэше оперативной памяти
@@ -2194,7 +2337,6 @@ if PYQT_AVAILABLE:
                 
                 for idx, (roi, orig_organ) in enumerate(rois_to_draw, start=1):
                     try:
-                        # Получаем красивое русское название органа для пошагового вывода
                         ru_name = self.engine.ru_names.get(orig_organ, orig_organ)
                         if orig_organ == "body":
                             ru_name = "Контур тела (Body)"
@@ -2218,7 +2360,7 @@ if PYQT_AVAILABLE:
                                 getattr(self, 'z_positions', None),
                                 getattr(self, 'dicom_pixel_spacing', (1.0, 1.0)),
                                 getattr(self, 'dicom_image_position', [0.0, 0.0])
-                            )   # возвращает (z, x, y) bool array
+                            )
                             self._loaded_roi_masks[roi] = mask_3d
                         
                         if orig_organ == "body":
@@ -2226,11 +2368,9 @@ if PYQT_AVAILABLE:
                                 boundary = self._loaded_roi_masks["body_boundary"]
                             else:
                                 import scipy.ndimage
-                                # Получаем тонкую линию силуэта кожи
                                 boundary = mask_3d ^ scipy.ndimage.binary_erosion(mask_3d, structure=np.ones((1, 3, 3)))
                                 self._loaded_roi_masks["body_boundary"] = boundary
                                 
-                            # Закрашиваем светло-серым цветом [220, 220, 220] с высокой непрозрачностью 255
                             overlay_3d[boundary, 0] = 220
                             overlay_3d[boundary, 1] = 220
                             overlay_3d[boundary, 2] = 220
@@ -2244,17 +2384,19 @@ if PYQT_AVAILABLE:
                     except Exception as roi_e:
                         logger.warning(f"Не удалось отрисовать структуру {roi}: {roi_e}")
                 
-                # Бесшовно обновляем 3D-данные оверлея без пересоздания объекта ImageItem,
-                # чтобы избежать мерцания и сбрасывания контуров с экрана во время расчетов
+                # Бесшовно обновляем 3D-данные оверлея
                 self.roi_overlay_3d = overlay_3d
                 self.update_roi_overlay_frame()
                 self.status_step_label.setText("Текущий шаг: Ожидание запуска...")
                 
-                # Обновляем подсветку списка органов в GUI
+                # Обновляем кнопку автооконтуривания (блокируем в режиме просмотра)
+                self.update_run_button(bool(self.series_table.selectedItems()))
+                # Обновляем подсветку списка органов
                 self.update_organs_list_highlighting()
             except Exception as e:
                 logger.error(f"Ошибка загрузки структур во вьюер: {e}")
                 self.status_step_label.setText("Текущий шаг: Ожидание запуска...")
+                self.update_run_button(bool(self.series_table.selectedItems()))
                 self.update_organs_list_highlighting()
             finally:
                 if progress_dialog:
