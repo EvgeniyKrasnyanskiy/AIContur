@@ -1065,14 +1065,14 @@
       81
     ],
     "caudate_nucleus": [
-      94,
-      132,
-      195
+      176,
+      237,
+      89
     ],
     "central_sulcus": [
-      202,
-      62,
-      255
+      220,
+      160,
+      30
     ],
     "cerebellum": [
       50,
@@ -1170,9 +1170,9 @@
       50
     ],
     "frontal_lobe": [
-      50,
-      74,
-      201
+      124,
+      4,
+      196
     ],
     "hard_palate": [
       116,
@@ -1250,9 +1250,9 @@
       107
     ],
     "internal_capsule": [
-      122,
-      221,
-      128
+      175,
+      198,
+      22
     ],
     "internal_carotid_artery_left": [
       53,
@@ -1355,9 +1355,9 @@
       50
     ],
     "lentiform_nucleus": [
-      211,
-      218,
-      169
+      244,
+      38,
+      53
     ],
     "levator_palpebrae_superioris_left": [
       126,
@@ -1740,9 +1740,9 @@
       50
     ],
     "occipital_lobe": [
-      221,
-      211,
-      50
+      158,
+      128,
+      174
     ],
     "oropharynx": [
       128,
@@ -1750,9 +1750,9 @@
       81
     ],
     "parietal_lobe": [
-      225,
-      248,
-      149
+      142,
+      244,
+      4
     ],
     "parotid_gland_left": [
       50,
@@ -1920,9 +1920,9 @@
       128
     ],
     "septum_pellucidum": [
-      115,
-      156,
-      58
+      113,
+      194,
+      87
     ],
     "serratus_anterior": [
       67,
@@ -1990,9 +1990,9 @@
       179
     ],
     "subarachnoid_space": [
-      203,
-      50,
-      250
+      88,
+      106,
+      215
     ],
     "subcutaneous_fat": [
       234,
@@ -2060,9 +2060,9 @@
       203
     ],
     "temporal_lobe": [
-      50,
-      244,
-      162
+      195,
+      92,
+      103
     ],
     "temporalis_left": [
       50,
@@ -2080,9 +2080,9 @@
       50
     ],
     "thalamus": [
-      159,
-      236,
-      226
+      18,
+      72,
+      144
     ],
     "thigh_medial_compartment_left": [
       253,
@@ -2345,9 +2345,9 @@
       168
     ],
     "venous_sinuses": [
-      133,
-      211,
-      50
+      217,
+      232,
+      195
     ],
     "ventricle": [
       130,
@@ -2423,6 +2423,16 @@
       78,
       79,
       125
+    ],
+    "insula": [
+      13,
+      251,
+      12
+    ],
+    "ventricles_of_brain": [
+      88,
+      106,
+      215
     ]
   },
   "ru_names": {

@@ -1967,15 +1967,14 @@ if PYQT_AVAILABLE:
 
         def _clear_imported_organs(self):
             """Удаляет все динамически импортированные сторонние органы из списка."""
-            if not hasattr(self, 'imported_items') or not self.imported_items:
-                return
-            
             self.organs_list.blockSignals(True)
             try:
-                for item in self.imported_items:
-                    row = self.organs_list.row(item)
-                    if row != -1:
-                        self.organs_list.takeItem(row)
+                i = self.organs_list.count() - 1
+                while i >= 0:
+                    item = self.organs_list.item(i)
+                    if item.data(Qt.ItemDataRole.UserRole + 1) is True:
+                        self.organs_list.takeItem(i)
+                    i -= 1
                 self.imported_items = []
             except Exception as e:
                 logger.warning(f"Ошибка при очистке импортированных органов: {e}")
@@ -2090,6 +2089,7 @@ if PYQT_AVAILABLE:
             if not getattr(self, 'current_dicom_dir', None) or getattr(self, 'volume_3d_base', None) is None:
                 self._clear_roi_overlay(permanent=False)
                 self._clear_imported_organs()
+                self._last_loaded_rtstruct = None
                 self.update_organs_list_highlighting()
                 self.update_run_button(bool(self.series_table.selectedItems()))
                 return
@@ -2097,6 +2097,7 @@ if PYQT_AVAILABLE:
             if not getattr(self, 'chk_show_structures', None) or not self.chk_show_structures.isChecked():
                 self._clear_roi_overlay(permanent=False)
                 self._clear_imported_organs()
+                self._last_loaded_rtstruct = None
                 
                 # Возвращаем видимость всем стандартным органам
                 self.organs_list.blockSignals(True)
@@ -2128,6 +2129,7 @@ if PYQT_AVAILABLE:
             if not rtstruct_path or not os.path.exists(rtstruct_path):
                 self._clear_roi_overlay(permanent=False)
                 self._clear_imported_organs()
+                self._last_loaded_rtstruct = None
                 
                 # Возвращаем левую панель и сплиттеры к стандартным размерам при отсутствии файла
                 if hasattr(self, 'left_card') and hasattr(self, 'splitter'):
@@ -2244,7 +2246,7 @@ if PYQT_AVAILABLE:
                 for i in range(self.organs_list.count()):
                     itm = self.organs_list.item(i)
                     itm_data = itm.data(Qt.ItemDataRole.UserRole)
-                    if itm_data != "header" and itm_data and itm not in self.imported_items:
+                    if itm_data != "header" and itm_data and itm.data(Qt.ItemDataRole.UserRole + 1) is not True:
                         org_name = itm_data
                         if org_name:
                             gui_supported_organs.add(org_name.lower())
@@ -2260,45 +2262,48 @@ if PYQT_AVAILABLE:
                     else:
                         imported_rois.append((roi, orig_organ))
 
-                # Пересоздаем динамические импортированные строки
-                self._clear_imported_organs()
-                if imported_rois:
-                    self.organs_list.blockSignals(True)
-                    try:
-                        header_item = QListWidgetItem(f"━━━ ИМПОРТИРОВАННЫЕ OAR ━━━ ({len(imported_rois)})")
-                        header_item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsUserCheckable)
-                        header_item.setCheckState(Qt.CheckState.Unchecked)
-                        header_item.setData(Qt.ItemDataRole.UserRole, "header")
-                        
-                        font = header_item.font()
-                        font.setBold(True)
-                        header_item.setFont(font)
-                        header_item.setForeground(QBrush(QColor("#007acc")))
-                        header_item.setBackground(QBrush(QColor("#242424")))
-                        
-                        self.organs_list.addItem(header_item)
-                        self.imported_items.append(header_item)
-                        
-                        for roi, orig_organ in imported_rois:
-                            color_rgb = roi_colors.get(roi, [0, 255, 128])
-                            # Кэшируем цвет стороннего органа в движке
-                            self.engine.colors[orig_organ] = color_rgb
+                # Пересоздаем динамические импортированные строки только при первой загрузке нового RTSTRUCT
+                if is_new_rtstruct:
+                    self._clear_imported_organs()
+                    if imported_rois:
+                        self.organs_list.blockSignals(True)
+                        try:
+                            header_item = QListWidgetItem(f"━━━ ИМПОРТИРОВАННЫЕ OAR ━━━ ({len(imported_rois)})")
+                            header_item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsUserCheckable)
+                            header_item.setCheckState(Qt.CheckState.Unchecked)
+                            header_item.setData(Qt.ItemDataRole.UserRole, "header")
+                            header_item.setData(Qt.ItemDataRole.UserRole + 1, True)
                             
-                            ru_name = self.engine.ru_names.get(orig_organ, roi)
-                            item = QListWidgetItem(f"   {ru_name}")
-                            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-                            item.setCheckState(Qt.CheckState.Checked)  # По умолчанию включен
-                            item.setData(Qt.ItemDataRole.UserRole, orig_organ)
+                            font = header_item.font()
+                            font.setBold(True)
+                            header_item.setFont(font)
+                            header_item.setForeground(QBrush(QColor("#007acc")))
+                            header_item.setBackground(QBrush(QColor("#242424")))
                             
-                            # Устанавливаем цветную иконку
-                            pixmap = QPixmap(14, 14)
-                            pixmap.fill(QColor(color_rgb[0], color_rgb[1], color_rgb[2]))
-                            item.setIcon(QIcon(pixmap))
+                            self.organs_list.addItem(header_item)
+                            self.imported_items.append(header_item)
                             
-                            self.organs_list.addItem(item)
-                            self.imported_items.append(item)
-                    finally:
-                        self.organs_list.blockSignals(False)
+                            for roi, orig_organ in imported_rois:
+                                color_rgb = roi_colors.get(roi, [0, 255, 128])
+                                # Кэшируем цвет стороннего органа в движке
+                                self.engine.colors[orig_organ] = color_rgb
+                                
+                                ru_name = self.engine.ru_names.get(orig_organ, roi)
+                                item = QListWidgetItem(f"   {ru_name}")
+                                item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+                                item.setCheckState(Qt.CheckState.Checked)  # По умолчанию включен
+                                item.setData(Qt.ItemDataRole.UserRole, orig_organ)
+                                item.setData(Qt.ItemDataRole.UserRole + 1, True)
+                                
+                                # Устанавливаем цветную иконку
+                                pixmap = QPixmap(14, 14)
+                                pixmap.fill(QColor(color_rgb[0], color_rgb[1], color_rgb[2]))
+                                item.setIcon(QIcon(pixmap))
+                                
+                                self.organs_list.addItem(item)
+                                self.imported_items.append(item)
+                        finally:
+                            self.organs_list.blockSignals(False)
 
                 file_organs = set(get_mapped_organ(r) for r in roi_names)
 
@@ -2351,7 +2356,7 @@ if PYQT_AVAILABLE:
                     for header, items in group_structures:
                         group_visible = False
                         for item in items:
-                            if item in self.imported_items:
+                            if item.data(Qt.ItemDataRole.UserRole + 1) is True:
                                 item.setHidden(False)
                                 group_visible = True
                             else:
@@ -2604,8 +2609,12 @@ if PYQT_AVAILABLE:
             self.preset_combo.setCurrentText("Все органы (All)")
             self.preset_combo.blockSignals(False)
             
+            self.update_headers_check_states()
             self.save_settings()
             self.update_checked_organs_count()
+            
+            if hasattr(self, 'chk_show_structures') and self.chk_show_structures.isChecked():
+                self.on_show_structures_changed()
 
         def deselect_all_organs(self):
             """Снимает выбор со всех органов в списке."""
@@ -2622,8 +2631,12 @@ if PYQT_AVAILABLE:
             self.preset_combo.setCurrentText("Пользовательский (Custom)")
             self.preset_combo.blockSignals(False)
             
+            self.update_headers_check_states()
             self.save_settings()
             self.update_checked_organs_count()
+            
+            if hasattr(self, 'chk_show_structures') and self.chk_show_structures.isChecked():
+                self.on_show_structures_changed()
 
         def _sync_preset_combo_to_organs(self):
             """Подбирает и устанавливает в комбобоксе пресет, соответствующий текущим выбранным органам.
@@ -2682,6 +2695,9 @@ if PYQT_AVAILABLE:
                     item = self.organs_list.item(i)
                     organ_name = item.data(Qt.ItemDataRole.UserRole)
                     if organ_name == "header":
+                        continue
+                    # Игнорируем импортированные органы при смене пресета OAR
+                    if item.data(Qt.ItemDataRole.UserRole + 1) is True:
                         continue
                     if organ_name in target_organs:
                         item.setCheckState(Qt.CheckState.Checked)
@@ -2751,6 +2767,9 @@ if PYQT_AVAILABLE:
             self.apply_preset_checked_states(text)
             self.is_updating_presets = False
             self.save_settings()
+            
+            if hasattr(self, 'chk_show_structures') and self.chk_show_structures.isChecked():
+                self.on_show_structures_changed()
 
         def on_organ_item_changed(self, item: QListWidgetItem):
             """Слот изменения состояния чекбокса органа пользователем."""
