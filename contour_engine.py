@@ -508,7 +508,6 @@ class ContourEngine:
         new_presets = {
             "Голова и шея (Head & Neck)": head_neck,
             "Грудная клетка (Thorax)": thorax,
-            "Брюшная полость (Abdomen)": abdomen,
             "Малый таз (Pelvis)": pelvis,
             "Отделы головного мозга (Brain Structures)": brain_structs,
         }
