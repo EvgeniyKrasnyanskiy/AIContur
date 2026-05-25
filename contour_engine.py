@@ -791,13 +791,14 @@ class ContourEngine:
             VIRTUAL_ORGANS_MAP = {
                 "lung_left": ["lung_upper_lobe_left", "lung_lower_lobe_left"],
                 "lung_right": ["lung_upper_lobe_right", "lung_middle_lobe_right", "lung_lower_lobe_right"],
+                "lungs": ["lung_upper_lobe_left", "lung_lower_lobe_left", "lung_upper_lobe_right", "lung_middle_lobe_right", "lung_lower_lobe_right"],
                 "brain_stem": ["brainstem"]
             }
 
-            # "body" — специальный орган: требует отдельного вызова TotalSegmentator --task body
+            # "body" — специальный орган: требует отдельного вызова
             need_body_task = target_organs is not None and "body" in target_organs
             if need_body_task:
-                logger.info("Contour 'body' запрошен: будет выполнен отдельный вызов TotalSegmentator --task body.")
+                logger.info("Contour 'body' запрошен: будет выполнен программный расчет контура тела без ИИ.")
 
             # Находим путь к исполняемому файлу TotalSegmentator в виртуальном окружении
             exe_dir = Path(sys.executable).parent
@@ -1003,46 +1004,44 @@ class ContourEngine:
             if need_body_task and precision_mode != "faster":
                 if is_cancelled_cb and is_cancelled_cb():
                     raise RuntimeError("Операция отменена пользователем.")
-                logger.info("--- Доп. задача: Сегментация контура тела (--task body) ---")
-                body_out_dir = temp_dir / "temp_body_task"
-                body_out_dir.mkdir(parents=True, exist_ok=True)
-                body_cmd = [
-                    str(totalseg_exe),
-                    "-i", str(nifti_ct_path),
-                    "-o", str(body_out_dir),
-                    "--device", device,
-                    "--task", "body"
-                ]
-                logger.info(f"Запуск body-задачи: {' '.join(body_cmd)}")
+                logger.info("--- Доп. задача: Программный расчет контура тела без ИИ (Fast Classic Skin) ---")
+                
                 try:
-                    body_proc = subprocess.Popen(
-                        body_cmd,
-                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                        text=True, encoding="utf-8", errors="replace",
-                        bufsize=1, startupinfo=startupinfo
-                    )
-                    while True:
-                        if is_cancelled_cb and is_cancelled_cb():
-                            body_proc.kill()
-                            raise RuntimeError("Операция отменена пользователем.")
-                        ln = body_proc.stdout.readline()
-                        if not ln and body_proc.poll() is not None:
-                            break
-                        if ln.strip():
-                            logger.info(f"[body-task]: {ln.strip()}")
-                    body_proc.wait()
-                    # TotalSegmentator body-task пишет body.nii.gz в папку body_out_dir
-                    body_nii = body_out_dir / "body.nii.gz"
-                    if body_nii.exists():
+                    import scipy.ndimage
+                    if nifti_ct_path.exists():
+                        logger.info("Чтение КТ-объема для выделения тела...")
+                        ct_nii = nib.load(str(nifti_ct_path))
+                        ct_data = ct_nii.get_fdata()
+                        
+                        # Порог для тела: воздух на КТ равен -1000 HU, тело обычно > -200 HU
+                        logger.info("Применение пороговой фильтрации (-200 HU)...")
+                        body_mask = ct_data > -200
+                        
+                        # Заливаем полости на каждом срезе
+                        logger.info("Заливка внутренних полостей тела (fill holes)...")
+                        filled_mask = np.zeros_like(body_mask, dtype=bool)
+                        for z in range(body_mask.shape[2]):
+                            filled_mask[:, :, z] = scipy.ndimage.binary_fill_holes(body_mask[:, :, z])
+                            
+                        # Оставляем только крупнейший связный компонент (чтобы убрать кушетку, воздух вокруг и артефакты)
+                        logger.info("Выделение крупнейшего 3D связного компонента...")
+                        labeled_array, num_features = label(filled_mask)
+                        if num_features > 1:
+                            sizes = np.bincount(labeled_array.ravel())
+                            largest_label = np.argmax(sizes[1:]) + 1
+                            final_mask = labeled_array == largest_label
+                        else:
+                            final_mask = filled_mask
+                            
+                        # Сохраняем маску тела в папку масок
+                        body_nii_img = nib.Nifti1Image(final_mask.astype(np.uint8), ct_nii.affine, ct_nii.header)
                         dest = segmentation_dir / "body.nii.gz"
-                        shutil.copy(str(body_nii), str(dest))
-                        logger.info("Контур тела body.nii.gz успешно получен и перенесен в папку масок.")
+                        nib.save(body_nii_img, str(dest))
+                        logger.info(f"Контур тела body.nii.gz успешно сгенерирован программно и сохранен в: {dest.name}")
                     else:
-                        logger.warning("Контур тела body.nii.gz не найден в выходной папке body-задачи.")
+                        logger.warning("Не найден временный NIfTI-файл КТ для программного расчета тела.")
                 except Exception as body_err:
-                    logger.error(f"Ошибка при выполнении body-задачи: {body_err}")
-                finally:
-                    shutil.rmtree(body_out_dir, ignore_errors=True)
+                    logger.error(f"Ошибка при программном расчете контура тела: {body_err}", exc_info=True)
 
             # ----------------------------------------------------------------------
             # Постобработка: сборка виртуальных органов (легкие)
@@ -1109,6 +1108,27 @@ class ContourEngine:
             
             step_start = time.time()
             
+            # ----------------------------------------------------------------------
+            # Программное объединение левого и правого легкого в общий контур Lungs
+            # ----------------------------------------------------------------------
+            if precision_mode != "faster" and (target_organs is None or "lungs" in target_organs):
+                left_nii = segmentation_dir / "lung_left.nii.gz"
+                right_nii = segmentation_dir / "lung_right.nii.gz"
+                if left_nii.exists() and right_nii.exists():
+                    try:
+                        logger.info("Программное объединение левого и правого легкого в общий контур Lungs...")
+                        left_img = nib.load(str(left_nii))
+                        right_img = nib.load(str(right_nii))
+                        
+                        merged_data = (left_img.get_fdata() > 0.5) | (right_img.get_fdata() > 0.5)
+                        
+                        lungs_img = nib.Nifti1Image(merged_data.astype(np.uint8), left_img.affine, left_img.header)
+                        lungs_dest = segmentation_dir / "lungs.nii.gz"
+                        nib.save(lungs_img, str(lungs_dest))
+                        logger.info(f"Общий контур легких успешно сгенерирован и сохранен как: {lungs_dest.name}")
+                    except Exception as merge_err:
+                        logger.error(f"Не удалось объединить контуры легких в общий Lungs: {merge_err}", exc_info=True)
+
             mask_files = list(segmentation_dir.glob("*.nii.gz"))
             if not mask_files:
                 raise RuntimeError("Не найдено масок органов после сегментации.")

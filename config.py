@@ -78,7 +78,7 @@ ORGAN_GROUPS = {
         "soft_palate", "hard_palate", "auditory_canal_left", "auditory_canal_right"
     ],
     "Грудная клетка (Thorax)": [
-        "heart", "lung_left", "lung_right", "trachea", "esophagus", "aorta", "pulmonary_artery",
+        "heart", "lung_left", "lung_right", "lungs", "trachea", "esophagus", "aorta", "pulmonary_artery",
         "superior_vena_cava", "sternum", "clavicula_left", "clavicula_right",
         "scapula_left", "scapula_right", "humerus_left", "humerus_right"
     ],
