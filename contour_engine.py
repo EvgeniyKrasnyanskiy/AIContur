@@ -515,10 +515,14 @@ class ContourEngine:
             "Все структуры / Full Total": full_total_preset
         }
 
-        # Если пресеты отличаются, обновляем их
-        if self.presets != new_presets:
-            self.presets = new_presets
-            changed = True
+        # Дополняем отсутствующие пресеты, но не затираем существующие кастомизированные
+        for k, v in new_presets.items():
+            if k not in self.presets:
+                self.presets[k] = v
+                changed = True
+            elif k == "Все структуры / Full Total" and self.presets[k] != v:
+                self.presets[k] = v
+                changed = True
 
         if changed:
             logger.info(f"Обнаружены изменения или новые структуры. Обновление {self.config_path}...")
