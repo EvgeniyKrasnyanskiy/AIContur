@@ -1848,6 +1848,33 @@ if PYQT_AVAILABLE:
                 
                 # Меняем UI и обновляем вьюер ТОЛЬКО при ручном клике пользователя
                 if not getattr(self, "_is_updating_table", False):
+                    # Автоматический выбор пресета на основе области сканирования
+                    area_item = self.series_table.item(row, 3)
+                    area_text = area_item.text().strip() if area_item else ""
+                    if area_text:
+                        area_lower = area_text.lower()
+                        matched_preset = None
+                        
+                        if any(x in area_lower for x in ["head", "neck", "голова", "шея", "brain", "мозг", "larynx", "гортан"]):
+                            matched_preset = "Голова и шея (Head & Neck)"
+                        elif any(x in area_lower for x in ["thorax", "chest", "lung", "груд", "легк", "кост", "rib"]):
+                            matched_preset = "Грудная клетка (Thorax)"
+                        elif any(x in area_lower for x in ["abdomen", "abdo", "брюш", "печен", "liver", "kidney", "почк", "stomach", "желуд"]):
+                            matched_preset = "Брюшная полость (Abdomen)"
+                        elif any(x in area_lower for x in ["pelvis", "prostate", "bladder", "таз", "мочевой", "простат"]):
+                            matched_preset = "Малый таз (Pelvis)"
+                            
+                        if matched_preset:
+                            # Ищем индекс пресета в комбобоксе
+                            idx = self.preset_combo.findText(matched_preset)
+                            if idx >= 0 and self.preset_combo.currentText() != matched_preset:
+                                logger.info(f"Автоматически выбран пресет '{matched_preset}' на основе области сканирования: '{area_text}'")
+                                self.preset_combo.blockSignals(True)
+                                self.preset_combo.setCurrentIndex(idx)
+                                self.preset_combo.blockSignals(False)
+                                # Применяем пресет
+                                self.apply_preset_checked_states(matched_preset)
+                    
                     # Фоновый поиск реального пути файла (теперь не моргает от таймера)
                     self.check_for_rtstruct(selected_path)
                     
