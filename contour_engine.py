@@ -950,7 +950,7 @@ class ContourEngine:
                     "--nr_thr_saving", "1"
                 ]
                 
-                if hasattr(self, "licenses") and isinstance(self.licenses, str) and self.licenses.strip():
+                if task_name in LICENSED_TASKS and hasattr(self, "licenses") and isinstance(self.licenses, str) and self.licenses.strip():
                     cmd.extend(["--license", self.licenses.strip()])
                 
                 if precision_mode == "fast" or precision_mode == "faster":

@@ -3211,10 +3211,9 @@ if PYQT_AVAILABLE:
                     orig_organ = get_mapped_organ(roi)
                     orig_organ_lower = orig_organ.lower()
                     
-                    # Орган должен отображаться, если:
-                    # 1. Это "body" (рисуется всегда).
-                    # 2. Или его чекбокс НЕ снят
-                    if orig_organ_lower == "body" or orig_organ_lower not in unchecked_organs:
+                    # Орган должен отображаться, если его чекбокс НЕ снят в списке OAR
+
+                    if orig_organ_lower not in unchecked_organs:
                         rois_to_draw.append((roi, orig_organ))
 
                 # Проверяем, все ли нужные маски уже есть в кэше оперативной памяти
