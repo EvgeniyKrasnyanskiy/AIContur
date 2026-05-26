@@ -546,60 +546,210 @@ class ContourEngine:
                 changed = True
 
         if changed:
-            logger.info(f"Обнаружены изменения или новые структуры. Обновление {self.config_path}...")
+            logger.info("Обнаружены изменения или новые структуры. Обновление конфигурации в папке config/...")
             self.save_presets_config()
 
 
+    def _get_preset_filename(self, name: str) -> str:
+        """Преобразует название пресета в безопасное имя файла на латинице."""
+        mapping = {
+            "Голова и шея (Head & Neck)": "head_and_neck",
+            "Грудная клетка (Thorax)": "thorax",
+            "Малый таз (Pelvis)": "pelvis",
+            "Отделы головного мозга (Brain Structures)": "brain_structures"
+        }
+        if name in mapping:
+            return mapping[name]
+        
+        # Для других/пользовательских пресетов
+        clean = name.lower()
+        translit_dict = {
+            'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'yo',
+            'ж':'zh','з':'z','и':'i','й':'y','к':'k','л':'l','м':'m',
+            'н':'n','о':'o','п':'p','р':'r','с':'s','т':'t','у':'u',
+            'ф':'f','х':'kh','ц':'ts','ч':'ch','ш':'sh','щ':'sch',
+            'ъ':'','ы':'y','ь':'','э':'e','ю':'yu','я':'ya'
+        }
+        for ru_c, en_c in translit_dict.items():
+            clean = clean.replace(ru_c, en_c)
+        
+        clean = re.sub(r'[^a-z0-9_\- ]', '', clean)
+        clean = clean.replace(' ', '_')
+        clean = re.sub(r'_+', '_', clean).strip('_')
+        return clean or "custom_preset"
+
+    def _migrate_old_presets(self, old_presets_path: Path) -> None:
+        """Переносит данные из монолитного presets.json в новую модульную структуру config/."""
+        logger.info("Обнаружен старый presets.json в корне. Выполняется автоматическая миграция...")
+        try:
+            with open(old_presets_path, "r", encoding="utf-8") as f:
+                old_data = json.load(f)
+            
+            self.config_dir.mkdir(parents=True, exist_ok=True)
+            self.presets_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Цвета
+            colors = old_data.get("colors", DEFAULT_PRESETS_DATA["colors"])
+            with open(self.colors_path, "w", encoding="utf-8") as f:
+                json.dump(colors, f, ensure_ascii=False, indent=2)
+                
+            # Переводы
+            ru_names = old_data.get("ru_names", DEFAULT_PRESETS_DATA["ru_names"])
+            with open(self.translations_path, "w", encoding="utf-8") as f:
+                json.dump(ru_names, f, ensure_ascii=False, indent=2)
+                
+            # Лицензии
+            raw_licenses = old_data.get("licenses", "")
+            if isinstance(raw_licenses, dict):
+                licenses_val = next((v for v in raw_licenses.values() if v), "")
+            else:
+                licenses_val = str(raw_licenses)
+            with open(self.licenses_path, "w", encoding="utf-8") as f:
+                json.dump({"license_key": licenses_val}, f, ensure_ascii=False, indent=2)
+                
+            # Пресеты
+            presets = old_data.get("presets", DEFAULT_PRESETS_DATA["presets"])
+            for name, organs in presets.items():
+                file_name = self._get_preset_filename(name)
+                preset_filepath = self.presets_dir / f"{file_name}.json"
+                with open(preset_filepath, "w", encoding="utf-8") as f:
+                    json.dump({"name": name, "organs": organs}, f, ensure_ascii=False, indent=2)
+                    
+            # Резервное копирование и удаление
+            bak_path = old_presets_path.with_suffix(".json.bak")
+            if bak_path.exists():
+                bak_path.unlink()
+            old_presets_path.rename(bak_path)
+            logger.info(f"Миграция успешно завершена. Резервная копия сохранена в {bak_path.name}")
+        except Exception as e:
+            logger.error(f"Не удалось завершить автоматическую миграцию: {e}")
+
     def load_presets_config(self) -> None:
         """
-        Загружает пресеты, цвета и переводы из presets.json.
-        Если файл отсутствует, создает его с дефолтными значениями.
+        Загружает пресеты, цвета, переводы и лицензии из папки config/.
+        Если папка или файлы отсутствуют, выполняет миграцию или генерирует дефолтные файлы.
         """
         try:
-            if not self.config_path.exists():
-                logger.info(f"Файл конфигурации не найден. Создание дефолтного {self.config_path}...")
-                with open(self.config_path, "w", encoding="utf-8") as f:
-                    json.dump(DEFAULT_PRESETS_DATA, f, ensure_ascii=False, indent=2)
+            self.config_dir = Path("config").resolve()
+            self.presets_dir = self.config_dir / "presets"
+            self.colors_path = self.config_dir / "colors.json"
+            self.translations_path = self.config_dir / "translations.json"
+            self.licenses_path = self.config_dir / "licenses.json"
             
-            with open(self.config_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
+            # 1. Плавная миграция
+            old_presets_path = Path("presets.json").resolve()
+            if old_presets_path.exists() and not self.config_dir.exists():
+                self._migrate_old_presets(old_presets_path)
                 
-            self.presets = data.get("presets", DEFAULT_PRESETS_DATA["presets"])
-            self.colors = data.get("colors", DEFAULT_PRESETS_DATA["colors"])
-            self.ru_names = data.get("ru_names", DEFAULT_PRESETS_DATA["ru_names"])
-            raw_licenses = data.get("licenses", "")
-            if isinstance(raw_licenses, dict):
-                self.licenses = next((v for v in raw_licenses.values() if v), "")
+            # 2. Создание директорий, если они не существуют
+            self.config_dir.mkdir(parents=True, exist_ok=True)
+            self.presets_dir.mkdir(parents=True, exist_ok=True)
+            
+            # 3. Загрузка цветов
+            if self.colors_path.exists():
+                with open(self.colors_path, "r", encoding="utf-8") as f:
+                    self.colors = json.load(f)
             else:
-                self.licenses = str(raw_licenses)
+                logger.info(f"Файл цветов не найден. Создание {self.colors_path}...")
+                self.colors = DEFAULT_PRESETS_DATA["colors"].copy()
+                with open(self.colors_path, "w", encoding="utf-8") as f:
+                    json.dump(self.colors, f, ensure_ascii=False, indent=2)
+                
+            # 4. Загрузка переводов (локализации)
+            if self.translations_path.exists():
+                with open(self.translations_path, "r", encoding="utf-8") as f:
+                    self.ru_names = json.load(f)
+            else:
+                logger.info(f"Файл переводов не найден. Создание {self.translations_path}...")
+                self.ru_names = DEFAULT_PRESETS_DATA["ru_names"].copy()
+                with open(self.translations_path, "w", encoding="utf-8") as f:
+                    json.dump(self.ru_names, f, ensure_ascii=False, indent=2)
+                
+            # 5. Загрузка лицензий
+            if self.licenses_path.exists():
+                with open(self.licenses_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    self.licenses = data.get("license_key", "")
+            else:
+                self.licenses = ""
+                with open(self.licenses_path, "w", encoding="utf-8") as f:
+                    json.dump({"license_key": ""}, f, ensure_ascii=False, indent=2)
+                
+            # 6. Загрузка пресетов
+            self.presets = {}
+            preset_files = list(self.presets_dir.glob("*.json"))
+            if preset_files:
+                for p_file in preset_files:
+                    try:
+                        with open(p_file, "r", encoding="utf-8") as f:
+                            preset_data = json.load(f)
+                            if isinstance(preset_data, dict) and "name" in preset_data and "organs" in preset_data:
+                                self.presets[preset_data["name"]] = preset_data["organs"]
+                    except Exception as pe:
+                        logger.error(f"Ошибка при загрузке пресета {p_file.name}: {pe}")
+            
+            # Если пресеты не были загружены, создаем дефолтные
+            if not self.presets:
+                logger.info("Пресеты не найдены. Генерация дефолтных пресетов...")
+                self.presets = DEFAULT_PRESETS_DATA["presets"].copy()
+                for name, organs in self.presets.items():
+                    file_name = self._get_preset_filename(name)
+                    p_file = self.presets_dir / f"{file_name}.json"
+                    with open(p_file, "w", encoding="utf-8") as f:
+                        json.dump({"name": name, "organs": organs}, f, ensure_ascii=False, indent=2)
+            
             logger.info("Конфигурация пресетов успешно загружена.")
             
             # Динамическое дополнение до 117 классов TotalSegmentator
             self._update_presets_with_total_classes()
             
         except Exception as e:
-            logger.error(f"Не удалось загрузить presets.json: {e}. Используются внутренние данные по умолчанию.")
-            self.presets = DEFAULT_PRESETS_DATA["presets"]
-            self.colors = DEFAULT_PRESETS_DATA["colors"]
-            self.ru_names = DEFAULT_PRESETS_DATA["ru_names"]
+            logger.error(f"Не удалось загрузить конфигурацию: {e}. Используются внутренние данные по умолчанию.")
+            self.presets = DEFAULT_PRESETS_DATA["presets"].copy()
+            self.colors = DEFAULT_PRESETS_DATA["colors"].copy()
+            self.ru_names = DEFAULT_PRESETS_DATA["ru_names"].copy()
             self.licenses = ""
 
     def save_presets_config(self) -> None:
         """
-        Сохраняет текущую конфигурацию пресетов и цветов обратно в presets.json.
+        Сохраняет текущую конфигурацию пресетов, цветов, переводов и лицензий в config/.
         """
         try:
-            data = {
-                "presets": self.presets,
-                "colors": self.colors,
-                "ru_names": self.ru_names,
-                "licenses": getattr(self, "licenses", "")
-            }
-            with open(self.config_path, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
+            self.config_dir.mkdir(parents=True, exist_ok=True)
+            self.presets_dir.mkdir(parents=True, exist_ok=True)
+            
+            # 1. Сохранение цветов
+            with open(self.colors_path, "w", encoding="utf-8") as f:
+                json.dump(self.colors, f, ensure_ascii=False, indent=2)
+                
+            # 2. Сохранение локализации
+            with open(self.translations_path, "w", encoding="utf-8") as f:
+                json.dump(self.ru_names, f, ensure_ascii=False, indent=2)
+                
+            # 3. Сохранение лицензии
+            with open(self.licenses_path, "w", encoding="utf-8") as f:
+                json.dump({"license_key": getattr(self, "licenses", "")}, f, ensure_ascii=False, indent=2)
+                
+            # 4. Сохранение пресетов
+            # Сначала найдем все текущие файлы в presets_dir, чтобы удалить файлы пресетов, которых больше нет
+            current_files = {f"{self._get_preset_filename(name)}.json" for name in self.presets.keys()}
+            for existing_file in self.presets_dir.glob("*.json"):
+                if existing_file.name not in current_files:
+                    try:
+                        existing_file.unlink()
+                    except Exception as e:
+                        logger.warning(f"Не удалось удалить устаревший файл пресета {existing_file.name}: {e}")
+            
+            # Записываем пресеты в файлы
+            for name, organs in self.presets.items():
+                file_name = self._get_preset_filename(name)
+                p_file = self.presets_dir / f"{file_name}.json"
+                with open(p_file, "w", encoding="utf-8") as f:
+                    json.dump({"name": name, "organs": organs}, f, ensure_ascii=False, indent=2)
+                    
             logger.info("Конфигурация пресетов успешно сохранена.")
         except Exception as e:
-            logger.error(f"Не удалось сохранить presets.json: {e}")
+            logger.error(f"Не удалось сохранить конфигурацию: {e}")
 
     @staticmethod
     def get_monaco_pretty_name(organ_name: str) -> str:

@@ -1,0 +1,19 @@
+{
+  "name": "Голова и шея (Head & Neck)",
+  "organs": [
+    "body",
+    "eye_left",
+    "eye_right",
+    "lens_left",
+    "lens_right",
+    "spinal_cord",
+    "common_carotid_artery_left",
+    "common_carotid_artery_right",
+    "parotid_gland_left",
+    "parotid_gland_right",
+    "submandibular_gland_left",
+    "submandibular_gland_right",
+    "auditory_canal_left",
+    "auditory_canal_right"
+  ]
+}

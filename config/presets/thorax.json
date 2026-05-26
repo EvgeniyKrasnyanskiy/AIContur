@@ -1,0 +1,19 @@
+{
+  "name": "Грудная клетка (Thorax)",
+  "organs": [
+    "body",
+    "heart",
+    "lung_left",
+    "lung_right",
+    "lungs",
+    "trachea",
+    "esophagus",
+    "aorta",
+    "pulmonary_artery",
+    "superior_vena_cava",
+    "sternum",
+    "humerus_left",
+    "humerus_right",
+    "spinal_cord"
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "name": "Малый таз (Pelvis)",
+  "organs": [
+    "body",
+    "small_bowel",
+    "colon",
+    "urinary_bladder",
+    "sacrum",
+    "hip_left",
+    "hip_right",
+    "femur_left",
+    "femur_right",
+    "iliac_artery_left",
+    "iliac_artery_right",
+    "kidney_left",
+    "kidney_right",
+    "spinal_cord",
+    "rectum",
+    "prostate"
+  ]
+}

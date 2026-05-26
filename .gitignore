@@ -31,3 +31,7 @@ temp_autocontour_workspace/
 *.nii.gz
 rtstruct.dcm
 temp_masks/
+
+# Безопасность конфигураций
+config/licenses.json
+

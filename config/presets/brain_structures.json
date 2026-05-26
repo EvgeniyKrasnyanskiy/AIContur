@@ -1,0 +1,19 @@
+{
+  "name": "Отделы головного мозга (Brain Structures)",
+  "organs": [
+    "brain",
+    "brainstem",
+    "caudate_nucleus",
+    "cerebellum",
+    "frontal_lobe",
+    "insular_cortex",
+    "internal_capsule",
+    "lentiform_nucleus",
+    "occipital_lobe",
+    "parietal_lobe",
+    "subarachnoid_space",
+    "temporal_lobe",
+    "thalamus",
+    "ventricle"
+  ]
+}
