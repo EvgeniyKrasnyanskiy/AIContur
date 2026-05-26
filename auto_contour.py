@@ -41,7 +41,7 @@ try:
         QMessageBox, QFrame, QSplitter, QCheckBox, QDialog, QTextBrowser,
         QTabWidget, QColorDialog, QGroupBox,
         QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView, QMenu,
-        QProgressDialog
+        QProgressDialog, QScrollArea
     )
     from PyQt6.QtCore import QThread, pyqtSignal, Qt, QObject, QSettings, QTimer
     from PyQt6.QtGui import QTextCursor, QBrush, QColor, QFont, QIcon, QPixmap
@@ -679,9 +679,6 @@ if PYQT_AVAILABLE:
         border-top-left-radius: 4px;
         border-top-right-radius: 4px;
         color: #a0a0a0;
-        font-weight: bold;
-    }
-
     QTabBar::tab:selected {
         background: #242424;
         border-bottom-color: #242424;
@@ -748,148 +745,582 @@ if PYQT_AVAILABLE:
     """
 
     class LicensesDialog(QDialog):
-        """Диалоговое окно управления лицензиями суб-моделей ИИ."""
+        """Диалоговое окно управления единой лицензией суб-моделей ИИ."""
         def __init__(self, parent=None, engine=None):
             super().__init__(parent)
             self.engine = engine
             self.setWindowTitle("🔑 Лицензирование суб-моделей TotalSegmentator")
-            self.setMinimumSize(580, 420)
+            self.setMinimumSize(480, 260)
             self.init_ui()
             
         def init_ui(self):
             self.setStyleSheet(DARK_QSS)
             layout = QVBoxLayout(self)
-            layout.setContentsMargins(15, 15, 15, 15)
-            layout.setSpacing(12)
+            layout.setContentsMargins(20, 20, 20, 20)
+            layout.setSpacing(15)
             
             # Заголовок
-            title = QLabel("🔑 Лицензии суб-моделей TotalSegmentator")
+            title = QLabel("🔑 Лицензия для суб-моделей")
             title.setStyleSheet("font-size: 16px; font-weight: bold; color: #ffffff;")
             layout.addWidget(title)
             
-            descr = QLabel(
-                "Некоторые суб-модели (например, оконтуривание отделов головного мозга) "
-                "требуют активации лицензионных ключей TotalSegmentator."
-            )
-            descr.setWordWrap(True)
-            descr.setStyleSheet("color: #a0a0a0; font-size: 12px; margin-bottom: 5px;")
-            layout.addWidget(descr)
+
             
-            # Таблица текущих лицензий
-            self.table = QTableWidget(0, 3)
-            self.table.setHorizontalHeaderLabels(["Суб-модель ИИ", "Статус", "Ключ"])
-            self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-            self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-            self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-            self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-            self.table.setStyleSheet("""
-                QTableWidget {
+            # Статус текущей лицензии в красивой плашке
+            self.status_frame = QFrame()
+            self.status_frame.setStyleSheet("""
+                QFrame {
                     background-color: #1e1e1e;
                     border: 1px solid #2d2d2d;
                     border-radius: 6px;
-                    color: #e0e0e0;
-                }
-                QHeaderView::section {
-                    background-color: #242424;
-                    color: #ffffff;
-                    padding: 6px;
-                    border: 1px solid #2d2d2d;
-                    font-weight: bold;
+                    padding: 8px;
                 }
             """)
-            layout.addWidget(self.table)
+            status_layout = QHBoxLayout(self.status_frame)
+            status_layout.setContentsMargins(10, 5, 10, 5)
             
-            # Группа добавления/изменения ключа
-            form_group = QGroupBox("Добавить или обновить лицензионный ключ")
-            form_layout = QVBoxLayout(form_group)
-            form_layout.setSpacing(10)
+            self.lbl_status = QLabel("Статус: ❌ Отсутствует")
+            self.lbl_status.setStyleSheet("font-weight: bold; font-size: 12px; color: #ff6b6b;")
             
-            row_layout = QHBoxLayout()
-            self.combo_task = QComboBox()
-            for k, v in LICENSED_TASKS.items():
-                self.combo_task.addItem(v, k)
+            self.lbl_key = QLabel("Ключ: —")
+            self.lbl_key.setStyleSheet("color: #a0a0a0; font-family: monospace; font-size: 12px;")
             
+            status_layout.addWidget(self.lbl_status)
+            status_layout.addStretch()
+            status_layout.addWidget(self.lbl_key)
+            layout.addWidget(self.status_frame)
+            
+            # Поле ввода ключа
             self.edit_key = QLineEdit()
-            self.edit_key.setPlaceholderText("Введите лицензионный ключ...")
+            self.edit_key.setPlaceholderText("Введите новый лицензионный ключ...")
+            self.edit_key.setMinimumHeight(30)
+            layout.addWidget(self.edit_key)
             
-            row_layout.addWidget(self.combo_task, 2)
-            row_layout.addWidget(self.edit_key, 3)
-            form_layout.addLayout(row_layout)
-            
+            # Кнопки управления
             btn_layout = QHBoxLayout()
-            self.btn_save = QPushButton("💾 Активировать / Сохранить")
+            self.btn_save = QPushButton("💾 Сохранить и проверить")
             self.btn_save.setObjectName("btnBrowse")  # синяя кнопка
+            self.btn_save.setMinimumHeight(32)
             self.btn_save.clicked.connect(self.save_license)
             
             self.btn_delete = QPushButton("🗑️ Удалить")
             self.btn_delete.setObjectName("btnAction")
+            self.btn_delete.setMinimumHeight(32)
             self.btn_delete.clicked.connect(self.delete_license)
             
-            btn_layout.addWidget(self.btn_save)
-            btn_layout.addWidget(self.btn_delete)
-            form_layout.addLayout(btn_layout)
-            layout.addWidget(form_group)
+            btn_layout.addWidget(self.btn_save, 2)
+            btn_layout.addWidget(self.btn_delete, 1)
+            layout.addLayout(btn_layout)
             
             # Кнопка закрытия
             self.btn_close = QPushButton("Закрыть")
+            self.btn_close.setMinimumHeight(30)
             self.btn_close.clicked.connect(self.accept)
             layout.addWidget(self.btn_close)
             
-            self.load_table_data()
+            self.update_status_display()
             
-        def load_table_data(self):
-            self.table.setRowCount(0)
-            for k, v in LICENSED_TASKS.items():
-                row = self.table.rowCount()
-                self.table.insertRow(row)
+        def update_status_display(self):
+            key = getattr(self.engine, "licenses", "").strip()
+            if key:
+                self.lbl_status.setText("Статус: ✅ Активна")
+                self.lbl_status.setStyleSheet("font-weight: bold; font-size: 12px; color: #00ffd0;")
                 
-                # Имя
-                self.table.setItem(row, 0, QTableWidgetItem(v))
-                
-                # Статус и Ключ
-                key = self.engine.licenses.get(k, "")
-                if key:
-                    status_item = QTableWidgetItem("✅ Активна")
-                    status_item.setForeground(QBrush(QColor("#00ffd0")))  # неоновый бирюзовый
-                    key_item = QTableWidgetItem(key)
-                else:
-                    status_item = QTableWidgetItem("❌ Отсутствует")
-                    status_item.setForeground(QBrush(QColor("#ff6b6b")))  # красный
-                    key_item = QTableWidgetItem("—")
-                    
-                self.table.setItem(row, 1, status_item)
-                self.table.setItem(row, 2, key_item)
+                # Маскируем ключ для приватности, показывая только начало и конец (например: aca_4HM5...ODB2)
+                masked_key = key
+                if len(key) >= 12:
+                    masked_key = f"{key[:8]}...{key[-4:]}"
+                self.lbl_key.setText(f"Ключ: {masked_key}")
+            else:
+                self.lbl_status.setText("Статус: ❌ Отсутствует")
+                self.lbl_status.setStyleSheet("font-weight: bold; font-size: 12px; color: #ff6b6b;")
+                self.lbl_key.setText("Ключ: —")
                 
         def save_license(self):
-            task = self.combo_task.currentData()
             key = self.edit_key.text().strip()
             if not key:
                 QMessageBox.warning(self, "Предупреждение", "Лицензионный ключ не может быть пустым.")
                 return
                 
-            self.engine.licenses[task] = key
-            self.engine.save_presets_config()
-            self.edit_key.clear()
-            self.load_table_data()
-            QMessageBox.information(self, "Успех", f"Лицензия для '{LICENSED_TASKS[task]}' успешно сохранена.")
-            
-        def delete_license(self):
-            selected_rows = self.table.selectionModel().selectedRows()
-            if not selected_rows:
-                QMessageBox.warning(self, "Предупреждение", "Выберите строку в таблице для удаления лицензии.")
+            # 1. Локальная проверка длины
+            if len(key) != 18:
+                QMessageBox.critical(self, "Ошибка валидации", "Лицензионный ключ должен содержать ровно 18 символов.")
                 return
                 
-            row = selected_rows[0].row()
-            task_keys = list(LICENSED_TASKS.keys())
-            task = task_keys[row]
+            # 2. Онлайн-валидация через API TotalSegmentator
+            QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+            try:
+                from totalsegmentator.config import is_valid_license
+                valid = is_valid_license(key)
+            except Exception as e:
+                QApplication.restoreOverrideCursor()
+                reply = QMessageBox.question(
+                    self,
+                    "Ошибка сети",
+                    f"Не удалось связаться с сервером TotalSegmentator для проверки лицензии ({e}).\n\n"
+                    "Формат ключа верный. Хотите сохранить его локально без онлайн-проверки?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No
+                )
+                if reply == QMessageBox.StandardButton.Yes:
+                    self.engine.licenses = key
+                    self.engine.save_presets_config()
+                    self.edit_key.clear()
+                    self.update_status_display()
+                    QMessageBox.information(self, "Успех", "Лицензия сохранена локально.")
+                return
+                
+            QApplication.restoreOverrideCursor()
             
-            if task in self.engine.licenses:
-                del self.engine.licenses[task]
+            if not valid:
+                QMessageBox.critical(
+                    self,
+                    "Недействительная лицензия ❌",
+                    "Введенный лицензионный ключ недействителен.\n"
+                    "Проверка на сервере TotalSegmentator отклонена. Пожалуйста, убедитесь в правильности ключа."
+                )
+                return
+                
+            # Сохранение валидной лицензии
+            self.engine.licenses = key
+            self.engine.save_presets_config()
+            self.edit_key.clear()
+            self.update_status_display()
+            QMessageBox.information(self, "Успех", "Лицензия для суб-моделей успешно активирована и сохранена! ✅")
+            
+        def delete_license(self):
+            key = getattr(self.engine, "licenses", "").strip()
+            if not key:
+                QMessageBox.information(self, "Инфо", "Лицензионный ключ отсутствует.")
+                return
+                
+            reply = QMessageBox.question(
+                self,
+                "Подтверждение удаления",
+                "Вы действительно хотите удалить лицензионный ключ?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
+            if reply == QMessageBox.StandardButton.Yes:
+                self.engine.licenses = ""
                 self.engine.save_presets_config()
-                self.load_table_data()
-                QMessageBox.information(self, "Успех", f"Лицензия для '{LICENSED_TASKS[task]}' успешно удалена.")
-            else:
-                QMessageBox.information(self, "Инфо", "Для этой суб-модели и так нет лицензии.")
+                self.update_status_display()
+                QMessageBox.information(self, "Успех", "Лицензионный ключ успешно удален.")
+
+    # =========================================================================
+    #                    УПРАВЛЕНИЕ МОДЕЛЯМИ ИИ (TotalSegmentator)
+    # =========================================================================
+
+    MODELS_LIST = [
+        {
+            "id": 291,
+            "task": "total_part1",
+            "folder": "Dataset291_TotalSegmentator_part1_organs_1559subj",
+            "name": "Базовая модель (Часть 1: Внутренние органы)",
+            "licensed": False
+        },
+        {
+            "id": 292,
+            "task": "total_part2",
+            "folder": "Dataset292_TotalSegmentator_part2_vertebrae_1532subj",
+            "name": "Базовая модель (Часть 2: Позвоночник)",
+            "licensed": False
+        },
+        {
+            "id": 293,
+            "task": "total_part3",
+            "folder": "Dataset293_TotalSegmentator_part3_cardiac_1559subj",
+            "name": "Базовая модель (Часть 3: Сердце и сосуды)",
+            "licensed": False
+        },
+        {
+            "id": 294,
+            "task": "total_part4",
+            "folder": "Dataset294_TotalSegmentator_part4_muscles_1559subj",
+            "name": "Базовая модель (Часть 4: Мышцы тела)",
+            "licensed": False
+        },
+        {
+            "id": 295,
+            "task": "total_part5",
+            "folder": "Dataset295_TotalSegmentator_part5_ribs_1559subj",
+            "name": "Базовая модель (Часть 5: Ребра)",
+            "licensed": False
+        },
+        {
+            "id": 775,
+            "task": "head_glands_cavities",
+            "folder": "Dataset775_head_glands_cavities_492subj",
+            "name": "Голова (Слюнные железы и полости)",
+            "licensed": False
+        },
+        {
+            "id": 409,
+            "task": "brain_structures",
+            "folder": "Dataset409_neuro_550subj",
+            "name": "Отделы головного мозга (Brain Structures)",
+            "licensed": True
+        },
+        {
+            "id": 304,
+            "task": "appendicular_bones",
+            "folder": "Dataset304_appendicular_bones_ext_1559subj",
+            "name": "Кости конечностей (Appendicular Bones)",
+            "licensed": True
+        },
+        {
+            "id": 301,
+            "task": "heartchambers_highres",
+            "folder": "Dataset301_heart_highres_1559subj",
+            "name": "Камеры сердца высокого разрешения",
+            "licensed": True
+        }
+    ]
+
+    class DownloadWorker(QThread):
+        """Фоновый поток для неблокирующего скачивания весов модели ИИ с прогресс-баром."""
+        progress = pyqtSignal(int)
+        status_msg = pyqtSignal(str)
+        finished = pyqtSignal(bool, str)
+
+        def __init__(self, task_id):
+            super().__init__()
+            self.task_id = task_id
+
+        def run(self):
+            try:
+                import os
+                import zipfile
+                import requests
+                from totalsegmentator.config import get_weights_dir
+                from totalsegmentator.libs import get_version
+                
+                config_dir = get_weights_dir()
+                config_dir.mkdir(exist_ok=True, parents=True)
+                tempfile = config_dir / "tmp_download_file.zip"
+                
+                commercial_tasks = {
+                    409: "brain_structures",
+                    304: "appendicular_bones",
+                    301: "heartchambers_highres"
+                }
+                
+                public_urls = {
+                    291: "https://github.com/wasserth/TotalSegmentator/releases/download/v2.0.0-weights/Dataset291_TotalSegmentator_part1_organs_1559subj.zip",
+                    292: "https://github.com/wasserth/TotalSegmentator/releases/download/v2.0.0-weights/Dataset292_TotalSegmentator_part2_vertebrae_1532subj.zip",
+                    293: "https://github.com/wasserth/TotalSegmentator/releases/download/v2.0.0-weights/Dataset293_TotalSegmentator_part3_cardiac_1559subj.zip",
+                    294: "https://github.com/wasserth/TotalSegmentator/releases/download/v2.0.0-weights/Dataset294_TotalSegmentator_part4_muscles_1559subj.zip",
+                    295: "https://github.com/wasserth/TotalSegmentator/releases/download/v2.0.0-weights/Dataset295_TotalSegmentator_part5_ribs_1559subj.zip",
+                    775: "https://github.com/wasserth/TotalSegmentator/releases/download/v2.3.0-weights/Dataset775_head_glands_cavities_492subj.zip"
+                }
+                
+                if self.task_id in commercial_tasks:
+                    from totalsegmentator.libs import get_totalseg_dir
+                    import json
+                    totalseg_dir = get_totalseg_dir()
+                    totalseg_config_file = totalseg_dir / "config.json"
+                    
+                    if totalseg_config_file.exists():
+                        with open(totalseg_config_file) as f:
+                            cfg = json.load(f)
+                        license_number = cfg.get("license_number", "")
+                    else:
+                        raise ValueError(f"Не найден файл конфигурации лицензии: {totalseg_config_file}")
+                    
+                    if not license_number:
+                        raise ValueError("Отсутствует активный лицензионный ключ.")
+                    
+                    url = "https://backend.totalsegmentator.com:443/download_weights"
+                    payload = {
+                        "license_number": license_number,
+                        "task": commercial_tasks[self.task_id],
+                        "version": get_version()
+                    }
+                    
+                    r = requests.post(url, json=payload, timeout=300, stream=True)
+                else:
+                    if self.task_id not in public_urls:
+                        raise ValueError(f"Неизвестный ID задачи {self.task_id} для скачивания.")
+                    url = public_urls[self.task_id]
+                    r = requests.get(url, stream=True, timeout=300)
+                
+                r.raise_for_status()
+                
+                total_size = int(r.headers.get('content-length', 0))
+                downloaded = 0
+                
+                with open(tempfile, 'wb') as f:
+                    for chunk in r.iter_content(chunk_size=8192 * 16):
+                        if chunk:
+                            f.write(chunk)
+                            downloaded += len(chunk)
+                            if total_size > 0:
+                                percent = int((downloaded / total_size) * 100)
+                                self.progress.emit(percent)
+                
+                self.status_msg.emit("Загрузка завершена! Распаковка файлов модели...\nПожалуйста, подождите, это займет несколько секунд.")
+                
+                with zipfile.ZipFile(tempfile, 'r') as zip_f:
+                    zip_f.extractall(config_dir)
+                
+                if tempfile.exists():
+                    tempfile.unlink()
+                    
+                self.finished.emit(True, "")
+            except Exception as e:
+                try:
+                    if 'tempfile' in locals() and tempfile.exists():
+                        tempfile.unlink()
+                except Exception:
+                    pass
+                self.finished.emit(False, str(e))
+
+    class ModelsDialog(QDialog):
+        """Диалоговое окно управления моделями ИИ TotalSegmentator."""
+        def __init__(self, parent=None, engine=None):
+            super().__init__(parent)
+            self.engine = engine
+            self.setWindowTitle("📦 Управление моделями ИИ TotalSegmentator")
+            self.setMinimumSize(720, 680)
+            self.resize(720, 680)
+            self.init_ui()
+
+        def init_ui(self):
+            self.setStyleSheet(DARK_QSS)
+            layout = QVBoxLayout(self)
+            layout.setContentsMargins(20, 20, 20, 20)
+            layout.setSpacing(15)
+
+            # Заголовок
+            title = QLabel("📦 Доступные модели ИИ")
+            title.setStyleSheet("font-size: 16px; font-weight: bold; color: #ffffff;")
+            layout.addWidget(title)
+
+            # Описание
+            descr = QLabel(
+                "Здесь отображается список всех доступных для скачивания суб-моделей TotalSegmentator.\n"
+                "Если модель не скачана, перед началом сегментации потребуется время на её загрузку."
+            )
+            descr.setWordWrap(True)
+            descr.setStyleSheet("color: #a0a0a0; font-size: 12px; line-height: 1.4;")
+            layout.addWidget(descr)
+
+            # Таблица моделей
+            self.table = QTableWidget()
+            self.table.setColumnCount(3)
+            self.table.setHorizontalHeaderLabels(["Модель (Распознаваемая область)", "Статус", "Действие"])
+            self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+            self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
+            self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
+            self.table.setColumnWidth(1, 110)
+            self.table.setColumnWidth(2, 180)
+            
+            # Настройка внешнего вида таблицы
+            self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+            self.table.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
+            self.table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+            self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            
+            # Настройка высоты строк и скрытие номеров строк для чистоты интерфейса
+            self.table.verticalHeader().setVisible(False)
+            self.table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
+            self.table.verticalHeader().setDefaultSectionSize(50)
+            
+            self.table.setStyleSheet("""
+                QTableWidget {
+                    background-color: #1e1e1e;
+                    gridline-color: #2d2d2d;
+                    border: 1px solid #2d2d2d;
+                    border-radius: 6px;
+                }
+                QHeaderView::section {
+                    background-color: #242424;
+                    color: #ffffff;
+                    padding: 8px;
+                    border: 1px solid #2d2d2d;
+                    font-weight: bold;
+                    font-size: 12px;
+                }
+                QTableWidget::item {
+                    padding: 8px;
+                    color: #e0e0e0;
+                    font-size: 12px;
+                }
+            """)
+            layout.addWidget(self.table)
+
+            # Кнопка закрытия
+            self.btn_close = QPushButton("Закрыть")
+            self.btn_close.setMinimumHeight(32)
+            self.btn_close.clicked.connect(self.accept)
+            layout.addWidget(self.btn_close)
+
+            self.populate_table()
+
+        def populate_table(self):
+            from totalsegmentator.config import get_weights_dir
+            weights_dir = get_weights_dir()
+            
+            self.table.setRowCount(len(MODELS_LIST))
+            
+            for row, model in enumerate(MODELS_LIST):
+                # 1. Название и описание
+                name_text = model["name"]
+                if model["licensed"]:
+                    name_text += " 🔑 (Нужна лицензия)"
+                
+                name_item = QTableWidgetItem(name_text)
+                name_item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+                self.table.setItem(row, 0, name_item)
+                
+                # 2. Статус
+                folder_path = weights_dir / model["folder"]
+                is_downloaded = folder_path.exists()
+                
+                status_item = QTableWidgetItem()
+                status_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
+                if is_downloaded:
+                    status_item.setText("✅ Доступна")
+                    status_item.setForeground(QBrush(QColor("#00ffd0"))) # Бирюзовый
+                else:
+                    status_item.setText("❌ Не скачана")
+                    status_item.setForeground(QBrush(QColor("#ff6b6b"))) # Кораллово-красный
+                self.table.setItem(row, 1, status_item)
+                
+                # 3. Кнопка действия (Скачать / Удалить)
+                btn = QPushButton()
+                if is_downloaded:
+                    btn.setText("🗑️ Удалить")
+                    btn.setObjectName("btnAction")
+                    btn.clicked.connect(lambda checked, m=model: self.delete_model(m))
+                else:
+                    btn.setText("📥 Скачать")
+                    btn.setObjectName("btnBrowse")
+                    btn.clicked.connect(lambda checked, m=model: self.download_model(m))
+                
+                # Центрируем кнопку в ячейке, чтобы избежать растяжения и обрезания краев
+                cell_widget = QWidget()
+                cell_layout = QHBoxLayout(cell_widget)
+                cell_layout.setContentsMargins(0, 0, 0, 0)
+                cell_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                cell_layout.addWidget(btn)
+                self.table.setCellWidget(row, 2, cell_widget)
+                
+                # Задаем фиксированную высоту строки во избежание сжатия
+                self.table.setRowHeight(row, 50)
+
+        def delete_model(self, model):
+            from totalsegmentator.config import get_weights_dir
+            from totalsegmentator.libs import robust_rmtree
+            
+            reply = QMessageBox.question(
+                self,
+                "Подтверждение удаления весов ИИ",
+                f"Вы действительно хотите удалить локальные веса для модели:\n\n\"{model['name']}\"?\n\n"
+                "При следующем использовании данной модели её веса будут скачиваться заново.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
+            
+            if reply == QMessageBox.StandardButton.Yes:
+                folder_path = get_weights_dir() / model["folder"]
+                QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+                try:
+                    if folder_path.exists():
+                        robust_rmtree(folder_path)
+                    QApplication.restoreOverrideCursor()
+                    QMessageBox.information(self, "Успех", f"Веса модели \"{model['name']}\" успешно удалены.")
+                    self.populate_table()
+                except Exception as e:
+                    QApplication.restoreOverrideCursor()
+                    QMessageBox.critical(self, "Ошибка удаления", f"Не удалось удалить папку весов:\n{e}")
+
+        def download_model(self, model):
+            import json
+            # Проверка лицензии для коммерческих моделей
+            if model["licensed"]:
+                license_key = self.engine.licenses.strip() if hasattr(self.engine, "licenses") and isinstance(self.engine.licenses, str) else ""
+                if not license_key:
+                    QMessageBox.critical(
+                        self,
+                        "Требуется лицензия 🔑",
+                        f"Модель \"{model['name']}\" является коммерческой суб-моделью.\n\n"
+                        "Для её скачивания необходимо активировать лицензионный ключ.\n\n"
+                        "Пожалуйста, перейдите во вкладку 'Настройки' -> 'Управление лицензиями' и введите ключ."
+                    )
+                    return
+                
+                # Перед скачиванием пишем лицензию в ~/.totalsegmentator/config.json
+                try:
+                    from totalsegmentator.libs import get_totalseg_dir
+                    totalseg_dir = get_totalseg_dir()
+                    totalseg_dir.mkdir(exist_ok=True, parents=True)
+                    config_file = totalseg_dir / "config.json"
+                    
+                    # Пытаемся считать существующий конфиг
+                    config_data = {}
+                    if config_file.exists():
+                        try:
+                            with open(config_file, "r") as f:
+                                config_data = json.load(f)
+                        except Exception:
+                            pass
+                    
+                    config_data["license_number"] = license_key
+                    with open(config_file, "w") as f:
+                        json.dump(config_data, f)
+                except Exception as e:
+                    QMessageBox.warning(
+                        self,
+                        "Внимание",
+                        f"Не удалось автоматически записать лицензионный ключ в конфигурационный файл TotalSegmentator ({e}).\n"
+                        "Скачивание может завершиться ошибкой."
+                    )
+            
+            # Запускаем фоновое скачивание
+            progress = QProgressDialog(
+                f"Идет скачивание весов модели \"{model['name']}\"...\n"
+                "Пожалуйста, подождите. Это может занять несколько минут в зависимости от скорости интернета.",
+                None, 0, 100, self
+            )
+            progress.setWindowTitle("📥 Загрузка весов модели ИИ")
+            progress.setWindowModality(Qt.WindowModality.ApplicationModal)
+            progress.setMinimumDuration(0)
+            progress.setValue(0)
+            # Отключаем кнопку "Отмена", так как синхронная функция не поддерживает отмену во время скачивания
+            progress.setCancelButton(None)
+            
+            # Запускаем поток
+            self.dl_worker = DownloadWorker(model["id"])
+            
+            # Подключаем сигналы для обновления прогресса и статуса
+            self.dl_worker.progress.connect(progress.setValue)
+            self.dl_worker.status_msg.connect(progress.setLabelText)
+            
+            def on_finished(success, err_msg):
+                progress.close()
+                if success:
+                    QMessageBox.information(
+                        self,
+                        "Успех ✅",
+                        f"Веса модели \"{model['name']}\" успешно загружены и готовы к работе!"
+                    )
+                    self.populate_table()
+                else:
+                    QMessageBox.critical(
+                        self,
+                        "Ошибка скачивания ❌",
+                        f"Произошла ошибка при скачивании модели \"{model['name']}\":\n\n{err_msg}"
+                    )
+            
+            self.dl_worker.finished.connect(on_finished)
+            self.dl_worker.start()
+            progress.exec()
+
+    class NonScrollComboBox(QComboBox):
+        """Выпадающий список QComboBox, который игнорирует событие прокрутки колесика мыши во избежание случайных изменений."""
+        def wheelEvent(self, event):
+            event.ignore()
 
     class MainWindow(QMainWindow):
         """Главное окно графического интерфейса приложения."""
@@ -1007,8 +1438,16 @@ if PYQT_AVAILABLE:
             # ------------------------------------------------------------------
             # ВКЛАДКА 2: Параметры ИИ и Цвета
             # ------------------------------------------------------------------
+            tab2_scroll = QScrollArea()
+            tab2_scroll.setWidgetResizable(True)
+            tab2_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            tab2_scroll.setStyleSheet("QScrollArea { border: none; background-color: transparent; }")
+
             tab2_widget = QWidget()
+            tab2_widget.setObjectName("tab2_widget")
+            tab2_widget.setStyleSheet("background-color: transparent;")
             tab2_layout = QVBoxLayout(tab2_widget)
+            tab2_layout.setContentsMargins(10, 10, 10, 10)
             tab2_layout.setSpacing(12)
 
             # Группа 0: Выбор КТ DICOM (перенесено с главной)
@@ -1050,7 +1489,7 @@ if PYQT_AVAILABLE:
             merge_group_layout.addWidget(self.radio_merge_merge)
             
             # Выпадающий список выбора целевого файла для дополнения
-            self.merge_rtstruct_combo = QComboBox()
+            self.merge_rtstruct_combo = NonScrollComboBox()
             self.merge_rtstruct_combo.setEnabled(False)
             self.merge_rtstruct_combo.setStyleSheet("margin-left: 20px; padding: 4px;")
             merge_group_layout.addWidget(self.merge_rtstruct_combo)
@@ -1067,8 +1506,8 @@ if PYQT_AVAILABLE:
             device_group = QGroupBox("Вычислительное устройство")
             device_group_layout = QVBoxLayout(device_group)
             device_group_layout.setSpacing(10)
-            self.radio_cpu = QRadioButton("Использовать CPU (Центральный процессор)")
-            self.radio_gpu = QRadioButton("Использовать GPU CUDA (Рекомендуется)")
+            self.radio_cpu = QRadioButton("CPU (Центральный процессор)")
+            self.radio_gpu = QRadioButton("GPU CUDA (Рекомендуется)")
             
             if gpu_available:
                 self.radio_gpu.setChecked(True)
@@ -1085,11 +1524,11 @@ if PYQT_AVAILABLE:
             precision_group = QGroupBox("Точность и разрешение ИИ")
             precision_group_layout = QVBoxLayout(precision_group)
             
-            self.precision_combo = QComboBox()
+            self.precision_combo = NonScrollComboBox()
             self.precision_combo.addItems([
-                "Стандартная (1.5 мм разрешение, стандарт)",
-                "Быстрая (3.0 мм разрешение, быстро)",
-                "Ультра-быстрая (Body - поиск контура тела целиком)"
+                "Стандартная (1.5 мм)",
+                "Быстрая (3.0 мм)",
+                "Ультра-быстрая (Body контур тела)"
             ])
             self.precision_combo.setToolTip(
                 "Стандартная: высокое разрешение контуров (1.5 мм)\n"
@@ -1103,14 +1542,14 @@ if PYQT_AVAILABLE:
             post_group = QGroupBox("Постобработка 3D масок")
             post_group_layout = QVBoxLayout(post_group)
             
-            self.clean_blobs_check = QCheckBox("Remove small blobs (Удалять мелкие артефакты)")
+            self.clean_blobs_check = QCheckBox("Удалять мелкие артефакты (Blobs)")
             self.clean_blobs_check.setToolTip(
                 "Удаляет изолированный мелкий шум нейросети на КТ-срезах,\n"
                 "оставляя только основной объем органа."
             )
             self.clean_blobs_check.setChecked(True)
             
-            self.smoothing_check = QCheckBox("Smoothing (Сглаживание контуров)")
+            self.smoothing_check = QCheckBox("Сглаживание контуров (Smoothing)")
             self.smoothing_check.setToolTip(
                 "Применяет Гауссову фильтрацию к 3D-маске, убирая «ступенчатость» срезов."
             )
@@ -1118,7 +1557,7 @@ if PYQT_AVAILABLE:
             
             smoothing_param_layout = QHBoxLayout()
             smoothing_param_label = QLabel("Уровень сглаживания:")
-            self.smoothing_combo = QComboBox()
+            self.smoothing_combo = NonScrollComboBox()
             self.smoothing_combo.addItems([
                 "Легкое (sigma = 0.5)",
                 "Стандартное (sigma = 1.0)",
@@ -1141,7 +1580,7 @@ if PYQT_AVAILABLE:
             color_group_layout = QVBoxLayout(color_group)
             
             color_preset_label = QLabel("Предопределенный набор цветов:")
-            self.color_preset_combo = QComboBox()
+            self.color_preset_combo = NonScrollComboBox()
             self.color_preset_combo.addItems([
                 "Классический",
                 "Цвета QUANTEC",
@@ -1153,14 +1592,11 @@ if PYQT_AVAILABLE:
             color_group_layout.addWidget(self.color_preset_combo)
             tab2_layout.addWidget(color_group)
 
-            # Группа 5: Лицензирование суб-моделей ИИ
-            license_group = QGroupBox("Лицензии суб-моделей ИИ 🔑")
+            # Группа 5: Лицензия для суб-моделей
+            license_group = QGroupBox("Лицензия для суб-моделей 🔑")
             license_group_layout = QVBoxLayout(license_group)
             
-            lbl_license_descr = QLabel(
-                "Некоторые суб-модели (например, отделы головного мозга) требуют активации лицензионных ключей "
-                "TotalSegmentator."
-            )
+            lbl_license_descr = QLabel("Некоторые суб-модели могут требовать дополнительную лицензию.")
             lbl_license_descr.setWordWrap(True)
             lbl_license_descr.setStyleSheet("color: #888888; font-size: 11px;")
             
@@ -1176,14 +1612,30 @@ if PYQT_AVAILABLE:
             license_group_layout.addWidget(self.lbl_license_status)
             tab2_layout.addWidget(license_group)
 
+            # Группа 6: Управление моделями ИИ
+            models_group = QGroupBox("Управление моделями ИИ 📦")
+            models_group_layout = QVBoxLayout(models_group)
+            
+            lbl_models_descr = QLabel("Вы можете предварительно скачать необходимые модели ИИ на локальный диск для ускорения работы или удалить их.")
+            lbl_models_descr.setWordWrap(True)
+            lbl_models_descr.setStyleSheet("color: #888888; font-size: 11px;")
+            
+            self.btn_manage_models = QPushButton("📦 Модели")
+            self.btn_manage_models.setObjectName("btnAction")
+            self.btn_manage_models.clicked.connect(self.show_models_dialog)
+            
+            models_group_layout.addWidget(lbl_models_descr)
+            models_group_layout.addWidget(self.btn_manage_models)
+            tab2_layout.addWidget(models_group)
+
             # Звук в конце
             self.sound_check = QCheckBox("🔔 Звук при завершении автооконтуривания")
             self.sound_check.setChecked(True)
             tab2_layout.addWidget(self.sound_check)
             
             tab2_layout.addStretch()
-
-            self.tab_widget.addTab(tab2_widget, "⚙️ Настройки")
+            tab2_scroll.setWidget(tab2_widget)
+            self.tab_widget.addTab(tab2_scroll, "⚙️ Настройки")
 
             # ------------------------------------------------------------------
             # ВКЛАДКА 3: Справка и дисклеймер
@@ -1539,9 +1991,14 @@ if PYQT_AVAILABLE:
             self.splitter.setSizes([430, 490])
 
         def update_license_status_label(self):
-            """Обновляет текст статуса количества активных лицензий."""
-            count = len(getattr(self.engine, "licenses", {}))
-            self.lbl_license_status.setText(f"Активных лицензий: {count}")
+            """Обновляет статус лицензии."""
+            key = getattr(self.engine, "licenses", "").strip()
+            if key:
+                self.lbl_license_status.setText("Лицензия: ✅ Активна")
+                self.lbl_license_status.setStyleSheet("color: #00ffd0; font-weight: bold;")
+            else:
+                self.lbl_license_status.setText("Лицензия: ❌ Отсутствует")
+                self.lbl_license_status.setStyleSheet("color: #ff6b6b; font-weight: bold;")
 
         def show_licenses_dialog(self):
             """Открывает окно управления лицензиями суб-моделей ИИ."""
@@ -1550,6 +2007,11 @@ if PYQT_AVAILABLE:
             # После закрытия диалога обновляем статус-лейбл и список органов
             self.update_license_status_label()
             self.init_presets_and_organs()
+
+        def show_models_dialog(self):
+            """Открывает окно управления моделями ИИ."""
+            dialog = ModelsDialog(self, self.engine)
+            dialog.exec()
 
         def on_sound_check_changed(self):
             self.save_settings()
@@ -1600,7 +2062,7 @@ if PYQT_AVAILABLE:
                     # Проверка лицензии для суб-моделей
                     task = ROI_TO_TASK_MAP.get(org, 'total')
                     is_licensed_task = task in LICENSED_TASKS
-                    has_license = hasattr(self.engine, "licenses") and self.engine.licenses.get(task)
+                    has_license = hasattr(self.engine, "licenses") and isinstance(self.engine.licenses, str) and self.engine.licenses.strip()
                     
                     if is_licensed_task and not has_license:
                         item = QListWidgetItem(f"   [🔒] {ru_name} (Нужна лицензия)")
@@ -1664,7 +2126,7 @@ if PYQT_AVAILABLE:
                     # Проверка лицензии для суб-моделей
                     task = ROI_TO_TASK_MAP.get(org, 'total')
                     is_licensed_task = task in LICENSED_TASKS
-                    has_license = hasattr(self.engine, "licenses") and self.engine.licenses.get(task)
+                    has_license = hasattr(self.engine, "licenses") and isinstance(self.engine.licenses, str) and self.engine.licenses.strip()
                     
                     if is_licensed_task and not has_license:
                         item = QListWidgetItem(f"   [🔒] {ru_name} (Нужна лицензия)")
@@ -3038,7 +3500,7 @@ if PYQT_AVAILABLE:
                         # Проверяем, не заблокирован ли орган из-за отсутствия лицензии
                         task = ROI_TO_TASK_MAP.get(organ_name, 'total')
                         is_licensed_task = task in LICENSED_TASKS
-                        has_license = hasattr(self.engine, "licenses") and self.engine.licenses.get(task)
+                        has_license = hasattr(self.engine, "licenses") and isinstance(self.engine.licenses, str) and self.engine.licenses.strip()
                         
                         if is_licensed_task and not has_license:
                             # Заблокированный орган не чекаем пресетом
@@ -3370,7 +3832,73 @@ if PYQT_AVAILABLE:
                 merge_mode = "merge"
                 if hasattr(self, 'merge_rtstruct_combo') and self.merge_rtstruct_combo.count() > 0:
                     self.existing_rtstruct_path = self.merge_rtstruct_combo.currentData()
+
+            # ---- ПРОВЕРКА ЛИЦЕНЗИЙ ПЕРЕД ПЕРВЫМ СКАЧИВАНИЕМ И ЗАПУСКОМ ----
+            required_tasks = set()
+            for organ in selected_organs:
+                task = ROI_TO_TASK_MAP.get(organ, 'total')
+                required_tasks.add(task)
                 
+            for task in required_tasks:
+                if task in LICENSED_TASKS:
+                    from totalsegmentator.config import get_weights_dir, is_valid_license
+                    weights_dir = get_weights_dir()
+                    
+                    TASK_WEIGHTS_DIRS = {
+                        "brain_structures": "Dataset409_neuro_550subj"
+                    }
+                    
+                    weights_folder = TASK_WEIGHTS_DIRS.get(task)
+                    is_downloaded = False
+                    if weights_folder:
+                        is_downloaded = (weights_dir / weights_folder).exists()
+                        
+                    if not is_downloaded:
+                        # Модель используется впервые и будет скачиваться!
+                        display_name = LICENSED_TASKS[task]
+                        license_key = self.engine.licenses.strip() if hasattr(self.engine, "licenses") and isinstance(self.engine.licenses, str) else ""
+                        
+                        if not license_key:
+                            QMessageBox.critical(
+                                self,
+                                "Требуется лицензия 🔑",
+                                f"Выбранные структуры требуют суб-модель ИИ '{display_name}'.\n\n"
+                                "Поскольку эта модель используется впервые, требуется её первоначальное скачивание.\n"
+                                "Для скачивания необходимо активировать лицензионный ключ.\n\n"
+                                "Пожалуйста, перейдите во вкладку 'Настройки' -> 'Управление лицензиями' и введите действующий ключ."
+                            )
+                            return
+                            
+                        # Выполняем онлайн-валидацию перед скачиванием
+                        self.append_log(f"Проверка лицензии для '{display_name}' перед скачиванием...", "#3498db")
+                        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+                        try:
+                            valid = is_valid_license(license_key)
+                        except Exception as e:
+                            QApplication.restoreOverrideCursor()
+                            reply = QMessageBox.question(
+                                self,
+                                "Проверка лицензии: ошибка сети",
+                                f"Не удалось связаться с сервером валидации лицензий для проверки ключа ({e}).\n\n"
+                                "Попытаться продолжить скачивание без предварительной проверки?",
+                                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                QMessageBox.StandardButton.No
+                            )
+                            if reply != QMessageBox.StandardButton.Yes:
+                                return
+                            valid = True
+                            
+                        QApplication.restoreOverrideCursor()
+                        
+                        if not valid:
+                            QMessageBox.critical(
+                                self,
+                                "Недействительный ключ ❌",
+                                f"Введенный лицензионный ключ для '{display_name}' отклонен сервером проверки.\n\n"
+                                "Скачивание весов ИИ заблокировано. Пожалуйста, введите корректный ключ в настройках."
+                            )
+                            return
+
             # Блокируем интерфейс
             self.set_ui_enabled(False)
             self.log_edit.clear()

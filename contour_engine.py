@@ -567,7 +567,11 @@ class ContourEngine:
             self.presets = data.get("presets", DEFAULT_PRESETS_DATA["presets"])
             self.colors = data.get("colors", DEFAULT_PRESETS_DATA["colors"])
             self.ru_names = data.get("ru_names", DEFAULT_PRESETS_DATA["ru_names"])
-            self.licenses = data.get("licenses", {})
+            raw_licenses = data.get("licenses", "")
+            if isinstance(raw_licenses, dict):
+                self.licenses = next((v for v in raw_licenses.values() if v), "")
+            else:
+                self.licenses = str(raw_licenses)
             logger.info("Конфигурация пресетов успешно загружена.")
             
             # Динамическое дополнение до 117 классов TotalSegmentator
@@ -578,7 +582,7 @@ class ContourEngine:
             self.presets = DEFAULT_PRESETS_DATA["presets"]
             self.colors = DEFAULT_PRESETS_DATA["colors"]
             self.ru_names = DEFAULT_PRESETS_DATA["ru_names"]
-            self.licenses = {}
+            self.licenses = ""
 
     def save_presets_config(self) -> None:
         """
@@ -589,7 +593,7 @@ class ContourEngine:
                 "presets": self.presets,
                 "colors": self.colors,
                 "ru_names": self.ru_names,
-                "licenses": getattr(self, "licenses", {})
+                "licenses": getattr(self, "licenses", "")
             }
             with open(self.config_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
@@ -946,8 +950,8 @@ class ContourEngine:
                     "--nr_thr_saving", "1"
                 ]
                 
-                if hasattr(self, "licenses") and self.licenses.get(task_name):
-                    cmd.extend(["--license", self.licenses[task_name]])
+                if hasattr(self, "licenses") and isinstance(self.licenses, str) and self.licenses.strip():
+                    cmd.extend(["--license", self.licenses.strip()])
                 
                 if precision_mode == "fast" or precision_mode == "faster":
                     if task_name == "total" or task_name == "body":
