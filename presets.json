@@ -2520,6 +2520,11 @@
       144,
       151,
       50
+    ],
+    "body": [
+      132,
+      50,
+      50
     ]
   },
   "ru_names": {
@@ -2951,9 +2956,8 @@
     "putamen_right": "Правая скорлупа мозга (Putamen R)",
     "pallidum_left": "Левый бледный шар (Pallidum L)",
     "pallidum_right": "Правый бледный шар (Pallidum R)",
-    "lungs": "Lungs (lungs)"
+    "lungs": "Lungs (lungs)",
+    "body": "Тело (Body)"
   },
-  "licenses": {
-    "brain_structures": "aca_4HM59KBYQ6ODB2"
-  }
+  "licenses": {}
 }
