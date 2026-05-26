@@ -3267,12 +3267,13 @@ if PYQT_AVAILABLE:
                                 boundary = self._loaded_roi_masks["body_boundary"]
                             else:
                                 import scipy.ndimage
-                                boundary = mask_3d ^ scipy.ndimage.binary_erosion(mask_3d, structure=np.ones((1, 3, 3)))
+                                boundary = mask_3d ^ scipy.ndimage.binary_erosion(mask_3d, structure=np.ones((1, 5, 5)))
                                 self._loaded_roi_masks["body_boundary"] = boundary
                                 
-                            overlay_3d[boundary, 0] = 220
-                            overlay_3d[boundary, 1] = 220
-                            overlay_3d[boundary, 2] = 220
+                            color = self.engine.colors.get(orig_organ, [0, 255, 0])
+                            overlay_3d[boundary, 0] = color[0]
+                            overlay_3d[boundary, 1] = color[1]
+                            overlay_3d[boundary, 2] = color[2]
                             overlay_3d[boundary, 3] = 255
                         else:
                             color = self.engine.colors.get(orig_organ, [0, 255, 128])

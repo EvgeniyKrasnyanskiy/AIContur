@@ -942,7 +942,9 @@ class ContourEngine:
                     raise RuntimeError("Операция отменена пользователем.")
                     
                 cmd = [
-                    str(totalseg_exe),
+                    sys.executable,
+                    "-m",
+                    "totalsegmentator.bin.TotalSegmentator",
                     "-i", str(nifti_ct_path),
                     "-o", str(segmentation_dir),
                     "--device", device,
