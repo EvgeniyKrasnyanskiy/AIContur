@@ -679,9 +679,6 @@ if PYQT_AVAILABLE:
         border-top-left-radius: 4px;
         border-top-right-radius: 4px;
         color: #a0a0a0;
-        font-weight: bold;
-    }
-
     QTabBar::tab:selected {
         background: #242424;
         border-bottom-color: #242424;
@@ -748,148 +745,167 @@ if PYQT_AVAILABLE:
     """
 
     class LicensesDialog(QDialog):
-        """Диалоговое окно управления лицензиями суб-моделей ИИ."""
+        """Диалоговое окно управления единой лицензией суб-моделей ИИ."""
         def __init__(self, parent=None, engine=None):
             super().__init__(parent)
             self.engine = engine
             self.setWindowTitle("🔑 Лицензирование суб-моделей TotalSegmentator")
-            self.setMinimumSize(580, 420)
+            self.setMinimumSize(480, 260)
             self.init_ui()
             
         def init_ui(self):
             self.setStyleSheet(DARK_QSS)
             layout = QVBoxLayout(self)
-            layout.setContentsMargins(15, 15, 15, 15)
-            layout.setSpacing(12)
+            layout.setContentsMargins(20, 20, 20, 20)
+            layout.setSpacing(15)
             
             # Заголовок
-            title = QLabel("🔑 Лицензии суб-моделей TotalSegmentator")
+            title = QLabel("🔑 Лицензия для суб-моделей")
             title.setStyleSheet("font-size: 16px; font-weight: bold; color: #ffffff;")
             layout.addWidget(title)
             
-            descr = QLabel(
-                "Некоторые суб-модели (например, оконтуривание отделов головного мозга) "
-                "требуют активации лицензионных ключей TotalSegmentator."
-            )
-            descr.setWordWrap(True)
-            descr.setStyleSheet("color: #a0a0a0; font-size: 12px; margin-bottom: 5px;")
-            layout.addWidget(descr)
+
             
-            # Таблица текущих лицензий
-            self.table = QTableWidget(0, 3)
-            self.table.setHorizontalHeaderLabels(["Суб-модель ИИ", "Статус", "Ключ"])
-            self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-            self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-            self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-            self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-            self.table.setStyleSheet("""
-                QTableWidget {
+            # Статус текущей лицензии в красивой плашке
+            self.status_frame = QFrame()
+            self.status_frame.setStyleSheet("""
+                QFrame {
                     background-color: #1e1e1e;
                     border: 1px solid #2d2d2d;
                     border-radius: 6px;
-                    color: #e0e0e0;
-                }
-                QHeaderView::section {
-                    background-color: #242424;
-                    color: #ffffff;
-                    padding: 6px;
-                    border: 1px solid #2d2d2d;
-                    font-weight: bold;
+                    padding: 8px;
                 }
             """)
-            layout.addWidget(self.table)
+            status_layout = QHBoxLayout(self.status_frame)
+            status_layout.setContentsMargins(10, 5, 10, 5)
             
-            # Группа добавления/изменения ключа
-            form_group = QGroupBox("Добавить или обновить лицензионный ключ")
-            form_layout = QVBoxLayout(form_group)
-            form_layout.setSpacing(10)
+            self.lbl_status = QLabel("Статус: ❌ Отсутствует")
+            self.lbl_status.setStyleSheet("font-weight: bold; font-size: 12px; color: #ff6b6b;")
             
-            row_layout = QHBoxLayout()
-            self.combo_task = QComboBox()
-            for k, v in LICENSED_TASKS.items():
-                self.combo_task.addItem(v, k)
+            self.lbl_key = QLabel("Ключ: —")
+            self.lbl_key.setStyleSheet("color: #a0a0a0; font-family: monospace; font-size: 12px;")
             
+            status_layout.addWidget(self.lbl_status)
+            status_layout.addStretch()
+            status_layout.addWidget(self.lbl_key)
+            layout.addWidget(self.status_frame)
+            
+            # Поле ввода ключа
             self.edit_key = QLineEdit()
-            self.edit_key.setPlaceholderText("Введите лицензионный ключ...")
+            self.edit_key.setPlaceholderText("Введите новый лицензионный ключ...")
+            self.edit_key.setMinimumHeight(30)
+            layout.addWidget(self.edit_key)
             
-            row_layout.addWidget(self.combo_task, 2)
-            row_layout.addWidget(self.edit_key, 3)
-            form_layout.addLayout(row_layout)
-            
+            # Кнопки управления
             btn_layout = QHBoxLayout()
-            self.btn_save = QPushButton("💾 Активировать / Сохранить")
+            self.btn_save = QPushButton("💾 Сохранить и проверить")
             self.btn_save.setObjectName("btnBrowse")  # синяя кнопка
+            self.btn_save.setMinimumHeight(32)
             self.btn_save.clicked.connect(self.save_license)
             
             self.btn_delete = QPushButton("🗑️ Удалить")
             self.btn_delete.setObjectName("btnAction")
+            self.btn_delete.setMinimumHeight(32)
             self.btn_delete.clicked.connect(self.delete_license)
             
-            btn_layout.addWidget(self.btn_save)
-            btn_layout.addWidget(self.btn_delete)
-            form_layout.addLayout(btn_layout)
-            layout.addWidget(form_group)
+            btn_layout.addWidget(self.btn_save, 2)
+            btn_layout.addWidget(self.btn_delete, 1)
+            layout.addLayout(btn_layout)
             
             # Кнопка закрытия
             self.btn_close = QPushButton("Закрыть")
+            self.btn_close.setMinimumHeight(30)
             self.btn_close.clicked.connect(self.accept)
             layout.addWidget(self.btn_close)
             
-            self.load_table_data()
+            self.update_status_display()
             
-        def load_table_data(self):
-            self.table.setRowCount(0)
-            for k, v in LICENSED_TASKS.items():
-                row = self.table.rowCount()
-                self.table.insertRow(row)
+        def update_status_display(self):
+            key = getattr(self.engine, "licenses", "").strip()
+            if key:
+                self.lbl_status.setText("Статус: ✅ Активна")
+                self.lbl_status.setStyleSheet("font-weight: bold; font-size: 12px; color: #00ffd0;")
                 
-                # Имя
-                self.table.setItem(row, 0, QTableWidgetItem(v))
-                
-                # Статус и Ключ
-                key = self.engine.licenses.get(k, "")
-                if key:
-                    status_item = QTableWidgetItem("✅ Активна")
-                    status_item.setForeground(QBrush(QColor("#00ffd0")))  # неоновый бирюзовый
-                    key_item = QTableWidgetItem(key)
-                else:
-                    status_item = QTableWidgetItem("❌ Отсутствует")
-                    status_item.setForeground(QBrush(QColor("#ff6b6b")))  # красный
-                    key_item = QTableWidgetItem("—")
-                    
-                self.table.setItem(row, 1, status_item)
-                self.table.setItem(row, 2, key_item)
+                # Маскируем ключ для приватности, показывая только начало и конец (например: aca_4HM5...ODB2)
+                masked_key = key
+                if len(key) >= 12:
+                    masked_key = f"{key[:8]}...{key[-4:]}"
+                self.lbl_key.setText(f"Ключ: {masked_key}")
+            else:
+                self.lbl_status.setText("Статус: ❌ Отсутствует")
+                self.lbl_status.setStyleSheet("font-weight: bold; font-size: 12px; color: #ff6b6b;")
+                self.lbl_key.setText("Ключ: —")
                 
         def save_license(self):
-            task = self.combo_task.currentData()
             key = self.edit_key.text().strip()
             if not key:
                 QMessageBox.warning(self, "Предупреждение", "Лицензионный ключ не может быть пустым.")
                 return
                 
-            self.engine.licenses[task] = key
-            self.engine.save_presets_config()
-            self.edit_key.clear()
-            self.load_table_data()
-            QMessageBox.information(self, "Успех", f"Лицензия для '{LICENSED_TASKS[task]}' успешно сохранена.")
-            
-        def delete_license(self):
-            selected_rows = self.table.selectionModel().selectedRows()
-            if not selected_rows:
-                QMessageBox.warning(self, "Предупреждение", "Выберите строку в таблице для удаления лицензии.")
+            # 1. Локальная проверка длины
+            if len(key) != 18:
+                QMessageBox.critical(self, "Ошибка валидации", "Лицензионный ключ должен содержать ровно 18 символов.")
                 return
                 
-            row = selected_rows[0].row()
-            task_keys = list(LICENSED_TASKS.keys())
-            task = task_keys[row]
+            # 2. Онлайн-валидация через API TotalSegmentator
+            QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+            try:
+                from totalsegmentator.config import is_valid_license
+                valid = is_valid_license(key)
+            except Exception as e:
+                QApplication.restoreOverrideCursor()
+                reply = QMessageBox.question(
+                    self,
+                    "Ошибка сети",
+                    f"Не удалось связаться с сервером TotalSegmentator для проверки лицензии ({e}).\n\n"
+                    "Формат ключа верный. Хотите сохранить его локально без онлайн-проверки?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No
+                )
+                if reply == QMessageBox.StandardButton.Yes:
+                    self.engine.licenses = key
+                    self.engine.save_presets_config()
+                    self.edit_key.clear()
+                    self.update_status_display()
+                    QMessageBox.information(self, "Успех", "Лицензия сохранена локально.")
+                return
+                
+            QApplication.restoreOverrideCursor()
             
-            if task in self.engine.licenses:
-                del self.engine.licenses[task]
+            if not valid:
+                QMessageBox.critical(
+                    self,
+                    "Недействительная лицензия ❌",
+                    "Введенный лицензионный ключ недействителен.\n"
+                    "Проверка на сервере TotalSegmentator отклонена. Пожалуйста, убедитесь в правильности ключа."
+                )
+                return
+                
+            # Сохранение валидной лицензии
+            self.engine.licenses = key
+            self.engine.save_presets_config()
+            self.edit_key.clear()
+            self.update_status_display()
+            QMessageBox.information(self, "Успех", "Лицензия для суб-моделей успешно активирована и сохранена! ✅")
+            
+        def delete_license(self):
+            key = getattr(self.engine, "licenses", "").strip()
+            if not key:
+                QMessageBox.information(self, "Инфо", "Лицензионный ключ отсутствует.")
+                return
+                
+            reply = QMessageBox.question(
+                self,
+                "Подтверждение удаления",
+                "Вы действительно хотите удалить лицензионный ключ?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
+            if reply == QMessageBox.StandardButton.Yes:
+                self.engine.licenses = ""
                 self.engine.save_presets_config()
-                self.load_table_data()
-                QMessageBox.information(self, "Успех", f"Лицензия для '{LICENSED_TASKS[task]}' успешно удалена.")
-            else:
-                QMessageBox.information(self, "Инфо", "Для этой суб-модели и так нет лицензии.")
+                self.update_status_display()
+                QMessageBox.information(self, "Успех", "Лицензионный ключ успешно удален.")
 
     class MainWindow(QMainWindow):
         """Главное окно графического интерфейса приложения."""
@@ -1153,14 +1169,11 @@ if PYQT_AVAILABLE:
             color_group_layout.addWidget(self.color_preset_combo)
             tab2_layout.addWidget(color_group)
 
-            # Группа 5: Лицензирование суб-моделей ИИ
-            license_group = QGroupBox("Лицензии суб-моделей ИИ 🔑")
+            # Группа 5: Лицензия для суб-моделей
+            license_group = QGroupBox("Лицензия для суб-моделей 🔑")
             license_group_layout = QVBoxLayout(license_group)
             
-            lbl_license_descr = QLabel(
-                "Некоторые суб-модели (например, отделы головного мозга) требуют активации лицензионных ключей "
-                "TotalSegmentator."
-            )
+            lbl_license_descr = QLabel("Некоторые суб-модели могут требовать дополнительную лицензию.")
             lbl_license_descr.setWordWrap(True)
             lbl_license_descr.setStyleSheet("color: #888888; font-size: 11px;")
             
@@ -1539,9 +1552,14 @@ if PYQT_AVAILABLE:
             self.splitter.setSizes([430, 490])
 
         def update_license_status_label(self):
-            """Обновляет текст статуса количества активных лицензий."""
-            count = len(getattr(self.engine, "licenses", {}))
-            self.lbl_license_status.setText(f"Активных лицензий: {count}")
+            """Обновляет статус лицензии."""
+            key = getattr(self.engine, "licenses", "").strip()
+            if key:
+                self.lbl_license_status.setText("Лицензия: ✅ Активна")
+                self.lbl_license_status.setStyleSheet("color: #00ffd0; font-weight: bold;")
+            else:
+                self.lbl_license_status.setText("Лицензия: ❌ Отсутствует")
+                self.lbl_license_status.setStyleSheet("color: #ff6b6b; font-weight: bold;")
 
         def show_licenses_dialog(self):
             """Открывает окно управления лицензиями суб-моделей ИИ."""
@@ -1600,7 +1618,7 @@ if PYQT_AVAILABLE:
                     # Проверка лицензии для суб-моделей
                     task = ROI_TO_TASK_MAP.get(org, 'total')
                     is_licensed_task = task in LICENSED_TASKS
-                    has_license = hasattr(self.engine, "licenses") and self.engine.licenses.get(task)
+                    has_license = hasattr(self.engine, "licenses") and isinstance(self.engine.licenses, str) and self.engine.licenses.strip()
                     
                     if is_licensed_task and not has_license:
                         item = QListWidgetItem(f"   [🔒] {ru_name} (Нужна лицензия)")
@@ -1664,7 +1682,7 @@ if PYQT_AVAILABLE:
                     # Проверка лицензии для суб-моделей
                     task = ROI_TO_TASK_MAP.get(org, 'total')
                     is_licensed_task = task in LICENSED_TASKS
-                    has_license = hasattr(self.engine, "licenses") and self.engine.licenses.get(task)
+                    has_license = hasattr(self.engine, "licenses") and isinstance(self.engine.licenses, str) and self.engine.licenses.strip()
                     
                     if is_licensed_task and not has_license:
                         item = QListWidgetItem(f"   [🔒] {ru_name} (Нужна лицензия)")
@@ -3038,7 +3056,7 @@ if PYQT_AVAILABLE:
                         # Проверяем, не заблокирован ли орган из-за отсутствия лицензии
                         task = ROI_TO_TASK_MAP.get(organ_name, 'total')
                         is_licensed_task = task in LICENSED_TASKS
-                        has_license = hasattr(self.engine, "licenses") and self.engine.licenses.get(task)
+                        has_license = hasattr(self.engine, "licenses") and isinstance(self.engine.licenses, str) and self.engine.licenses.strip()
                         
                         if is_licensed_task and not has_license:
                             # Заблокированный орган не чекаем пресетом
@@ -3370,7 +3388,73 @@ if PYQT_AVAILABLE:
                 merge_mode = "merge"
                 if hasattr(self, 'merge_rtstruct_combo') and self.merge_rtstruct_combo.count() > 0:
                     self.existing_rtstruct_path = self.merge_rtstruct_combo.currentData()
+
+            # ---- ПРОВЕРКА ЛИЦЕНЗИЙ ПЕРЕД ПЕРВЫМ СКАЧИВАНИЕМ И ЗАПУСКОМ ----
+            required_tasks = set()
+            for organ in selected_organs:
+                task = ROI_TO_TASK_MAP.get(organ, 'total')
+                required_tasks.add(task)
                 
+            for task in required_tasks:
+                if task in LICENSED_TASKS:
+                    from totalsegmentator.config import get_weights_dir, is_valid_license
+                    weights_dir = get_weights_dir()
+                    
+                    TASK_WEIGHTS_DIRS = {
+                        "brain_structures": "Dataset409_neuro_550subj"
+                    }
+                    
+                    weights_folder = TASK_WEIGHTS_DIRS.get(task)
+                    is_downloaded = False
+                    if weights_folder:
+                        is_downloaded = (weights_dir / weights_folder).exists()
+                        
+                    if not is_downloaded:
+                        # Модель используется впервые и будет скачиваться!
+                        display_name = LICENSED_TASKS[task]
+                        license_key = self.engine.licenses.strip() if hasattr(self.engine, "licenses") and isinstance(self.engine.licenses, str) else ""
+                        
+                        if not license_key:
+                            QMessageBox.critical(
+                                self,
+                                "Требуется лицензия 🔑",
+                                f"Выбранные структуры требуют суб-модель ИИ '{display_name}'.\n\n"
+                                "Поскольку эта модель используется впервые, требуется её первоначальное скачивание.\n"
+                                "Для скачивания необходимо активировать лицензионный ключ.\n\n"
+                                "Пожалуйста, перейдите во вкладку 'Настройки' -> 'Управление лицензиями' и введите действующий ключ."
+                            )
+                            return
+                            
+                        # Выполняем онлайн-валидацию перед скачиванием
+                        self.append_log(f"Проверка лицензии для '{display_name}' перед скачиванием...", "#3498db")
+                        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+                        try:
+                            valid = is_valid_license(license_key)
+                        except Exception as e:
+                            QApplication.restoreOverrideCursor()
+                            reply = QMessageBox.question(
+                                self,
+                                "Проверка лицензии: ошибка сети",
+                                f"Не удалось связаться с сервером валидации лицензий для проверки ключа ({e}).\n\n"
+                                "Попытаться продолжить скачивание без предварительной проверки?",
+                                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                QMessageBox.StandardButton.No
+                            )
+                            if reply != QMessageBox.StandardButton.Yes:
+                                return
+                            valid = True
+                            
+                        QApplication.restoreOverrideCursor()
+                        
+                        if not valid:
+                            QMessageBox.critical(
+                                self,
+                                "Недействительный ключ ❌",
+                                f"Введенный лицензионный ключ для '{display_name}' отклонен сервером проверки.\n\n"
+                                "Скачивание весов ИИ заблокировано. Пожалуйста, введите корректный ключ в настройках."
+                            )
+                            return
+
             # Блокируем интерфейс
             self.set_ui_enabled(False)
             self.log_edit.clear()
