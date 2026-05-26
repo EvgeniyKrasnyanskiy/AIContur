@@ -317,3 +317,108 @@ LICENSED_TASKS = {
     "brain_structures": "Отделы головного мозга (Brain Structures)"
 }
 
+import json
+import threading
+from pathlib import Path
+from typing import Dict, Any, List
+
+class StatisticsManager:
+    """Класс для потокобезопасного управления статистикой автооконтурирования OAR."""
+    
+    def __init__(self, file_path: str = "config/statistics.json") -> None:
+        self.file_path = Path(file_path).resolve()
+        self._lock = threading.Lock()
+        self._default_stats = {
+            "total_runs": 0,
+            "successful_runs": 0,
+            "failed_runs": 0,
+            "cancelled_runs": 0,
+            "total_organs_contoured": 0,
+            "total_elapsed_time_seconds": 0.0,
+            "organ_stats": {},
+            "recent_runs": []
+        }
+        
+    def _load_stats(self) -> Dict[str, Any]:
+        """Загружает статистику из JSON файла. Возвращает дефолтную структуру при отсутствии файла или ошибке."""
+        if not self.file_path.exists():
+            return self._default_stats.copy()
+        try:
+            with open(self.file_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                # Гарантируем наличие всех полей
+                for key, val in self._default_stats.items():
+                    if key not in data:
+                        data[key] = val.copy() if isinstance(val, (dict, list)) else val
+                return data
+        except Exception:
+            return self._default_stats.copy()
+
+    def _save_stats(self, data: Dict[str, Any]) -> None:
+        """Сохраняет статистику в JSON файл."""
+        try:
+            self.file_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.file_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Возвращает текущую статистику (потокобезопасно)."""
+        with self._lock:
+            return self._load_stats()
+
+    def reset_stats(self) -> None:
+        """Сбрасывает всю статистику (потокобезопасно)."""
+        with self._lock:
+            self._save_stats(self._default_stats.copy())
+
+    def record_run(
+        self,
+        status: str,
+        elapsed_seconds: float,
+        organs_contoured: List[str],
+        preset_name: str,
+        precision_mode: str
+    ) -> None:
+        """Записывает новый запуск автооконтурирования (потокобезопасно)."""
+        with self._lock:
+            data = self._load_stats()
+            
+            # Обновление общих счетчиков
+            data["total_runs"] += 1
+            if status == "success":
+                data["successful_runs"] += 1
+                data["total_organs_contoured"] += len(organs_contoured)
+                data["total_elapsed_time_seconds"] += elapsed_seconds
+                
+                # Обновление статистики по каждому органу
+                if "organ_stats" not in data or not isinstance(data["organ_stats"], dict):
+                    data["organ_stats"] = {}
+                for organ in organs_contoured:
+                    data["organ_stats"][organ] = data["organ_stats"].get(organ, 0) + 1
+            elif status == "cancelled":
+                data["cancelled_runs"] += 1
+            else:
+                data["failed_runs"] += 1
+
+            # Добавление в список последних запусков
+            import datetime
+            now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            run_entry = {
+                "timestamp": now_str,
+                "status": status,
+                "preset": preset_name,
+                "precision": precision_mode,
+                "elapsed_seconds": round(elapsed_seconds, 1),
+                "organs_count": len(organs_contoured) if status == "success" else 0
+            }
+            if "recent_runs" not in data or not isinstance(data["recent_runs"], list):
+                data["recent_runs"] = []
+            
+            data["recent_runs"].insert(0, run_entry)
+            # Ограничиваем список последних 20 запусками
+            data["recent_runs"] = data["recent_runs"][:20]
+            
+            self._save_stats(data)
+

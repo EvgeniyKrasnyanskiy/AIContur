@@ -58,20 +58,78 @@ except ImportError:
 
 # Импортируем конфигурационные данные
 try:
-    from config import ORGAN_GROUPS, EXTERNAL_ALIASES, LICENSED_TASKS, ROI_TO_TASK_MAP
+    from config import ORGAN_GROUPS, EXTERNAL_ALIASES, LICENSED_TASKS, ROI_TO_TASK_MAP, StatisticsManager
 except ImportError:
     ORGAN_GROUPS = {}
     EXTERNAL_ALIASES = {}
     LICENSED_TASKS = {}
     ROI_TO_TASK_MAP = {}
+    class StatisticsManager:
+        def __init__(self, *args, **kwargs): pass
+        def get_stats(self):
+            return {
+                "total_runs": 0, "successful_runs": 0, "failed_runs": 0, "cancelled_runs": 0,
+                "total_organs_contoured": 0, "total_elapsed_time_seconds": 0.0,
+                "organ_stats": {}, "recent_runs": []
+            }
+        def record_run(self, *args, **kwargs): pass
+        def reset_stats(self): pass
 
-# Настройка логирования
-logging.basicConfig(
-    level=logging.INFO,
-    format='[%(asctime)s] %(levelname)s [%(name)s]: %(message)s',
-    datefmt='%H:%M:%S',
-    handlers=[logging.StreamHandler(sys.stdout)]
-)
+# Настройка логирования с автоматической ротацией
+from logging.handlers import RotatingFileHandler
+
+# Создаем папку для логов в корне проекта
+try:
+    log_dir = Path("logs")
+    log_dir.mkdir(exist_ok=True)
+except Exception as e:
+    print(f"Ошибка создания папки логов: {e}")
+
+log_formatter = logging.Formatter('[%(asctime)s] %(levelname)s [%(name)s]: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+
+# Консольный вывод логов
+stream_handler = logging.StreamHandler(sys.stdout)
+stream_handler.setFormatter(logging.Formatter('[%(asctime)s] %(levelname)s [%(name)s]: %(message)s', datefmt='%H:%M:%S'))
+stream_handler.setLevel(logging.INFO)
+
+# Ротационный обработчик основного лога (до 2 файлов по 5 МБ)
+try:
+    general_handler = RotatingFileHandler(
+        Path("logs/auto_contour.log"),
+        maxBytes=5 * 1024 * 1024,
+        backupCount=2,
+        encoding="utf-8"
+    )
+    general_handler.setFormatter(log_formatter)
+    general_handler.setLevel(logging.INFO)
+except Exception as e:
+    general_handler = None
+    print(f"Ошибка инициализации основного лог-файла: {e}")
+
+# Ротационный обработчик лога ошибок (до 2 файлов по 5 МБ)
+try:
+    error_handler = RotatingFileHandler(
+        Path("logs/auto_contour_error.log"),
+        maxBytes=5 * 1024 * 1024,
+        backupCount=2,
+        encoding="utf-8"
+    )
+    error_handler.setFormatter(log_formatter)
+    error_handler.setLevel(logging.ERROR)
+except Exception as e:
+    error_handler = None
+    print(f"Ошибка инициализации лог-файла ошибок: {e}")
+
+# Конфигурация корневого логера
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.INFO)
+root_logger.handlers = []  # Сброс стандартных обработчиков
+root_logger.addHandler(stream_handler)
+if general_handler:
+    root_logger.addHandler(general_handler)
+if error_handler:
+    root_logger.addHandler(error_handler)
+
 logger = logging.getLogger("AutoContourGUI")
 
 
@@ -372,6 +430,14 @@ if PYQT_AVAILABLE:
         color: #e0e0e0;
         font-family: "Segoe UI", Arial, sans-serif;
         font-size: 13px;
+    }
+
+    QToolTip {
+        background-color: #2c2c2c;
+        color: #ffffff;
+        border: 1px solid #444444;
+        border-radius: 4px;
+        padding: 4px;
     }
 
     QFrame#card {
@@ -1374,6 +1440,7 @@ if PYQT_AVAILABLE:
 
             # Инициализация вычислительного движка
             self.engine = ContourEngine()
+            self.stats_manager = StatisticsManager()
 
             # Настройка перенаправления логов в реальном времени
             self.log_signaler = LogSignaler()
@@ -1426,6 +1493,7 @@ if PYQT_AVAILABLE:
             left_layout.setContentsMargins(5, 5, 5, 5)
 
             self.tab_widget = QTabWidget()
+            self.tab_widget.currentChanged.connect(self.on_tab_changed)
             left_layout.addWidget(self.tab_widget)
 
             # ------------------------------------------------------------------
@@ -1674,6 +1742,12 @@ if PYQT_AVAILABLE:
             tab2_layout.addStretch()
             tab2_scroll.setWidget(tab2_widget)
             self.tab_widget.addTab(tab2_scroll, "⚙️ Настройки")
+
+            # ------------------------------------------------------------------
+            # ВКЛАДКА 3: Статистика автооконтурирований
+            # ------------------------------------------------------------------
+            tab_stats_scroll = self.create_statistics_tab()
+            self.tab_widget.addTab(tab_stats_scroll, "📊 Статистика")
 
             # ------------------------------------------------------------------
             # ВКЛАДКА 3: Справка и дисклеймер
@@ -4164,6 +4238,43 @@ if PYQT_AVAILABLE:
 
         def on_segmentation_finished(self, success: bool, message: str):
             try:
+                # Фиксация статистики запуска
+                elapsed = 0.0
+                if self.worker and hasattr(self.worker, "_start_time"):
+                    elapsed = time.time() - self.worker._start_time
+
+                organs = self.worker.selected_organs if self.worker else []
+                preset = self.preset_combo.currentText()
+                precision = self.precision_combo.currentText()
+
+                if success:
+                    self.stats_manager.record_run(
+                        status="success",
+                        elapsed_seconds=elapsed,
+                        organs_contoured=organs,
+                        preset_name=preset,
+                        precision_mode=precision
+                    )
+                else:
+                    is_cancelled = False
+                    if self.worker and getattr(self.worker, "is_cancelled", False):
+                        is_cancelled = True
+                    elif "отмен" in message.lower():
+                        is_cancelled = True
+                    
+                    status_str = "cancelled" if is_cancelled else "failed"
+                    self.stats_manager.record_run(
+                        status=status_str,
+                        elapsed_seconds=elapsed,
+                        organs_contoured=[],
+                        preset_name=preset,
+                        precision_mode=precision
+                    )
+                
+                # Обновляем интерфейс статистики
+                if hasattr(self, "update_statistics_ui"):
+                    self.update_statistics_ui()
+
                 self.scan_timer.start(15000)
                 self.set_ui_enabled(True)
                 self.progress_bar.setRange(0, 100)
@@ -4259,6 +4370,254 @@ if PYQT_AVAILABLE:
             if eta > 0:
                 txt += f"  |  Ожидается ещё: ~{fmt(eta)}"
             self.eta_label.setText(txt)
+
+        def on_tab_changed(self, index):
+            if self.tab_widget.tabText(index) == "📊 Статистика":
+                self.update_statistics_ui()
+
+        def create_statistics_tab(self):
+            scroll = QScrollArea()
+            scroll.setWidgetResizable(True)
+            scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+            
+            widget = QWidget()
+            layout = QVBoxLayout(widget)
+            layout.setContentsMargins(10, 10, 10, 10)
+            layout.setSpacing(12)
+            
+            header = QLabel("📊 Статистика автооконтурирований")
+            header.setStyleSheet("font-size: 16px; font-weight: bold; color: #ffffff;")
+            layout.addWidget(header)
+            
+            grid_widget = QWidget()
+            grid_layout = QHBoxLayout(grid_widget)
+            grid_layout.setContentsMargins(0, 0, 0, 0)
+            grid_layout.setSpacing(8)
+            
+            def create_stat_card(title: str, val: str, color: str = "#ffffff"):
+                card = QFrame()
+                card.setStyleSheet("""
+                    QFrame {
+                        background-color: #242424;
+                        border: 1px solid #333333;
+                        border-radius: 6px;
+                        padding: 8px;
+                    }
+                """)
+                card_lay = QVBoxLayout(card)
+                card_lay.setContentsMargins(6, 6, 6, 6)
+                card_lay.setSpacing(3)
+                
+                title_lbl = QLabel(title)
+                title_lbl.setStyleSheet("font-size: 10px; color: #888888; font-weight: bold;")
+                val_lbl = QLabel(val)
+                val_lbl.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {color};")
+                
+                card_lay.addWidget(title_lbl)
+                card_lay.addWidget(val_lbl)
+                return card, val_lbl
+                
+            self.card_total, self.lbl_stat_total = create_stat_card("ВСЕГО ЗАПУСКОВ", "0")
+            self.card_success, self.lbl_stat_success = create_stat_card("УСПЕШНО", "0", "#2ecc71")
+            self.card_fail, self.lbl_stat_fail = create_stat_card("СБОЕВ / ОТМЕН", "0 / 0", "#e74c3c")
+            self.card_organs, self.lbl_stat_organs = create_stat_card("ОКОНТУРЕНО OAR", "0", "#3498db")
+            
+            grid_layout.addWidget(self.card_total)
+            grid_layout.addWidget(self.card_success)
+            grid_layout.addWidget(self.card_fail)
+            grid_layout.addWidget(self.card_organs)
+            layout.addWidget(grid_widget)
+            
+            time_widget = QFrame()
+            time_widget.setStyleSheet("""
+                QFrame {
+                    background-color: #1e1e1e;
+                    border: 1px solid #2d2d2d;
+                    border-radius: 6px;
+                    padding: 8px;
+                }
+            """)
+            time_lay = QHBoxLayout(time_widget)
+            time_lay.setContentsMargins(10, 5, 10, 5)
+            
+            self.lbl_stat_total_time = QLabel("Общее время работы: 0 сек")
+            self.lbl_stat_total_time.setStyleSheet("font-size: 12px; color: #a0a0a0;")
+            self.lbl_stat_avg_time = QLabel("Среднее время запуска: 0 сек")
+            self.lbl_stat_avg_time.setStyleSheet("font-size: 12px; color: #a0a0a0;")
+            
+            time_lay.addWidget(self.lbl_stat_total_time)
+            time_lay.addStretch()
+            time_lay.addWidget(self.lbl_stat_avg_time)
+            layout.addWidget(time_widget)
+            
+            table_lbl = QLabel("🕒 Последние запуски:")
+            table_lbl.setStyleSheet("font-weight: bold; color: #ffffff;")
+            layout.addWidget(table_lbl)
+            
+            self.stats_table = QTableWidget()
+            self.stats_table.setColumnCount(5)
+            self.stats_table.setHorizontalHeaderLabels(["Время", "Пресет", "Режим", "Длительность", "Статус"])
+            self.stats_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+            self.stats_table.setStyleSheet("""
+                QTableWidget {
+                    background-color: #1e1e1e;
+                    border: 1px solid #2d2d2d;
+                    gridline-color: #2d2d2d;
+                    border-radius: 6px;
+                }
+                QHeaderView::section {
+                    background-color: #2d2d2d;
+                    color: #ffffff;
+                    padding: 4px;
+                    border: 0px;
+                    font-weight: bold;
+                }
+            """)
+            self.stats_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+            self.stats_table.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
+            self.stats_table.setMaximumHeight(180)
+            layout.addWidget(self.stats_table)
+            
+            organs_lbl = QLabel("🔝 Популярные органы:")
+            organs_lbl.setStyleSheet("font-weight: bold; color: #ffffff;")
+            layout.addWidget(organs_lbl)
+            
+            self.stats_organs_list = QListWidget()
+            self.stats_organs_list.setStyleSheet("""
+                QListWidget {
+                    background-color: #1e1e1e;
+                    border: 1px solid #2d2d2d;
+                    border-radius: 6px;
+                }
+            """)
+            self.stats_organs_list.setMaximumHeight(140)
+            layout.addWidget(self.stats_organs_list)
+            
+            btn_lay = QHBoxLayout()
+            self.btn_stats_refresh = QPushButton("🔄 Обновить")
+            self.btn_stats_refresh.clicked.connect(self.update_statistics_ui)
+            
+            self.btn_stats_reset = QPushButton("🗑️ Сбросить статистику")
+            self.btn_stats_reset.setStyleSheet("""
+                QPushButton {
+                    background-color: #2c1a1a;
+                    border: 1px solid #5a2a2a;
+                    color: #ff6b6b;
+                }
+                QPushButton:hover {
+                    background-color: #4a2a2a;
+                }
+            """)
+            self.btn_stats_reset.clicked.connect(self.reset_statistics_with_password)
+            
+            btn_lay.addWidget(self.btn_stats_refresh)
+            btn_lay.addWidget(self.btn_stats_reset)
+            layout.addLayout(btn_lay)
+            
+            scroll.setWidget(widget)
+            return scroll
+
+        def update_statistics_ui(self):
+            try:
+                stats = self.stats_manager.get_stats()
+                
+                total = stats.get("total_runs", 0)
+                success = stats.get("successful_runs", 0)
+                fail = stats.get("failed_runs", 0)
+                cancelled = stats.get("cancelled_runs", 0)
+                organs_cnt = stats.get("total_organs_contoured", 0)
+                elapsed = stats.get("total_elapsed_time_seconds", 0.0)
+                
+                self.lbl_stat_total.setText(str(total))
+                self.lbl_stat_success.setText(str(success))
+                self.lbl_stat_fail.setText(f"{fail} / {cancelled}")
+                self.lbl_stat_organs.setText(str(organs_cnt))
+                
+                if elapsed >= 3600:
+                    h = int(elapsed // 3600)
+                    m = int((elapsed % 3600) // 60)
+                    s = int(elapsed % 60)
+                    time_str = f"Общее время работы: {h} ч {m} м {s} с"
+                elif elapsed >= 60:
+                    m = int(elapsed // 60)
+                    s = int(elapsed % 60)
+                    time_str = f"Общее время работы: {m} м {s} с"
+                else:
+                    time_str = f"Общее время работы: {round(elapsed, 1)} сек"
+                    
+                self.lbl_stat_total_time.setText(time_str)
+                
+                avg = elapsed / success if success > 0 else 0.0
+                self.lbl_stat_avg_time.setText(f"Среднее время запуска: {round(avg, 1)} сек")
+                
+                self.stats_table.setRowCount(0)
+                recent = stats.get("recent_runs", [])
+                for run in recent:
+                    row = self.stats_table.rowCount()
+                    self.stats_table.insertRow(row)
+                    
+                    status_lbl = "Успех"
+                    color_str = "#2ecc71"
+                    if run.get("status") == "cancelled":
+                        status_lbl = "Отмена"
+                        color_str = "#f1c40f"
+                    elif run.get("status") == "failed":
+                        status_lbl = "Ошибка"
+                        color_str = "#e74c3c"
+                        
+                    status_item = QTableWidgetItem(status_lbl)
+                    status_item.setForeground(QColor(color_str))
+                    status_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                    
+                    time_item = QTableWidgetItem(str(run.get("timestamp", "")))
+                    time_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                    
+                    preset_item = QTableWidgetItem(str(run.get("preset", "")))
+                    
+                    precision_item = QTableWidgetItem(str(run.get("precision", "")))
+                    precision_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                    
+                    dur = run.get("elapsed_seconds", 0.0)
+                    dur_item = QTableWidgetItem(f"{dur} сек")
+                    dur_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                    
+                    self.stats_table.setItem(row, 0, time_item)
+                    self.stats_table.setItem(row, 1, preset_item)
+                    self.stats_table.setItem(row, 2, precision_item)
+                    self.stats_table.setItem(row, 3, dur_item)
+                    self.stats_table.setItem(row, 4, status_item)
+                
+                self.stats_organs_list.clear()
+                org_stats = stats.get("organ_stats", {})
+                sorted_orgs = sorted(org_stats.items(), key=lambda x: x[1], reverse=True)
+                
+                for org, count in sorted_orgs:
+                    ru_name = org
+                    if hasattr(self.engine, "ru_names") and org in self.engine.ru_names:
+                        ru_name = self.engine.ru_names[org]
+                    self.stats_organs_list.addItem(f"• {ru_name}: {count} раз(а)")
+                
+                if not sorted_orgs:
+                    self.stats_organs_list.addItem("Пока нет данных о сегментированных органах.")
+                    
+            except Exception as e:
+                logger.error(f"Ошибка обновления статистики: {e}")
+
+        def reset_statistics_with_password(self):
+            from PyQt6.QtWidgets import QInputDialog, QLineEdit
+            text, ok = QInputDialog.getText(
+                self, 
+                "Сброс статистики", 
+                "Для подтверждения сброса введите пароль:", 
+                QLineEdit.EchoMode.Password
+            )
+            if ok:
+                if text == "rtp":
+                    self.stats_manager.reset_stats()
+                    self.update_statistics_ui()
+                    QMessageBox.information(self, "Успех", "Статистика успешно сброшена.")
+                else:
+                    QMessageBox.critical(self, "Ошибка", "Неверный пароль. Сброс отклонен.")
 
         def show_help(self):
             dialog = QDialog(self)

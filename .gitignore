@@ -35,3 +35,7 @@ temp_masks/
 # Безопасность конфигураций
 config/licenses.json
 
+# Логи и бэкапы
+logs/
+presets.json.bak
+
