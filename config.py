@@ -96,10 +96,10 @@ ORGAN_GROUPS = {
         "scapula_left", "scapula_right", "humerus_left", "humerus_right"
     ],
     "Малый таз (Pelvis)": [
-        "urinary_bladder", "prostate", "rectum", "sacrum", "hip_left", "hip_right", "femur_left", "femur_right",
+        "urinary_bladder", "prostate", "sacrum", "hip_left", "hip_right", "femur_left", "femur_right",
         "iliac_artery_left", "iliac_artery_right", "iliac_vein_left", "iliac_vein_right",
         "gluteus_maximus_left", "gluteus_maximus_right", "gluteus_medius_left", "gluteus_medius_right",
-        "gluteus_minimus_left", "gluteus_minimus_right"
+        "gluteus_minimus_left", "gluteus_minimus_right", "colon", "small_bowel"
     ],
     "Отделы головного мозга (Brain Structures)": [
         "brain_stem", "cerebellum", "thalamus_left", "thalamus_right", "caudate_left", "caudate_right",

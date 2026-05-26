@@ -60,7 +60,7 @@ DEFAULT_PRESETS_DATA = {
             "scapula_left", "scapula_right", "humerus_left", "humerus_right"
         ],
         "Малый таз (Pelvis)": [
-            "urinary_bladder", "prostate", "rectum", "sacrum", "hip_left", "hip_right", "femur_left", "femur_right",
+            "urinary_bladder", "prostate", "sacrum", "hip_left", "hip_right", "femur_left", "femur_right",
             "iliac_artery_left", "iliac_artery_right", "iliac_vein_left", "iliac_vein_right",
             "gluteus_maximus_left", "gluteus_maximus_right", "gluteus_medius_left", "gluteus_medius_right",
             "gluteus_minimus_left", "gluteus_minimus_right"
@@ -206,6 +206,12 @@ class ContourEngine:
         
         # 1. Жестко заданные переводы для полных совпадений
         exact_translations = {
+            "lungs": "Легкие (Lungs Total)",
+            "brachiocephalic_trunk": "Плечеголовной ствол (Brachiocephalic Trunk)",
+            "costal_cartilages": "Реберные хрящи (Costal Cartilages)",
+            "middle_pharyngeal_constrictor": "Средний констриктор глотки (Middle Pharyngeal Constrictor)",
+            "superior_pharyngeal_constrictor": "Верхний констриктор глотки (Superior Pharyngeal Constrictor)",
+            "inferior_pharyngeal_constrictor": "Нижний констриктор глотки (Inferior Pharyngeal Constrictor)",
             "spleen": "Селезенка (Spleen)",
             "gallbladder": "Желчный пузырь (Gallbladder)",
             "liver": "Печень (Liver)",
@@ -295,6 +301,37 @@ class ContourEngine:
             
             # Словарь базовых анатомических структур и их родов (m = мужской, f = женский, n = средний)
             base_definitions = {
+                "nasal_cavity": ("носовая полость", "Nasal Cavity", "f"),
+                "auditory_canal": ("слуховой проход", "Auditory Canal", "m"),
+                "medial_pterygoid": ("медиальная крыловидная мышца", "Medial Pterygoid", "f"),
+                "lateral_pterygoid": ("латеральная крыловидная мышца", "Lateral Pterygoid", "f"),
+                "medial_rectus_muscle": ("медиальная прямая мышца глаза", "Medial Rectus Muscle", "f"),
+                "lateral_rectus_muscle": ("латеральная прямая мышца глаза", "Lateral Rectus Muscle", "f"),
+                "superior_rectus_muscle": ("верхняя прямая мышца глаза", "Superior Rectus Muscle", "f"),
+                "inferior_rectus_muscle": ("нижняя прямая мышца глаза", "Inferior Rectus Muscle", "f"),
+                "superior_oblique_muscle": ("верхняя косая мышца глаза", "Superior Oblique Muscle", "f"),
+                "inferior_oblique_muscle": ("нижняя косая мышца глаза", "Inferior Oblique Muscle", "f"),
+                "levator_palpebrae_superioris": ("мышца, поднимающая верхнее веко", "Levator Palpebrae", "f"),
+                "middle_scalene": ("средняя лестничная мышца", "Middle Scalene", "f"),
+                "anterior_scalene": ("передняя лестничная мышца", "Anterior Scalene", "f"),
+                "posterior_scalene": ("задняя лестничная мышца", "Posterior Scalene", "f"),
+                "prevertebral": ("предпозвоночная мышца", "Prevertebral Muscle", "f"),
+                "pectoralis_major": ("большая грудная мышца", "Pectoralis Major", "f"),
+                "pectoralis_minor": ("малая грудная мышца", "Pectoralis Minor", "f"),
+                "serratus_anterior": ("передняя зубчатая мышца", "Serratus Anterior", "f"),
+                "subscapularis": ("подлопаточная мышца", "Subscapularis", "f"),
+                "supraspinatus": ("надостная мышца", "Supraspinatus", "f"),
+                "infraspinatus": ("подостная мышца", "Infraspinatus", "f"),
+                "teres_major": ("большая круглая мышца", "Teres Major", "f"),
+                "teres_minor": ("малая круглая мышца", "Teres Minor", "f"),
+                "latissimus_dorsi": ("широчайшая мышца спины", "Latissimus Dorsi", "f"),
+                "trapezius": ("трапециевидная мышца", "Trapezius", "f"),
+                "deltoid": ("дельтовидная мышца", "Deltoid", "f"),
+                "quadratus_lumborum": ("квадратная мышца поясницы", "Quadratus Lumborum", "f"),
+                "sartorius": ("портняжная мышца", "Sartorius", "f"),
+                "brachiocephalic_vein": ("плечеголовная вена", "Brachiocephalic Vein", "f"),
+                "iliac_artery": ("подвздошная артерия", "Iliac Artery", "f"),
+                "iliac_vein": ("подвздошная вена", "Iliac Vein", "f"),
                 # Органы
                 "kidney": ("почка", "Kidney", "f"),
                 "lung": ("легкое", "Lung", "n"),
@@ -1146,6 +1183,22 @@ class ContourEngine:
                 last_percent = 0
                 total_tasks = len(tasks_to_run)
                     
+                import queue
+                from threading import Thread
+
+                def enqueue_output(out, queue_obj):
+                    try:
+                        for line in iter(out.readline, ''):
+                            queue_obj.put(line)
+                        out.close()
+                    except Exception:
+                        pass
+
+                q = queue.Queue()
+                t = Thread(target=enqueue_output, args=(process.stdout, q))
+                t.daemon = True
+                t.start()
+
                 while True:
                     if is_cancelled_cb and is_cancelled_cb():
                         if process.poll() is None:
@@ -1153,9 +1206,18 @@ class ContourEngine:
                             process.kill()
                         raise RuntimeError("Операция отменена пользователем.")
                         
-                    line = process.stdout.readline()
-                    if not line and process.poll() is not None:
-                        break
+                    try:
+                        line = q.get_nowait()
+                    except queue.Empty:
+                        line = None
+                        
+                    if line is None and process.poll() is not None:
+                        if q.empty():
+                            break
+                        else:
+                            time.sleep(0.02)
+                            continue
+                            
                     if line:
                         clean_line = line.strip()
                         if clean_line:

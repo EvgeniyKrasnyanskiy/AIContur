@@ -2783,6 +2783,10 @@ if PYQT_AVAILABLE:
                 logger.debug(f"Ошибка при поиске пути RTSTRUCT: {e}")
                 
             if self.rtstruct_files:
+                try:
+                    self.rtstruct_files.sort(key=os.path.getmtime)
+                except Exception as se:
+                    logger.debug(f"Ошибка при сортировке RTSTRUCT файлов: {se}")
                 self.existing_rtstruct_path = self.rtstruct_files[-1]
                 
                 if hasattr(self, 'rtstruct_combo'):
