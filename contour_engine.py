@@ -265,6 +265,8 @@ class ContourEngine:
             "thyroid_cartilage": "Щитовидный хрящ (Thyroid Cartilage)",
             "cricoid_cartilage": "Перстневидный хрящ (Cricoid Cartilage)",
             "teeth": "Зубы (Teeth)",
+            "soft_palate": "Мягкое нёбо (Soft Palate)",
+            "hard_palate": "Твёрдое нёбо (Hard Palate)",
         }
         
         if org in exact_translations:

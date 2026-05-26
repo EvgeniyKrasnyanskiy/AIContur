@@ -509,6 +509,12 @@ if PYQT_AVAILABLE:
         border: 1px solid #3c3c3c;
         selection-background-color: #007acc;
         selection-color: #ffffff;
+        color: #ffffff;
+    }
+
+    QComboBox QAbstractItemView::item {
+        color: #ffffff;
+        background-color: #2d2d2d;
     }
 
     QListWidget {
@@ -2504,6 +2510,33 @@ if PYQT_AVAILABLE:
                 self._is_updating_table = False
             
         def update_run_button(self, is_patient_selected: bool, custom_text: str = None):
+            if hasattr(self, 'worker') and self.worker and self.worker.isRunning():
+                target_text = "Отменить автооконтуривание"
+                target_enabled = True
+                if self.btn_run.text() != target_text:
+                    self.btn_run.setText(target_text)
+                if self.btn_run.isEnabled() != target_enabled:
+                    self.btn_run.setEnabled(target_enabled)
+                self.btn_run.setStyleSheet("""
+                    QPushButton#btnRun {
+                        background-color: #c0392b;
+                        color: white;
+                        font-weight: bold;
+                        border: 1px solid #962d22;
+                        font-size: 14px;
+                        padding: 12px;
+                        border-radius: 6px;
+                    }
+                    QPushButton#btnRun:hover {
+                        background-color: #e74c3c;
+                        border: 1px solid #c0392b;
+                    }
+                    QPushButton#btnRun:pressed {
+                        background-color: #962d22;
+                    }
+                """)
+                return
+
             if getattr(self, 'chk_show_structures', None) and self.chk_show_structures.isChecked():
                 target_text = "ВЫЙТИ ИЗ РЕЖИМА ПРОСМОТРА"
                 target_enabled = True
@@ -2865,8 +2898,6 @@ if PYQT_AVAILABLE:
                 del self.roi_overlay_3d
 
         def on_show_structures_changed(self):
-            if getattr(self, 'is_switching_color_preset', False):
-                return
             import pyqtgraph as pg
             import numpy as np
             from PyQt6.QtWidgets import QApplication, QProgressDialog
@@ -3760,9 +3791,10 @@ if PYQT_AVAILABLE:
                 finally:
                     self.structures_list.blockSignals(False)
                 
-                # Если включен показ структур, перерисуем их с новыми цветами пресета
-                if hasattr(self, 'chk_show_structures') and self.chk_show_structures.isChecked():
-                    self.on_show_structures_changed()
+                # Если включен показ структур, перерисуем их с новыми цветами пресета (только при ручном переключении!)
+                if not getattr(self, 'is_switching_color_preset', False):
+                    if hasattr(self, 'chk_show_structures') and self.chk_show_structures.isChecked():
+                        self.on_show_structures_changed()
                 
                 logger.info(f"Цветовая гамма переключена на пресет: '{text}'")
 
@@ -3778,10 +3810,6 @@ if PYQT_AVAILABLE:
 
         def start_segmentation(self):
             """Запускает процесс сегментации или отменяет его."""
-            if getattr(self, 'chk_show_structures', None) and self.chk_show_structures.isChecked():
-                self.chk_show_structures.setChecked(False)
-                return
-
             if hasattr(self, 'worker') and self.worker and self.worker.isRunning():
                 reply = QMessageBox.question(
                     self, 
@@ -3795,6 +3823,10 @@ if PYQT_AVAILABLE:
                     self.status_step_label.setStyleSheet("color: #e74c3c; font-weight: bold;")
                     self.worker.cancel()
                     self.scan_timer.start(15000)
+                return
+
+            if getattr(self, 'chk_show_structures', None) and self.chk_show_structures.isChecked():
+                self.chk_show_structures.setChecked(False)
                 return
 
             selected = self.series_table.selectedItems()
