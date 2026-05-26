@@ -2187,6 +2187,46 @@
       198,
       115,
       230
+    ],
+    "thalamus_left": [
+      51,
+      157,
+      95
+    ],
+    "thalamus_right": [
+      191,
+      174,
+      157
+    ],
+    "caudate_left": [
+      87,
+      84,
+      50
+    ],
+    "caudate_right": [
+      50,
+      89,
+      99
+    ],
+    "putamen_left": [
+      175,
+      182,
+      170
+    ],
+    "putamen_right": [
+      121,
+      50,
+      206
+    ],
+    "pallidum_left": [
+      50,
+      57,
+      74
+    ],
+    "pallidum_right": [
+      93,
+      66,
+      237
     ]
   },
   "ru_names": {
@@ -2337,7 +2377,7 @@
     "bridge": "Bridge (bridge)",
     "carpal": "Carpal (carpal)",
     "caudate_nucleus": "Caudate Nucleus (caudate_nucleus)",
-    "central_sulcus": "Central Sulcus (central_sulcus)",
+    "central_sulcus": "Центральная борозда (Central Sulcus)",
     "cerebellum": "Мозжечок (Cerebellum)",
     "coracobrachial": "Coracobrachial (coracobrachial)",
     "coronary_arteries": "Coronary Arteries (coronary_arteries)",
@@ -2357,7 +2397,7 @@
     "femur": "Femur (femur)",
     "fibula": "Fibula (fibula)",
     "fourth_ventricle": "Fourth Ventricle (fourth_ventricle)",
-    "frontal_lobe": "Frontal Lobe (frontal_lobe)",
+    "frontal_lobe": "Лобная доля (Frontal Lobe)",
     "hard_palate": "Hard Palate (hard_palate)",
     "head": "Head (head)",
     "hip_implant": "Hip Implant (hip_implant)",
@@ -2371,9 +2411,9 @@
     "inferior_rectus_muscle_left": "Inferior Rectus Muscle Left (inferior_rectus_muscle_left)",
     "inferior_rectus_muscle_right": "Inferior Rectus Muscle Right (inferior_rectus_muscle_right)",
     "infraspinatus": "Infraspinatus (infraspinatus)",
-    "insular_cortex": "Insular Cortex (insular_cortex)",
+    "insular_cortex": "Островковая кора (Insular Cortex)",
     "intermuscular_fat": "Intermuscular Fat (intermuscular_fat)",
-    "internal_capsule": "Internal Capsule (internal_capsule)",
+    "internal_capsule": "Внутренняя капсула (Internal Capsule)",
     "internal_carotid_artery_left": "Левая внутренняя сонная артерия (Internal Carotid A L)",
     "internal_carotid_artery_right": "Правая внутренняя сонная артерия (Internal Carotid A R)",
     "internal_jugular_vein_left": "Левая внутренняя яремная вена (Jugular Vein L)",
@@ -2471,9 +2511,9 @@
     "nasal_cavity_right": "Nasal Cavity Right (nasal_cavity_right)",
     "nasopharynx": "Носоглотка (Nasopharynx)",
     "non_coronary_cusp": "Non Coronary Cusp (non_coronary_cusp)",
-    "occipital_lobe": "Occipital Lobe (occipital_lobe)",
+    "occipital_lobe": "Затылочная доля (Occipital Lobe)",
     "oropharynx": "Ротоглотка (Oropharynx)",
-    "parietal_lobe": "Parietal Lobe (parietal_lobe)",
+    "parietal_lobe": "Теменная доля (Parietal Lobe)",
     "parotid_gland_left": "Левая околоушная слюнная железа (Parotid Gland L)",
     "parotid_gland_right": "Правая околоушная слюнная железа (Parotid Gland R)",
     "patella": "Patella (patella)",
@@ -2507,7 +2547,7 @@
     "right_maxillary_sinus": "Right Maxillary Sinus (right_maxillary_sinus)",
     "sartorius_left": "Sartorius Left (sartorius_left)",
     "sartorius_right": "Sartorius Right (sartorius_right)",
-    "septum_pellucidum": "Septum Pellucidum (septum_pellucidum)",
+    "septum_pellucidum": "Прозрачная перегородка (Septum Pellucidum)",
     "serratus_anterior": "Serratus Anterior (serratus_anterior)",
     "serratus_anterior_left": "Serratus Anterior Left (serratus_anterior_left)",
     "serratus_anterior_right": "Serratus Anterior Right (serratus_anterior_right)",
@@ -2521,7 +2561,7 @@
     "sternocleidomastoid_right": "Правая грудино-ключично-сосцевидная мышца (Sternocleidomastoid R)",
     "styloid_process_left": "Styloid Process Left (styloid_process_left)",
     "styloid_process_right": "Styloid Process Right (styloid_process_right)",
-    "subarachnoid_space": "Subarachnoid Space (subarachnoid_space)",
+    "subarachnoid_space": "Субарахноидальное пространство (Subarachnoid Space)",
     "subcutaneous_fat": "Subcutaneous Fat (subcutaneous_fat)",
     "submandibular_gland_left": "Левая поднижнечелюстная слюнная железа (Submandibular Gland L)",
     "submandibular_gland_right": "Правая поднижнечелюстная слюнная железа (Submandibular Gland R)",
@@ -2535,7 +2575,7 @@
     "tarsal": "Tarsal (tarsal)",
     "teeth_lower": "Teeth Lower (teeth_lower)",
     "teeth_upper": "Teeth Upper (teeth_upper)",
-    "temporal_lobe": "Temporal Lobe (temporal_lobe)",
+    "temporal_lobe": "Височная доля (Temporal Lobe)",
     "temporalis_left": "Левая височная мышца (Temporalis L)",
     "temporalis_right": "Правая височная мышца (Temporalis R)",
     "teres_major": "Teres Major (teres_major)",
@@ -2592,8 +2632,8 @@
     "upper_right_second_premolar_pulp_fdi115": "Upper Right Second Premolar Pulp Fdi115 (upper_right_second_premolar_pulp_fdi115)",
     "upper_right_third_molar_fdi18": "Upper Right Third Molar Fdi18 (upper_right_third_molar_fdi18)",
     "upper_right_third_molar_pulp_fdi118": "Upper Right Third Molar Pulp Fdi118 (upper_right_third_molar_pulp_fdi118)",
-    "venous_sinuses": "Venous Sinuses (venous_sinuses)",
-    "ventricle": "Ventricle (ventricle)",
+    "venous_sinuses": "Венозные синусы (Venous Sinuses)",
+    "ventricle": "Желудочки мозга (Ventricles)",
     "ventricle_body_left": "Ventricle Body Left (ventricle_body_left)",
     "ventricle_body_right": "Ventricle Body Right (ventricle_body_right)",
     "ventricle_frontal_horn_left": "Ventricle Frontal Horn Left (ventricle_frontal_horn_left)",
@@ -2611,6 +2651,15 @@
     "body": "Тело (Body / Skin)",
     "iliac_vein_left": "Левая подвздошная вена (Left Iliac Vein)",
     "iliac_vein_right": "Правая подвздошная вена (Right Iliac Vein)",
-    "lungs": "Легкие (Lungs Total)"
-  }
+    "lungs": "Легкие (Lungs Total)",
+    "thalamus_left": "Левый таламус (Thalamus L)",
+    "thalamus_right": "Правый таламус (Thalamus R)",
+    "caudate_left": "Левое хвостатое ядро (Caudate L)",
+    "caudate_right": "Правое хвостатое ядро (Caudate R)",
+    "putamen_left": "Левая скорлупа мозга (Putamen L)",
+    "putamen_right": "Правая скорлупа мозга (Putamen R)",
+    "pallidum_left": "Левый бледный шар (Pallidum L)",
+    "pallidum_right": "Правый бледный шар (Pallidum R)"
+  },
+  "licenses": ""
 }

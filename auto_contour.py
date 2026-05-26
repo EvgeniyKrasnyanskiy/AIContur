@@ -865,6 +865,7 @@ if PYQT_AVAILABLE:
                 if reply == QMessageBox.StandardButton.Yes:
                     self.engine.licenses = key
                     self.engine.save_presets_config()
+                    self._write_license_to_totalseg_config(key)
                     self.edit_key.clear()
                     self.update_status_display()
                     QMessageBox.information(self, "Успех", "Лицензия сохранена локально.")
@@ -884,6 +885,7 @@ if PYQT_AVAILABLE:
             # Сохранение валидной лицензии
             self.engine.licenses = key
             self.engine.save_presets_config()
+            self._write_license_to_totalseg_config(key)
             self.edit_key.clear()
             self.update_status_display()
             QMessageBox.information(self, "Успех", "Лицензия для суб-моделей успешно активирована и сохранена! ✅")
@@ -904,8 +906,33 @@ if PYQT_AVAILABLE:
             if reply == QMessageBox.StandardButton.Yes:
                 self.engine.licenses = ""
                 self.engine.save_presets_config()
+                self._write_license_to_totalseg_config("")
                 self.update_status_display()
                 QMessageBox.information(self, "Успех", "Лицензионный ключ успешно удален.")
+
+        def _write_license_to_totalseg_config(self, key: str):
+            """Записывает лицензионный ключ напрямую в config.json TotalSegmentator."""
+            try:
+                from totalsegmentator.libs import get_totalseg_dir
+                import json
+                totalseg_dir = get_totalseg_dir()
+                totalseg_dir.mkdir(parents=True, exist_ok=True)
+                totalseg_config_file = totalseg_dir / "config.json"
+                
+                cfg = {}
+                if totalseg_config_file.exists():
+                    try:
+                        with open(totalseg_config_file, "r", encoding="utf-8") as f:
+                            cfg = json.load(f)
+                    except Exception:
+                        pass
+                
+                cfg["license_number"] = key.strip()
+                with open(totalseg_config_file, "w", encoding="utf-8") as f:
+                    json.dump(cfg, f, indent=4)
+                logger.info(f"Лицензия успешно записана в файл конфигурации TotalSegmentator: {totalseg_config_file}")
+            except Exception as e:
+                logger.error(f"Не удалось записать лицензию в файл конфигурации TotalSegmentator: {e}")
 
     # =========================================================================
     #                    УПРАВЛЕНИЕ МОДЕЛЯМИ ИИ (TotalSegmentator)
@@ -3472,11 +3499,7 @@ if PYQT_AVAILABLE:
             if preset_name == "Пользовательский (Custom)":
                 return
 
-            if preset_name in ORGAN_GROUPS:
-                target_organs = ORGAN_GROUPS[preset_name]
-            elif preset_name == "Все органы (All)":
-                target_organs = self.engine.get_all_supported_organs()
-            else:
+            if preset_name in self.engine.presets:
                 target_organs_raw = self.engine.presets.get(preset_name, [])
                 target_organs = []
                 for item in target_organs_raw:
@@ -3484,6 +3507,12 @@ if PYQT_AVAILABLE:
                         target_organs.extend(item.keys())
                     else:
                         target_organs.append(item)
+            elif preset_name in ORGAN_GROUPS:
+                target_organs = ORGAN_GROUPS[preset_name]
+            elif preset_name == "Все органы (All)":
+                target_organs = self.engine.get_all_supported_organs()
+            else:
+                target_organs = []
 
             # Блокируем сигналы чтобы не вызывать on_organ_item_changed в цикле
             self.organs_list.blockSignals(True)
