@@ -1435,6 +1435,7 @@ if PYQT_AVAILABLE:
             # ------------------------------------------------------------------
             tab2_scroll = QScrollArea()
             tab2_scroll.setWidgetResizable(True)
+            tab2_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
             tab2_scroll.setStyleSheet("QScrollArea { border: none; background-color: transparent; }")
 
             tab2_widget = QWidget()
@@ -1500,8 +1501,8 @@ if PYQT_AVAILABLE:
             device_group = QGroupBox("Вычислительное устройство")
             device_group_layout = QVBoxLayout(device_group)
             device_group_layout.setSpacing(10)
-            self.radio_cpu = QRadioButton("Использовать CPU (Центральный процессор)")
-            self.radio_gpu = QRadioButton("Использовать GPU CUDA (Рекомендуется)")
+            self.radio_cpu = QRadioButton("CPU (Центральный процессор)")
+            self.radio_gpu = QRadioButton("GPU CUDA (Рекомендуется)")
             
             if gpu_available:
                 self.radio_gpu.setChecked(True)
@@ -1520,9 +1521,9 @@ if PYQT_AVAILABLE:
             
             self.precision_combo = QComboBox()
             self.precision_combo.addItems([
-                "Стандартная (1.5 мм разрешение, стандарт)",
-                "Быстрая (3.0 мм разрешение, быстро)",
-                "Ультра-быстрая (Body - поиск контура тела целиком)"
+                "Стандартная (1.5 мм)",
+                "Быстрая (3.0 мм)",
+                "Ультра-быстрая (Body контур тела)"
             ])
             self.precision_combo.setToolTip(
                 "Стандартная: высокое разрешение контуров (1.5 мм)\n"
@@ -1536,14 +1537,14 @@ if PYQT_AVAILABLE:
             post_group = QGroupBox("Постобработка 3D масок")
             post_group_layout = QVBoxLayout(post_group)
             
-            self.clean_blobs_check = QCheckBox("Remove small blobs (Удалять мелкие артефакты)")
+            self.clean_blobs_check = QCheckBox("Удалять мелкие артефакты (Blobs)")
             self.clean_blobs_check.setToolTip(
                 "Удаляет изолированный мелкий шум нейросети на КТ-срезах,\n"
                 "оставляя только основной объем органа."
             )
             self.clean_blobs_check.setChecked(True)
             
-            self.smoothing_check = QCheckBox("Smoothing (Сглаживание контуров)")
+            self.smoothing_check = QCheckBox("Сглаживание контуров (Smoothing)")
             self.smoothing_check.setToolTip(
                 "Применяет Гауссову фильтрацию к 3D-маске, убирая «ступенчатость» срезов."
             )
