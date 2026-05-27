@@ -171,8 +171,8 @@ class QueueManager:
                 job.current_step = "Отменено пользователем."
                 job.completed_at = time.time()
                 logger.info(f"Задача {job_id} отменена в очереди.")
-                # Удаляем файлы задачи для экономии места
-                self._cleanup_job_dir(job_id)
+                # Сохраняем исходный DICOM архив для возможности последующего возобновления
+                self._cleanup_job_dir(job_id, keep_result=False, keep_input=True)
                 return True
                 
             elif job.status == "PROCESSING":
@@ -188,7 +188,8 @@ class QueueManager:
                         logger.error(f"Не удалось остановить процесс задачи {job_id}: {e}")
                 
                 logger.info(f"Активная задача {job_id} была принудительно отменена.")
-                self._cleanup_job_dir(job_id)
+                # Сохраняем исходный DICOM архив для возможности последующего возобновления
+                self._cleanup_job_dir(job_id, keep_result=False, keep_input=True)
                 return True
                 
             return False
