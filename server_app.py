@@ -1745,11 +1745,11 @@ if PYQT_AVAILABLE:
             logging.info("Очистка порта 8000 от старых процессов...")
             if os.name == 'nt':
                 try:
-                    netstat_out = subprocess.check_output("netstat -ano | findstr :8000", shell=True, text=True)
+                    netstat_out = subprocess.check_output("netstat -ano", shell=True, text=True)
                     pids_to_kill = set()
                     current_pid = str(os.getpid())
                     for line in netstat_out.strip().split("\n"):
-                        if "LISTENING" in line:
+                        if ":8000" in line and "LISTENING" in line:
                             parts = [p.strip() for p in line.split(" ") if p.strip()]
                             if len(parts) >= 5:
                                 pid = parts[-1]
@@ -1766,14 +1766,25 @@ if PYQT_AVAILABLE:
                 creation_flags = 0
                 if os.name == 'nt':
                     creation_flags = subprocess.CREATE_NO_WINDOW
-                    
+                
+                app_dir = os.path.dirname(os.path.abspath(__file__))
+                logs_dir = os.path.join(app_dir, "logs")
+                os.makedirs(logs_dir, exist_ok=True)
+                stdout_log_path = os.path.join(logs_dir, "server_stdout.log")
+                
+                # Открываем файл логов в режиме перезаписи/дозаписи
+                self.server_stdout_file = open(stdout_log_path, "a", encoding="utf-8")
+                self.server_stdout_file.write(f"\n--- ЗАПУСК СЕРВЕРА: {time.strftime('%Y-%m-%d %H:%M:%S')} ---\n")
+                self.server_stdout_file.flush()
+                
                 self.server_process = subprocess.Popen(
                     [sys.executable, "server/main.py"],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    creationflags=creation_flags
+                    stdout=self.server_stdout_file,
+                    stderr=subprocess.STDOUT,
+                    creationflags=creation_flags,
+                    cwd=app_dir
                 )
-                logging.info("Процесс FastAPI сервера успешно запущен.")
+                logging.info(f"Процесс FastAPI сервера запущен. Логи бэкенда пишутся в: {stdout_log_path}")
             except Exception as e:
                 logging.error(f"Не удалось запустить процесс сервера: {e}")
                 QMessageBox.critical(self, "Ошибка сервера", f"Не удалось запустить серверный процесс: {e}")
@@ -5191,14 +5202,31 @@ if PYQT_AVAILABLE:
                 logging.info("Закрытие панели управления сервером...")
                 if hasattr(self, "server_process") and self.server_process:
                     logging.info("Останавливаем фоновый процесс бэкенда сервера...")
-                    self.server_process.terminate()
+                    pid = self.server_process.pid
+                    if os.name == 'nt':
+                        # На Windows используем taskkill /T для убийства всего дерева процессов (uvicorn + дочерние)
+                        import subprocess as sp
+                        sp.run(
+                            f"taskkill /F /T /PID {pid}",
+                            shell=True,
+                            stdout=sp.DEVNULL,
+                            stderr=sp.DEVNULL
+                        )
+                    else:
+                        self.server_process.terminate()
                     try:
-                        self.server_process.wait(timeout=2)
+                        self.server_process.wait(timeout=3)
                     except Exception:
                         self.server_process.kill()
+                if hasattr(self, "server_stdout_file") and self.server_stdout_file:
+                    try:
+                        self.server_stdout_file.close()
+                    except Exception:
+                        pass
                 event.accept()
             else:
                 event.ignore()
+
 
         def get_local_ip(self) -> str:
             """Получает локальный IP адрес сервера в сети."""
