@@ -195,6 +195,20 @@ def prioritize_job(job_id: str):
                 "message": f"Невозможно изменить приоритет задачи в текущем статусе: {job.status}"
             }
 
+@app.post("/api/jobs/{job_id}/resume")
+def resume_job(job_id: str):
+    """
+    Возобновление упавшей или отмененной задачи.
+    """
+    success = queue_manager.resume_job(job_id)
+    if success:
+        return {"job_id": job_id, "status": "PENDING", "message": "Задача успешно возобновлена."}
+    else:
+        raise HTTPException(
+            status_code=400, 
+            detail="Не удалось возобновить задачу. Возможно, она не в статусе FAILED/CANCELLED или её файлы удалены."
+        )
+
 class ReorderPayload(BaseModel):
     job_ids: List[str]
 

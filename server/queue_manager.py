@@ -256,8 +256,8 @@ class QueueManager:
                 })
             return info_list
 
-    def _cleanup_job_dir(self, job_id: str, keep_result: bool = False):
-        """Очищает тяжелые исходные DICOM и временные NIfTI, оставляя только ZIP результата."""
+    def _cleanup_job_dir(self, job_id: str, keep_result: bool = False, keep_input: bool = False):
+        """Очищает тяжелые исходные DICOM и временные NIfTI, оставляя только ZIP результата или ZIP входа."""
         try:
             job_dir = self.jobs_root / job_id
             if not job_dir.exists():
@@ -265,15 +265,41 @@ class QueueManager:
                 
             for p in job_dir.iterdir():
                 if p.is_file():
-                    # Если нужно сохранить результат, не трогаем result.zip
                     if keep_result and p.name == "result.zip":
+                        continue
+                    if keep_input and p.name == "dicom_input.zip":
                         continue
                     p.unlink()
                 elif p.is_dir():
                     shutil.rmtree(p)
-            logger.debug(f"Файлы задачи {job_id} очищены. Результаты сохранены: {keep_result}")
+            logger.debug(f"Файлы задачи {job_id} очищены. Результаты: {keep_result}, Входные файлы: {keep_input}")
         except Exception as e:
             logger.error(f"Ошибка очистки папки задачи {job_id}: {e}")
+
+    def resume_job(self, job_id: str) -> bool:
+        """Возобновление ранее отмененной или упавшей задачи."""
+        with self.lock:
+            job = self.jobs.get(job_id)
+            if not job:
+                return False
+            if job.status in ["FAILED", "CANCELLED"]:
+                job_dir = self.jobs_root / job_id
+                dicom_zip = job_dir / "dicom_input.zip"
+                if not dicom_zip.exists():
+                    logger.warning(f"Невозможно возобновить задачу {job_id}: исходный DICOM-архив удален.")
+                    return False
+                
+                job.status = "PENDING"
+                job.progress = 0
+                job.current_step = "Возобновлено оператором. Ожидание..."
+                job.error_message = None
+                job.logs.append("--- Задача возобновлена оператором ---")
+                
+                if job_id not in self.pending_queue:
+                    self.pending_queue.append(job_id)
+                logger.info(f"Задача {job_id} успешно возобновлена и возвращена в очередь.")
+                return True
+            return False
 
     def _worker_loop(self):
         """Главный цикл воркера: последовательно вытаскивает задачи из очереди и считает."""
@@ -458,8 +484,8 @@ class QueueManager:
                 except Exception as se:
                     logger.warning(f"Не удалось записать статистику отмены/сбоя сервера: {se}")
             
-            # Полная очистка при сбое (результата нет)
-            self._cleanup_job_dir(job.job_id, keep_result=False)
+            # Полная очистка при сбое (результата нет, но сохраняем входной архив для возможности возобновления)
+            self._cleanup_job_dir(job.job_id, keep_result=False, keep_input=True)
 
     def _update_job_patient_metadata(self, job: ServerJob, dicom_dir: Path):
         """Считывает имя и ID пациента для красивого отображения в очереди."""

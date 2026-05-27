@@ -44,7 +44,7 @@ try:
         QProgressDialog, QScrollArea
     )
     from PyQt6.QtCore import QThread, pyqtSignal, Qt, QObject, QSettings, QTimer
-    from PyQt6.QtGui import QTextCursor, QBrush, QColor, QFont, QIcon, QPixmap
+    from PyQt6.QtGui import QTextCursor, QBrush, QColor, QFont, QIcon, QPixmap, QPalette
     PYQT_AVAILABLE = True
 except ImportError:
     PYQT_AVAILABLE = False
@@ -654,6 +654,24 @@ if PYQT_AVAILABLE:
         color: #e0e0e0;
         font-family: "Segoe UI", Arial, sans-serif;
         font-size: 13px;
+    }
+
+    QMenu {
+        background-color: #242424;
+        color: #ffffff;
+        border: 1px solid #333333;
+    }
+    QMenu::item {
+        background-color: transparent;
+        padding: 6px 20px;
+        color: #ffffff;
+    }
+    QMenu::item:selected {
+        background-color: #007acc;
+        color: #ffffff;
+    }
+    QMenu::item:disabled {
+        color: #666666;
     }
 
     QToolTip {
@@ -1739,7 +1757,7 @@ if PYQT_AVAILABLE:
             
             # Индикатор состояния сервера в правом верхнем углу вкладок
             self.lbl_server_status_indicator = QLabel("Сервер: Недоступен 🔴")
-            self.lbl_server_status_indicator.setStyleSheet("font-weight: bold; color: #ff6b6b; margin-right: 10px; font-size: 12px;")
+            self.lbl_server_status_indicator.setStyleSheet("font-weight: bold; color: #ff6b6b; margin-right: 10px; margin-bottom: 15px; font-size: 12px;")
             self.tab_widget.setCornerWidget(self.lbl_server_status_indicator, Qt.Corner.TopRightCorner)
             
             left_layout.addWidget(self.tab_widget)
@@ -2993,7 +3011,19 @@ if PYQT_AVAILABLE:
                 self._is_updating_table = False
             
         def update_run_button(self, is_patient_selected: bool, custom_text: str = None):
-            if hasattr(self, 'worker') and self.worker and self.worker.isRunning():
+            # Поиск активного воркера для выделенного в таблице пациента
+            active_worker = None
+            selected = self.series_table.selectedItems()
+            if selected and hasattr(self, 'active_workers'):
+                row = selected[0].row()
+                selected_path = self.series_table.item(row, 6).text() if self.series_table.item(row, 6) else None
+                if selected_path:
+                    for w in self.active_workers:
+                        if w.dicom_dir == selected_path and w.isRunning():
+                            active_worker = w
+                            break
+
+            if active_worker:
                 target_text = "ОТМЕНИТЬ РАСЧЕТ ❌"
                 target_enabled = True
                 if self.btn_run.text() != target_text:
@@ -3383,7 +3413,14 @@ if PYQT_AVAILABLE:
         def on_show_structures_toggled(self, state: int):
             if state == 2:  # Qt.CheckState.Checked
                 # Предупреждение при просмотре во время сегментации на CPU
-                if (hasattr(self, 'worker') and self.worker and self.worker.isRunning()
+                has_active_workers = False
+                if hasattr(self, 'active_workers'):
+                    for w in self.active_workers:
+                        if w.isRunning():
+                            has_active_workers = True
+                            break
+
+                if (has_active_workers
                         and hasattr(self, 'radio_cpu') and self.radio_cpu.isChecked()):
                     from PyQt6.QtWidgets import QMessageBox
                     msg = QMessageBox(self)
@@ -4365,6 +4402,26 @@ if PYQT_AVAILABLE:
             dicom_dir = self.series_table.item(row, 6).text()
             patient_name = self.series_table.item(row, 0).text() if self.series_table.item(row, 0) else "Неизвестный"
 
+            # Поиск активного воркера для отмены
+            active_worker = None
+            if dicom_dir and hasattr(self, 'active_workers'):
+                for w in self.active_workers:
+                    if w.dicom_dir == dicom_dir and w.isRunning():
+                        active_worker = w
+                        break
+
+            if active_worker:
+                reply = QMessageBox.question(
+                    self, "Подтверждение отмены расчета",
+                    f"Вы действительно хотите отменить расчет для пациента {patient_name}?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                )
+                if reply == QMessageBox.StandardButton.Yes:
+                    self.append_log(f"[INFO]: Отмена расчета для пациента {patient_name} по запросу пользователя...", "#c0392b")
+                    active_worker.cancel()
+                    self.btn_run.setEnabled(False)
+                return
+
             if not dicom_dir or not os.path.isdir(dicom_dir):
                 QMessageBox.critical(self, "Ошибка", "Путь к DICOM-серии недействителен!")
                 return
@@ -4594,16 +4651,16 @@ if PYQT_AVAILABLE:
                 # Обновление постоянного индикатора состояния сервера
                 if is_paused:
                     self.lbl_server_status_indicator.setText("Сервер: ⏸️")
-                    self.lbl_server_status_indicator.setStyleSheet("font-weight: bold; color: #f39c12; margin-right: 10px; font-size: 12px;")
+                    self.lbl_server_status_indicator.setStyleSheet("font-weight: bold; color: #f39c12; margin-right: 10px; margin-bottom: 15px; font-size: 12px;")
                 else:
                     self.lbl_server_status_indicator.setText("Сервер: ✅")
-                    self.lbl_server_status_indicator.setStyleSheet("font-weight: bold; color: #2ecc71; margin-right: 10px; font-size: 12px;")
+                    self.lbl_server_status_indicator.setStyleSheet("font-weight: bold; color: #2ecc71; margin-right: 10px; margin-bottom: 15px; font-size: 12px;")
                 
             except Exception as e:
                 self.table_queue.setRowCount(0)
                 # Обновление индикатора в случае недоступности сервера
                 self.lbl_server_status_indicator.setText("Сервер: ❌")
-                self.lbl_server_status_indicator.setStyleSheet("font-weight: bold; color: #ff6b6b; margin-right: 10px; font-size: 12px;")
+                self.lbl_server_status_indicator.setStyleSheet("font-weight: bold; color: #ff6b6b; margin-right: 10px; margin-bottom: 15px; font-size: 12px;")
                 return
 
             # Обновление таблицы очереди (только задачи данного клиента)
@@ -4892,6 +4949,7 @@ if PYQT_AVAILABLE:
             finally:
                 if worker in self.active_workers:
                     self.active_workers.remove(worker)
+                self.update_run_button(bool(self.series_table.selectedItems()))
 
         def on_segmentation_finished(self, success: bool, message: str):
             try:
@@ -5403,6 +5461,11 @@ if PYQT_AVAILABLE:
                 QMessageBox.StandardButton.No
             )
             if reply == QMessageBox.StandardButton.Yes:
+                if hasattr(self, 'active_workers'):
+                    for w in list(self.active_workers):
+                        if w.isRunning():
+                            w.cancel()
+                            w.wait()
                 event.accept()
             else:
                 event.ignore()
@@ -5428,6 +5491,12 @@ if __name__ == "__main__":
 
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
+
+    # Настройка палитры приложения для серых неактивных пунктов меню на Windows
+    palette = app.palette()
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Text, QColor("#666666"))
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.ButtonText, QColor("#666666"))
+    app.setPalette(palette)
 
     # Защита от запуска второй копии программы (используем мьютекс Windows)
     try:

@@ -44,7 +44,7 @@ try:
         QProgressDialog, QScrollArea, QGridLayout
     )
     from PyQt6.QtCore import QThread, pyqtSignal, Qt, QObject, QSettings, QTimer
-    from PyQt6.QtGui import QTextCursor, QBrush, QColor, QFont, QIcon, QPixmap
+    from PyQt6.QtGui import QTextCursor, QBrush, QColor, QFont, QIcon, QPixmap, QPalette
     PYQT_AVAILABLE = True
 except ImportError:
     PYQT_AVAILABLE = False
@@ -678,6 +678,24 @@ if PYQT_AVAILABLE:
         color: #e0e0e0;
         font-family: "Segoe UI", Arial, sans-serif;
         font-size: 13px;
+    }
+
+    QMenu {
+        background-color: #242424;
+        color: #ffffff;
+        border: 1px solid #333333;
+    }
+    QMenu::item {
+        background-color: transparent;
+        padding: 6px 20px;
+        color: #ffffff;
+    }
+    QMenu::item:selected {
+        background-color: #007acc;
+        color: #ffffff;
+    }
+    QMenu::item:disabled {
+        color: #666666;
     }
 
     QToolTip {
@@ -1893,7 +1911,7 @@ if PYQT_AVAILABLE:
             # --- ЛЕВАЯ КОЛОНКА (Вкладки настроек) ---
             self.left_card = QFrame()
             self.left_card.setObjectName("card")
-            self.left_card.setMinimumWidth(430)
+            self.left_card.setMinimumWidth(490)
             left_layout = QVBoxLayout(self.left_card)
             left_layout.setContentsMargins(5, 5, 5, 5)
 
@@ -2640,13 +2658,13 @@ if PYQT_AVAILABLE:
             self.smoothing_combo.currentIndexChanged.connect(self.save_settings)
             self.color_preset_combo.currentIndexChanged.connect(self.save_settings)
             
-            self.splitter.setSizes([430, 490])
+            self.splitter.setSizes([490, 430])
 
         def resizeEvent(self, event):
             """Динамическое ограничение максимальной ширины левой панели до 50% ширины окна."""
             super().resizeEvent(event)
             if hasattr(self, 'left_card'):
-                max_w = max(430, int(self.width() * 0.5))
+                max_w = max(490, int(self.width() * 0.5))
                 self.left_card.setMaximumWidth(max_w)
 
         def update_license_status_label(self):
@@ -3449,9 +3467,9 @@ if PYQT_AVAILABLE:
                 
                 # Возвращаем левую панель и сплиттеры к стандартным размерам
                 if hasattr(self, 'left_card') and hasattr(self, 'splitter'):
-                    self.left_card.setMinimumWidth(430)
-                    self.left_card.setMaximumWidth(max(430, int(self.width() * 0.5)))
-                    self.splitter.setSizes([430, 490])
+                    self.left_card.setMinimumWidth(490)
+                    self.left_card.setMaximumWidth(max(490, int(self.width() * 0.5)))
+                    self.splitter.setSizes([490, 430])
                 if hasattr(self, 'main_splitter'):
                     self.main_splitter.setSizes([600, 400])
                 if hasattr(self, 'v_splitter'):
@@ -3651,9 +3669,9 @@ if PYQT_AVAILABLE:
                 
                 # Возвращаем левую панель и сплиттеры к стандартным размерам
                 if hasattr(self, 'left_card') and hasattr(self, 'splitter'):
-                    self.left_card.setMinimumWidth(430)
-                    self.left_card.setMaximumWidth(max(430, int(self.width() * 0.5)))
-                    self.splitter.setSizes([430, 490])
+                    self.left_card.setMinimumWidth(490)
+                    self.left_card.setMaximumWidth(max(490, int(self.width() * 0.5)))
+                    self.splitter.setSizes([490, 430])
                 if hasattr(self, 'main_splitter'):
                     self.main_splitter.setSizes([600, 400])
                 if hasattr(self, 'v_splitter'):
@@ -3686,9 +3704,9 @@ if PYQT_AVAILABLE:
                 
                 # Возвращаем левую панель и сплиттеры к стандартным размерам при отсутствии файла
                 if hasattr(self, 'left_card') and hasattr(self, 'splitter'):
-                    self.left_card.setMinimumWidth(430)
-                    self.left_card.setMaximumWidth(max(430, int(self.width() * 0.5)))
-                    self.splitter.setSizes([430, 490])
+                    self.left_card.setMinimumWidth(490)
+                    self.left_card.setMaximumWidth(max(490, int(self.width() * 0.5)))
+                    self.splitter.setSizes([490, 430])
                 if hasattr(self, 'main_splitter'):
                     self.main_splitter.setSizes([600, 400])
                 if hasattr(self, 'v_splitter'):
@@ -3705,9 +3723,9 @@ if PYQT_AVAILABLE:
                 
             # Увеличиваем вьюер за счет сжатия таблицы КТ и логов (левая панель со структурами сохраняет стандартный размер!)
             if hasattr(self, 'left_card') and hasattr(self, 'splitter'):
-                self.left_card.setMinimumWidth(430)
-                self.left_card.setMaximumWidth(max(430, int(self.width() * 0.5)))
-                self.splitter.setSizes([430, 490])
+                self.left_card.setMinimumWidth(490)
+                self.left_card.setMaximumWidth(max(490, int(self.width() * 0.5)))
+                self.splitter.setSizes([490, 430])
             if hasattr(self, 'main_splitter'):
                 self.main_splitter.setSizes([150, 850])
             if hasattr(self, 'v_splitter'):
@@ -5627,12 +5645,18 @@ if PYQT_AVAILABLE:
             is_pending = (status_text == "PENDING")
             prioritize_action.setEnabled(is_pending and row > 0)
             
+            # Возобновление
+            resume_action = menu.addAction("Возобновить задачу 🔄")
+            resume_action.setEnabled(status_text in ["FAILED", "CANCELLED"])
+            
             # Действия
             action = menu.exec(self.table_queue.mapToGlobal(pos))
             if action == cancel_action:
                 self.cancel_job_by_id(job_id)
             elif action == prioritize_action:
                 self.prioritize_job(job_id)
+            elif action == resume_action:
+                self.resume_job_by_id(job_id)
 
         def cancel_job_by_id(self, job_id: str):
             reply = QMessageBox.question(
@@ -5681,6 +5705,23 @@ if PYQT_AVAILABLE:
                 logger.error(f"Не удалось отправить новый порядок очереди на сервер: {e}")
                 QMessageBox.warning(self, "Ошибка сортировки", f"Не удалось изменить порядок задач: {e}")
 
+        def resume_job_by_id(self, job_id: str):
+            """Запрос на возобновление упавшей или отмененной задачи."""
+            try:
+                import requests
+                server_url = self.get_server_url()
+                res = requests.post(f"{server_url}/api/jobs/{job_id}/resume", timeout=3)
+                if res.status_code != 200:
+                    try:
+                        detail = res.json().get("detail", res.text)
+                    except Exception:
+                        detail = res.text
+                    raise RuntimeError(detail)
+                logger.info(f"Задача {job_id} успешно возобновлена.")
+            except Exception as e:
+                logger.error(f"Не удалось возобновить задачу {job_id}: {e}")
+                QMessageBox.warning(self, "Ошибка возобновления", f"Не удалось возобновить выбранную задачу: {e}")
+
 
 # ==============================================================================
 # Исполняемый блок программы
@@ -5702,6 +5743,12 @@ if __name__ == "__main__":
 
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
+
+    # Настройка палитры приложения для серых неактивных пунктов меню на Windows
+    palette = app.palette()
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Text, QColor("#666666"))
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.ButtonText, QColor("#666666"))
+    app.setPalette(palette)
 
     # Защита от запуска второй копии программы (используем мьютекс Windows)
     try:
