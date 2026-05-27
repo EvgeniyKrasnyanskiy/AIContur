@@ -4674,21 +4674,29 @@ if PYQT_AVAILABLE:
                         logger.error(f"Не удалось воспроизвести звуковое оповещение: {e}")
                 
                 if success:
-                    # Если папка DICOM, которую мы только что оконтурили, сейчас выделена в таблице, то обновляем контуры
-                    selected = self.series_table.selectedItems()
-                    if selected:
-                        row = selected[0].row()
-                        path_item = self.series_table.item(row, 6)
-                        if path_item and Path(path_item.text()).resolve() == Path(dicom_dir).resolve():
-                            # Сканируем RTSTRUCT
-                            self.check_for_rtstruct(dicom_dir)
-                            
-                            # Обновляем статус структуры в таблице на точное количество найденных файлов
-                            item_str = self.series_table.item(row, 2)
-                            if item_str:
-                                item_str.setText(format_rtstruct_count(len(self.rtstruct_files)))
-                            
-                            # Автоматически активируем галочку и отрисовываем контуры во вьюера
+                    # Находим строку в таблице, соответствующую dicom_dir
+                    target_row = -1
+                    for r in range(self.series_table.rowCount()):
+                        p_item = self.series_table.item(r, 6)
+                        if p_item:
+                            p_norm = os.path.normpath(os.path.abspath(p_item.text())).lower()
+                            d_norm = os.path.normpath(os.path.abspath(dicom_dir)).lower()
+                            if p_norm == d_norm:
+                                target_row = r
+                                break
+                    
+                    if target_row >= 0:
+                        # Сканируем RTSTRUCT
+                        self.check_for_rtstruct(dicom_dir)
+                        
+                        # Обновляем статус структуры в таблице на точное количество найденных файлов
+                        item_str = self.series_table.item(target_row, 2)
+                        if item_str:
+                            item_str.setText(format_rtstruct_count(len(self.rtstruct_files)))
+                        
+                        # Если эта строка сейчас выделена в таблице, автоматически активируем галочку и отрисовываем контуры во вьюере
+                        selected = self.series_table.selectedItems()
+                        if selected and selected[0].row() == target_row:
                             if hasattr(self, 'chk_show_structures') and self.chk_show_structures.isEnabled():
                                 self.chk_show_structures.setChecked(True)
                     
