@@ -2429,17 +2429,6 @@ if PYQT_AVAILABLE:
             
             bottom_splitter = QSplitter(Qt.Orientation.Vertical)
             bottom_splitter.setObjectName("bottomSplitter")
-            bottom_splitter.setHandleWidth(8)
-            bottom_splitter.setStyleSheet("""
-                QSplitter#bottomSplitter::handle {
-                    background-color: #2c3e50;
-                    border-top: 1px solid #34495e;
-                    border-bottom: 1px solid #34495e;
-                }
-                QSplitter#bottomSplitter::handle:hover {
-                    background-color: #3498db;
-                }
-            """)
             
             # 1. Зона логов
             logs_widget = QWidget()
