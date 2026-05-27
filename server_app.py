@@ -240,6 +240,10 @@ if PYQT_AVAILABLE:
         """Вспомогательный класс сигналов для потокобезопасного вывода логов."""
         log_signal = pyqtSignal(str, str)
 
+    class PauseSignaler(QObject):
+        """Вспомогательный класс сигналов для потокобезопасного изменения паузы."""
+        pause_signal = pyqtSignal(bool, bool)
+
     class StreamToSignaler:
         """Перенаправляет текстовые потоки в сигналы PyQt6."""
         def __init__(self, signaler: LogSignaler, level: str = "INFO"):
@@ -1688,6 +1692,9 @@ if PYQT_AVAILABLE:
             self.log_signaler.log_signal.connect(self.append_log)
             self.log_handler = QTextEditLogHandler(self.log_signaler)
             logging.getLogger().addHandler(self.log_handler)
+
+            self.pause_signaler = PauseSignaler()
+            self.pause_signaler.pause_signal.connect(self.update_gui_after_pause)
 
             # Таймер активности (спиннер + пульсация цвета)
             self.activity_timer = QTimer(self)
@@ -5223,69 +5230,70 @@ if PYQT_AVAILABLE:
                 except Exception as e:
                     logger.error(f"Не удалось отправить запрос смены паузы: {e}")
                     
-                def update_gui():
-                    self.is_toggling_pause = False
-                    self.btn_pause_toggle.setEnabled(True)
-                    if success:
-                        self.server_is_paused = not current_paused
-                        if self.server_is_paused:
-                            self.btn_pause_toggle.setText("СЕРВЕР НА ПАУЗЕ ⏸️")
-                            self.btn_pause_toggle.setStyleSheet("""
-                                QPushButton#btnPauseActive {
-                                    background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #d35400, stop: 1 #a04000);
-                                    border: 1px solid #e67e22;
-                                    color: #ffffff;
-                                    padding: 8px 18px;
-                                    font-size: 13px;
-                                    font-weight: bold;
-                                }
-                            """)
-                        else:
-                            self.btn_pause_toggle.setText("СЕРВЕР АКТИВЕН 🟢")
-                            self.btn_pause_toggle.setStyleSheet("""
-                                QPushButton#btnPauseActive {
-                                    background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #27ae60, stop: 1 #1e8449);
-                                    border: 1px solid #2ecc71;
-                                    color: #ffffff;
-                                    padding: 8px 18px;
-                                    font-size: 13px;
-                                    font-weight: bold;
-                                }
-                            """)
-                    else:
-                        self.server_is_paused = current_paused
-                        # Бесшумный откат состояния кнопки при ошибке
-                        if self.server_is_paused:
-                            self.btn_pause_toggle.setText("СЕРВЕР НА ПАУЗЕ ⏸️")
-                            self.btn_pause_toggle.setStyleSheet("""
-                                QPushButton#btnPauseActive {
-                                    background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #d35400, stop: 1 #a04000);
-                                    border: 1px solid #e67e22;
-                                    color: #ffffff;
-                                    padding: 8px 18px;
-                                    font-size: 13px;
-                                    font-weight: bold;
-                                }
-                            """)
-                        else:
-                            self.btn_pause_toggle.setText("СЕРВЕР АКТИВЕН 🟢")
-                            self.btn_pause_toggle.setStyleSheet("""
-                                QPushButton#btnPauseActive {
-                                    background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #27ae60, stop: 1 #1e8449);
-                                    border: 1px solid #2ecc71;
-                                    color: #ffffff;
-                                    padding: 8px 18px;
-                                    font-size: 13px;
-                                    font-weight: bold;
-                                }
-                            """)
-                        self.update_server_ui()
-                        
-                from PyQt6.QtCore import QTimer
-                QTimer.singleShot(0, update_gui)
+                # Безопасно отправляем сигнал в главный поток
+                self.pause_signaler.pause_signal.emit(success, current_paused)
                 
             import threading
             threading.Thread(target=worker, daemon=True).start()
+
+        def update_gui_after_pause(self, success, current_paused):
+            """Вызывается строго в главном потоке GUI при получении сигнала от фонового worker-а."""
+            self.is_toggling_pause = False
+            self.btn_pause_toggle.setEnabled(True)
+            if success:
+                self.server_is_paused = not current_paused
+                if self.server_is_paused:
+                    self.btn_pause_toggle.setText("СЕРВЕР НА ПАУЗЕ ⏸️")
+                    self.btn_pause_toggle.setStyleSheet("""
+                        QPushButton#btnPauseActive {
+                            background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #d35400, stop: 1 #a04000);
+                            border: 1px solid #e67e22;
+                            color: #ffffff;
+                            padding: 8px 18px;
+                            font-size: 13px;
+                            font-weight: bold;
+                        }
+                    """)
+                else:
+                    self.btn_pause_toggle.setText("СЕРВЕР АКТИВЕН 🟢")
+                    self.btn_pause_toggle.setStyleSheet("""
+                        QPushButton#btnPauseActive {
+                            background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #27ae60, stop: 1 #1e8449);
+                            border: 1px solid #2ecc71;
+                            color: #ffffff;
+                            padding: 8px 18px;
+                            font-size: 13px;
+                            font-weight: bold;
+                        }
+                    """)
+            else:
+                self.server_is_paused = current_paused
+                # Бесшумный откат состояния кнопки при ошибке
+                if self.server_is_paused:
+                    self.btn_pause_toggle.setText("СЕРВЕР НА ПАУЗЕ ⏸️")
+                    self.btn_pause_toggle.setStyleSheet("""
+                        QPushButton#btnPauseActive {
+                            background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #d35400, stop: 1 #a04000);
+                            border: 1px solid #e67e22;
+                            color: #ffffff;
+                            padding: 8px 18px;
+                            font-size: 13px;
+                            font-weight: bold;
+                        }
+                    """)
+                else:
+                    self.btn_pause_toggle.setText("СЕРВЕР АКТИВЕН 🟢")
+                    self.btn_pause_toggle.setStyleSheet("""
+                        QPushButton#btnPauseActive {
+                            background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #27ae60, stop: 1 #1e8449);
+                            border: 1px solid #2ecc71;
+                            color: #ffffff;
+                            padding: 8px 18px;
+                            font-size: 13px;
+                            font-weight: bold;
+                        }
+                    """)
+                self.update_server_ui()
 
         def update_server_ui(self):
             """Вызывается по таймеру раз в секунду: запрашивает статус через REST API в фоновом потоке и обновляет интерфейс."""
