@@ -991,6 +991,7 @@ if PYQT_AVAILABLE:
         border-top-left-radius: 4px;
         border-top-right-radius: 4px;
         color: #a0a0a0;
+    }
     QTabBar::tab:selected {
         background: #242424;
         border-bottom-color: #242424;

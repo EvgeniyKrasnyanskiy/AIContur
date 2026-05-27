@@ -69,8 +69,9 @@ class QueueManager:
         self.pending_queue: List[str] = []
         self.is_paused = False
         
-        self.lock = threading.Lock()
-        self.engine = ContourEngine(config_path="presets.json")
+        self.engine = ContourEngine()
+        from config import StatisticsManager
+        self.stats_mgr = StatisticsManager()
         
         # Фоновый рабочий поток
         self.worker_thread = None
@@ -347,11 +348,8 @@ class QueueManager:
                 
             logger.info(f"Задача {job.job_id} успешно завершена за {elapsed_time:.1f} сек. Результат упакован.")
             
-            # Регистрируем в глобальной статистике сервера
             try:
-                from config import StatisticsManager
-                stats_mgr = StatisticsManager()
-                stats_mgr.record_run(
+                self.stats_mgr.record_run(
                     status="success",
                     elapsed_seconds=elapsed_time,
                     organs_contoured=job.options.get("selected_organs") or [],
@@ -375,9 +373,7 @@ class QueueManager:
                     job.completed_at = time.time()
                     
                     try:
-                        from config import StatisticsManager
-                        stats_mgr = StatisticsManager()
-                        stats_mgr.record_run(
+                        self.stats_mgr.record_run(
                             status="failed",
                             elapsed_seconds=time.time() - (job.started_at or time.time()),
                             organs_contoured=[],
