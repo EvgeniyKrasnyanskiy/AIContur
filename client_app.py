@@ -1757,7 +1757,7 @@ if PYQT_AVAILABLE:
             
             # Индикатор состояния сервера в правом верхнем углу вкладок
             self.lbl_server_status_indicator = QLabel("Сервер: Недоступен 🔴")
-            self.lbl_server_status_indicator.setStyleSheet("font-weight: bold; color: #ff6b6b; margin-right: 10px; margin-bottom: 15px; font-size: 12px;")
+            self.lbl_server_status_indicator.setStyleSheet("font-weight: bold; color: #ff6b6b; margin-right: 10px; margin-bottom: 7px; font-size: 12px;")
             self.tab_widget.setCornerWidget(self.lbl_server_status_indicator, Qt.Corner.TopRightCorner)
             
             left_layout.addWidget(self.tab_widget)
@@ -4651,16 +4651,16 @@ if PYQT_AVAILABLE:
                 # Обновление постоянного индикатора состояния сервера
                 if is_paused:
                     self.lbl_server_status_indicator.setText("Сервер: ⏸️")
-                    self.lbl_server_status_indicator.setStyleSheet("font-weight: bold; color: #f39c12; margin-right: 10px; margin-bottom: 15px; font-size: 12px;")
+                    self.lbl_server_status_indicator.setStyleSheet("font-weight: bold; color: #f39c12; margin-right: 10px; margin-bottom: 7px; font-size: 12px;")
                 else:
                     self.lbl_server_status_indicator.setText("Сервер: ✅")
-                    self.lbl_server_status_indicator.setStyleSheet("font-weight: bold; color: #2ecc71; margin-right: 10px; margin-bottom: 15px; font-size: 12px;")
+                    self.lbl_server_status_indicator.setStyleSheet("font-weight: bold; color: #2ecc71; margin-right: 10px; margin-bottom: 7px; font-size: 12px;")
                 
             except Exception as e:
                 self.table_queue.setRowCount(0)
                 # Обновление индикатора в случае недоступности сервера
                 self.lbl_server_status_indicator.setText("Сервер: ❌")
-                self.lbl_server_status_indicator.setStyleSheet("font-weight: bold; color: #ff6b6b; margin-right: 10px; margin-bottom: 15px; font-size: 12px;")
+                self.lbl_server_status_indicator.setStyleSheet("font-weight: bold; color: #ff6b6b; margin-right: 10px; margin-bottom: 7px; font-size: 12px;")
                 return
 
             # Обновление таблицы очереди (только задачи данного клиента)
