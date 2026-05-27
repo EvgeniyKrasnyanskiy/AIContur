@@ -2226,6 +2226,11 @@ if PYQT_AVAILABLE:
             viewer_layout = QVBoxLayout(viewer_container)
             viewer_layout.setContentsMargins(0, 0, 0, 0)
             
+            # Заголовок секции просмотра
+            viewer_section_header = QLabel("Просмотр")
+            viewer_section_header.setStyleSheet("font-weight: bold; color: #ffffff;")
+            viewer_layout.addWidget(viewer_section_header)
+            
             viewer_tools_panel = QFrame()
             viewer_tools_panel.setObjectName("viewerToolsPanel")
             viewer_tools_panel.setStyleSheet("""
@@ -4597,10 +4602,12 @@ if PYQT_AVAILABLE:
                 self.lbl_server_status_indicator.setStyleSheet("font-weight: bold; color: #ff6b6b; margin-right: 15px; font-size: 12px;")
                 return
 
-            # Обновление таблицы очереди
-            self.table_queue.setRowCount(len(info_list))
+            # Обновление таблицы очереди (только задачи данного клиента)
+            my_client_name = self.client_name_edit.text().strip()
+            filtered_list = [item for item in info_list if item.get("client_name", "") == my_client_name]
+            self.table_queue.setRowCount(len(filtered_list))
             from PyQt6.QtGui import QBrush, QColor, QFont
-            for row, item in enumerate(info_list):
+            for row, item in enumerate(filtered_list):
                 # Клиент
                 self.table_queue.setItem(row, 0, self.create_table_item(item["client_name"]))
                 
@@ -4636,9 +4643,9 @@ if PYQT_AVAILABLE:
                 # Сохраняем job_id в кастомную роль
                 self.table_queue.item(row, 0).setData(Qt.ItemDataRole.UserRole, item["job_id"])
 
-            # Обновление прогресс-бара и логов для активной на сервере PROCESSING задачи
+            # Обновление прогресс-бара и логов для активной PROCESSING задачи ЭТОГО клиента
             processing_job = None
-            for item in info_list:
+            for item in filtered_list:
                 if item.get("status") == "PROCESSING":
                     processing_job = item
                     break
@@ -4723,21 +4730,14 @@ if PYQT_AVAILABLE:
                 
             menu = QMenu(self)
             
-            # Настройка действий
+            # Клиентам доступна только отмена задачи
             cancel_action = menu.addAction("Отменить задачу ❌")
             cancel_action.setEnabled(status_text in ["PENDING", "PROCESSING"])
-            
-            # Приоритет
-            prioritize_action = menu.addAction("Поднять в начало очереди ⬆️")
-            is_pending = (status_text == "PENDING")
-            prioritize_action.setEnabled(is_pending and row > 0)
             
             # Действия
             action = menu.exec(self.table_queue.mapToGlobal(pos))
             if action == cancel_action:
                 self.cancel_job_by_id(job_id)
-            elif action == prioritize_action:
-                self.prioritize_job(job_id)
 
         def cancel_job_by_id(self, job_id: str):
             reply = QMessageBox.question(

@@ -2318,6 +2318,11 @@ if PYQT_AVAILABLE:
             viewer_layout = QVBoxLayout(viewer_container)
             viewer_layout.setContentsMargins(0, 0, 0, 0)
             
+            # Заголовок секции просмотра
+            viewer_section_header = QLabel("Просмотр")
+            viewer_section_header.setStyleSheet("font-weight: bold; color: #ffffff;")
+            viewer_layout.addWidget(viewer_section_header)
+            
             viewer_tools_panel = QFrame()
             viewer_tools_panel.setObjectName("viewerToolsPanel")
             viewer_tools_panel.setStyleSheet("""
