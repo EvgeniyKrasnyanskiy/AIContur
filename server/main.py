@@ -54,24 +54,7 @@ if __name__ == "__main__":
     host = "0.0.0.0"
     port = 8000
     
-    if os.name == 'nt':
-        try:
-            import subprocess
-            netstat_out = subprocess.check_output("netstat -ano | findstr :8000", shell=True, text=True)
-            pids_to_kill = set()
-            current_pid = str(os.getpid())
-            for line in netstat_out.strip().split("\n"):
-                parts = [p.strip() for p in line.split(" ") if p.strip()]
-                # netstat line format on Russian/English OS: Protocol Local-Address Foreign-Address State PID
-                if len(parts) >= 5:
-                    pid = parts[-1]
-                    if pid.isdigit() and pid != current_pid:
-                        pids_to_kill.add(pid)
-            
-            for pid in pids_to_kill:
-                subprocess.run(f"taskkill /F /PID {pid}", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except Exception:
-            pass
+    pass
 
     print(f"Запуск веб-сервера AI Contour на http://{host}:{port}...")
     uvicorn.run(app, host=host, port=port, log_level="warning")

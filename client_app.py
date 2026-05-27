@@ -2336,11 +2336,11 @@ if PYQT_AVAILABLE:
             
             top_layout.addWidget(self.main_splitter, 1)  # stretch=1: main_splitter занимает всё оставшееся пространство
             
-            # Нижняя панель (Логи + Прогресс + Очередь) с вертикальным сплиттером
+            # Нижняя панель (Логи + Очередь + Прогресс)
             bottom_panel = QWidget()
             bottom_layout = QVBoxLayout(bottom_panel)
             bottom_layout.setContentsMargins(0, 0, 0, 0)
-            bottom_layout.setSpacing(0)
+            bottom_layout.setSpacing(6)
             
             bottom_splitter = QSplitter(Qt.Orientation.Vertical)
             bottom_splitter.setObjectName("bottomSplitter")
@@ -2356,23 +2356,20 @@ if PYQT_AVAILABLE:
                 }
             """)
             
-            # Зона логов
+            # 1. Зона логов
             logs_widget = QWidget()
             logs_layout = QVBoxLayout(logs_widget)
-            logs_layout.setContentsMargins(0, 0, 0, 6)
-            logs_layout.setSpacing(6)
+            logs_layout.setContentsMargins(0, 0, 0, 0)
+            logs_layout.setSpacing(4)
             logs_layout.addWidget(logs_header)
             logs_layout.addWidget(self.log_edit, 1)
             
-            # Зона очереди и прогресса
+            # 2. Зона очереди работ (с заголовком)
             queue_widget = QWidget()
             queue_layout = QVBoxLayout(queue_widget)
-            queue_layout.setContentsMargins(0, 6, 0, 0)
-            queue_layout.setSpacing(6)
+            queue_layout.setContentsMargins(0, 0, 0, 0)
+            queue_layout.setSpacing(4)
             queue_layout.addWidget(progress_header)
-            queue_layout.addWidget(self.status_step_label)
-            queue_layout.addWidget(self.progress_bar)
-            queue_layout.addWidget(self.eta_label)
 
             # Инициализация и добавление компактной таблицы очереди (симметрично серверу)
             self.table_queue = QTableWidget()
@@ -2398,15 +2395,21 @@ if PYQT_AVAILABLE:
             self.table_queue.customContextMenuRequested.connect(self.show_context_menu)
 
             queue_layout.addWidget(self.table_queue, 1)
-            queue_layout.addWidget(self.btn_run)
             
             bottom_splitter.addWidget(logs_widget)
             bottom_splitter.addWidget(queue_widget)
             bottom_splitter.setStretchFactor(0, 1)
             bottom_splitter.setStretchFactor(1, 1)
-            bottom_splitter.setSizes([200, 200])
+            bottom_splitter.setSizes([180, 120])
             
-            bottom_layout.addWidget(bottom_splitter)
+            # Добавляем сплиттер в главный лейаут нижней панели
+            bottom_layout.addWidget(bottom_splitter, 1)
+            
+            # 3. Элементы прогресса и кнопка запуска (идут под сплиттером, всегда на виду)
+            bottom_layout.addWidget(self.status_step_label)
+            bottom_layout.addWidget(self.progress_bar)
+            bottom_layout.addWidget(self.eta_label)
+            bottom_layout.addWidget(self.btn_run)
             
             self.v_splitter.addWidget(top_panel)
             self.v_splitter.addWidget(bottom_panel)
