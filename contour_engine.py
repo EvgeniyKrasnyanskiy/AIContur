@@ -902,6 +902,7 @@ class ContourEngine:
         Возвращает кортеж: (количество добавленных структур, время выполнения в секундах).
         """
         start_time = time.time()
+        logger.info(f"[DIAGNOSTIC] run_pipeline вызвана. step_callback={step_callback}, progress_callback={progress_callback}")
         dicom_dir = Path(dicom_dir_path).resolve()
         output_dir = Path(output_dir_path).resolve()
         
@@ -1225,6 +1226,13 @@ class ContourEngine:
                         clean_line = line.strip()
                         if clean_line:
                             logger.info(f"[TotalSegmentator {task_name}]: {clean_line}")
+                            if step_callback is not None:
+                                try:
+                                    step_callback(f"[TotalSegmentator {task_name}]: {clean_line}")
+                                except Exception as cb_err:
+                                    logger.error(f"Ошибка вызова step_callback: {cb_err}")
+                            else:
+                                logger.warning(f"step_callback является None во время логирования TotalSegmentator {task_name}")
                             
                             if progress_callback:
                                 match = re.search(r'(\d+)%\|', clean_line)
@@ -1637,7 +1645,10 @@ class ContourEngine:
                     gc.collect()
                 
             if added_count == 0:
-                raise RuntimeError("В RTSTRUCT не было добавлено ни одного OAR. Проверьте область сканирования.")
+                if merge_mode == "merge" and existing_rois:
+                    logger.info("В режиме слияния не добавлено новых ИИ-структур, так как они уже присутствуют в файле. Сохраняем исходный файл.")
+                else:
+                    raise RuntimeError("В RTSTRUCT не было добавлено ни одного OAR. Проверьте область сканирования.")
                 
             if is_cancelled_cb and is_cancelled_cb():
                 raise RuntimeError("Операция отменена пользователем.")
@@ -1683,7 +1694,8 @@ class ContourEngine:
             except Exception as e:
                 logger.debug(f"Не удалось удалить временную папку {temp_dir}: {e}")
                 
-            return added_count, elapsed_total
+            final_count = len(rtstruct.get_roi_names())
+            return final_count, elapsed_total
             
         except Exception as e:
             logger.error(f"Сбой в пайплайне: {e}", exc_info=True)
