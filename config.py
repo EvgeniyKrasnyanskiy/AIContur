@@ -326,7 +326,12 @@ class StatisticsManager:
     """Класс для потокобезопасного управления статистикой автооконтурирования OAR."""
     
     def __init__(self, file_path: str = "config/statistics.json") -> None:
-        self.file_path = Path(file_path).resolve()
+        import sys
+        if getattr(sys, 'frozen', False):
+            base_dir = Path(sys.executable).parent
+        else:
+            base_dir = Path(__file__).parent.resolve()
+        self.file_path = (base_dir / file_path).resolve()
         self._lock = threading.Lock()
         self._default_stats = {
             "total_runs": 0,

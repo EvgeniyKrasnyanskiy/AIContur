@@ -49,12 +49,114 @@ try:
 except ImportError:
     PYQT_AVAILABLE = False
 
-# Импортируем вычислительный движок
+# Импортируем вычислительный движок или используем легковесный заглушечный класс для клиента
 try:
     from contour_engine import ContourEngine
 except ImportError:
-    # На случай запуска без движка
     ContourEngine = None
+
+if ContourEngine is None:
+    class MockContourEngine:
+        """Легковесный клиентский класс для загрузки конфигурации без тяжелых ML библиотек."""
+        def __init__(self, *args, **kwargs):
+            self.ru_names = {}
+            self.colors = {}
+            self.presets = {}
+            self.licenses = ""
+            self.load_presets_config()
+            
+        def is_gpu_available(self):
+            # Клиент не проводит вычислений, GPU всегда выключено для локальных тестов
+            return False
+            
+        def load_presets_config(self):
+            import json
+            import sys
+            from pathlib import Path
+            if getattr(sys, 'frozen', False):
+                base_dir = Path(sys.executable).parent
+            else:
+                base_dir = Path(__file__).parent.resolve()
+            config_dir = (base_dir / "config").resolve()
+            colors_path = config_dir / "colors.json"
+            translations_path = config_dir / "translations.json"
+            presets_dir = config_dir / "presets"
+            licenses_path = config_dir / "licenses.json"
+            
+            try:
+                if colors_path.exists():
+                    with open(colors_path, "r", encoding="utf-8") as f:
+                        self.colors = json.load(f)
+                if translations_path.exists():
+                    with open(translations_path, "r", encoding="utf-8") as f:
+                        self.ru_names = json.load(f)
+                if presets_dir.exists():
+                    for p_file in presets_dir.glob("*.json"):
+                        with open(p_file, "r", encoding="utf-8") as f:
+                            data = json.load(f)
+                            name = data.get("name")
+                            organs = data.get("organs", [])
+                            if name:
+                                self.presets[name] = organs
+                if licenses_path.exists():
+                    with open(licenses_path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                        self.licenses = data.get("license_key", "").strip()
+                else:
+                    self.licenses = ""
+            except Exception as e:
+                print(f"Ошибка загрузки локальных конфигураций на клиенте: {e}")
+                
+        def save_presets_config(self):
+            import json
+            import sys
+            from pathlib import Path
+            if getattr(sys, 'frozen', False):
+                base_dir = Path(sys.executable).parent
+            else:
+                base_dir = Path(__file__).parent.resolve()
+            config_dir = (base_dir / "config").resolve()
+            config_dir.mkdir(parents=True, exist_ok=True)
+            
+            colors_path = config_dir / "colors.json"
+            translations_path = config_dir / "translations.json"
+            licenses_path = config_dir / "licenses.json"
+            
+            try:
+                with open(colors_path, "w", encoding="utf-8") as f:
+                    json.dump(self.colors, f, ensure_ascii=False, indent=2)
+                with open(translations_path, "w", encoding="utf-8") as f:
+                    json.dump(self.ru_names, f, ensure_ascii=False, indent=2)
+                with open(licenses_path, "w", encoding="utf-8") as f:
+                    json.dump({"license_key": getattr(self, "licenses", "")}, f, ensure_ascii=False, indent=2)
+            except Exception as e:
+                print(f"Ошибка сохранения локальных конфигураций на клиенте: {e}")
+                
+        def get_all_supported_organs(self):
+            """Возвращает список всех поддерживаемых органов из загруженных переводов."""
+            return sorted(list(self.ru_names.keys()))
+
+        def get_monaco_pretty_name(self, organ_name: str) -> str:
+            """Возвращает красивое имя OAR, совместимое с Elekta Monaco 5.51 и интерфейсом."""
+            from config import MONACO_NAMES_MAP
+            if organ_name in MONACO_NAMES_MAP:
+                return MONACO_NAMES_MAP[organ_name]
+                
+            pretty = organ_name
+            if pretty.endswith("_left"):
+                pretty = pretty[:-5] + "_l"
+            elif pretty.endswith("_right"):
+                pretty = pretty[:-6] + "_r"
+                
+            pretty = pretty.replace("_", " ").title()
+            return pretty
+            
+        def _get_default_color(self, organ_name: str):
+            import hashlib
+            h = hashlib.md5(organ_name.encode('utf-8')).digest()
+            return [max(50, int(h[0])), max(50, int(h[1])), max(50, int(h[2]))]
+            
+    ContourEngine = MockContourEngine
 
 # Импортируем конфигурационные данные
 try:
@@ -333,15 +435,17 @@ if PYQT_AVAILABLE:
                 self.error_signal.emit(str(e))
 
     class SegmentationWorker(QThread):
-        """Поток для вычислений сегментации TotalSegmentator, чтобы GUI не зависал."""
+        """Поток для вычислений сегментации через удаленный API сервер, чтобы GUI не зависал."""
         finished_signal = pyqtSignal(bool, str)
         step_signal = pyqtSignal(str)
         progress_signal = pyqtSignal(int)
         eta_signal = pyqtSignal(float, float)  # (elapsed_sec, eta_sec)
+        log_signal = pyqtSignal(str, str)  # (message, color)
 
         def __init__(
             self,
-            engine: ContourEngine,
+            server_url: str,
+            client_name: str,
             dicom_dir: str,
             output_dir: str,
             preset_name: str,
@@ -354,7 +458,8 @@ if PYQT_AVAILABLE:
             smoothing_sigma: float
         ):
             super().__init__()
-            self.engine = engine
+            self.server_url = server_url
+            self.client_name = client_name
             self.dicom_dir = dicom_dir
             self.output_dir = output_dir
             self.preset_name = preset_name
@@ -366,62 +471,197 @@ if PYQT_AVAILABLE:
             self.remove_blobs = remove_blobs
             self.smoothing_sigma = smoothing_sigma
             self.is_cancelled = False
-            self.process = None
+            self.job_id = None
 
         def cancel(self):
             self.is_cancelled = True
-            if self.process and self.process.poll() is None:
-                try:
-                    logger.info("Отмена: принудительное завершение процесса TotalSegmentator...")
-                    self.process.kill()
-                except Exception as e:
-                    logger.error(f"Не удалось принудительно завершить процесс: {e}")
+
+        def _zip_dicom_dir(self, source_dir: Path, zip_path: Path):
+            """Упаковывает файлы DICOM серии в архив."""
+            import zipfile
+            with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                for root, dirs, files in os.walk(source_dir):
+                    for file in files:
+                        # Упаковываем все .dcm файлы и файлы разметки в корень
+                        if file.lower().endswith('.dcm') or file.lower().endswith('.dcm.bak'):
+                            file_path = Path(root) / file
+                            zip_file.write(file_path, file_path.name)
 
         def run(self):
+            import requests
+            import json
+            import zipfile
+            import tempfile
+            from pathlib import Path
+            
+            temp_zip = None
+            job_id = None
             try:
-                self._start_time = time.time()
-
-                def callback(step_text: str):
-                    self.step_signal.emit(step_text)
-                    
-                def prog_callback(val: int, text: str):
-                    self.progress_signal.emit(val)
-                    self.step_signal.emit(text)
-                    # Расчёт ETA: если уже есть прогресс > 2%, прогнозируем оставшееся время
-                    if val > 2:
-                        elapsed = time.time() - self._start_time
-                        eta = (elapsed / val) * (100 - val)
-                        self.eta_signal.emit(elapsed, eta)
-                    
-                def reg_proc(p):
-                    self.process = p
-                    
-                def is_canc():
-                    return self.is_cancelled
-
-                added, elapsed = self.engine.run_pipeline(
-                    dicom_dir_path=self.dicom_dir,
-                    output_dir_path=self.output_dir,
-                    preset_name=self.preset_name,
-                    precision_mode=self.precision_mode,
-                    selected_organs=self.selected_organs,
-                    merge_mode=self.merge_mode,
-                    existing_rtstruct_path=self.existing_rtstruct_path,
-                    use_gpu=self.use_gpu,
-                    remove_blobs=self.remove_blobs,
-                    smoothing_sigma=self.smoothing_sigma,
-                    step_callback=callback,
-                    progress_callback=prog_callback,
-                    is_cancelled_cb=is_canc,
-                    register_process_cb=reg_proc
-                )
+                self.step_signal.emit("Шаг 1 из 5: Архивирование КТ снимков...")
+                self.progress_signal.emit(5)
+                
+                # Создаем временный ZIP-файл
+                temp_dir = Path(tempfile.gettempdir())
+                temp_zip = temp_dir / f"client_upload_{int(time.time())}.zip"
+                
+                # Архивируем
+                self._zip_dicom_dir(Path(self.dicom_dir), temp_zip)
+                
                 if self.is_cancelled:
-                    self.finished_signal.emit(False, "Операция отменена пользователем.")
-                else:
-                    msg = f"Пайплайн успешно завершен! Добавлено структур: {added}. Общее время работы: {elapsed:.1f} сек."
-                    self.finished_signal.emit(True, msg)
+                    raise RuntimeError("Операция отменена пользователем.")
+                    
+                self.step_signal.emit("Шаг 1 из 5: Отправка DICOM-архива на сервер...")
+                self.progress_signal.emit(15)
+                
+                # Отправляем на сервер
+                upload_url = f"{self.server_url.rstrip('/')}/api/jobs/upload"
+                
+                # Читаем zip-файл
+                with open(temp_zip, 'rb') as f_zip:
+                    files = {'file': ('dicom.zip', f_zip, 'application/zip')}
+                    data = {
+                        'client_name': self.client_name,
+                        'options_json': json.dumps({
+                            'preset_name': self.preset_name,
+                            'precision_mode': self.precision_mode,
+                            'selected_organs': self.selected_organs,
+                            'merge_mode': self.merge_mode,
+                            'use_gpu': self.use_gpu,
+                            'remove_blobs': self.remove_blobs,
+                            'smoothing_sigma': self.smoothing_sigma
+                        })
+                    }
+                    
+                    response = requests.post(upload_url, files=files, data=data, timeout=60)
+                
+                if response.status_code != 200:
+                    raise RuntimeError(f"Сервер отклонил запрос: {response.text}")
+                    
+                res_data = response.json()
+                job_id = res_data.get("job_id")
+                self.job_id = job_id # сохраняем для отмены
+                
+                logger.info(f"Задача поставлена в очередь на сервере. ID: {job_id}")
+                
+                # Начинаем опрос статуса
+                status_url = f"{self.server_url.rstrip('/')}/api/jobs/{job_id}/status"
+                
+                start_time = time.time()
+                server_added_count = 0
+                server_elapsed_seconds = 0.0
+                self.last_log_index = 0
+                while not self.is_cancelled:
+                    time.sleep(2)
+                    
+                    try:
+                        status_res = requests.get(status_url, timeout=10)
+                        if status_res.status_code != 200:
+                            raise RuntimeError(f"Ошибка получения статуса: {status_res.text}")
+                            
+                        status_data = status_res.json()
+                        status = status_data.get("status")
+                        progress = status_data.get("progress", 0)
+                        step = status_data.get("current_step", "")
+                        
+                        # Обработка логов от TotalSegmentator и пайплайна
+                        logs = status_data.get("logs", [])
+                        if len(logs) > self.last_log_index:
+                            for new_line in logs[self.last_log_index:]:
+                                color = "#a0a0a2"
+                                if "ERROR" in new_line or "Exception" in new_line or "failed" in new_line.lower():
+                                    color = "#ff6b6b"
+                                elif "WARNING" in new_line:
+                                    color = "#f1c40f"
+                                elif "шаг" in new_line.lower() or "---" in new_line:
+                                    color = "#3498db"
+                                elif "totalsegmentator" in new_line.lower():
+                                    color = "#2ecc71"
+                                self.log_signal.emit(new_line, color)
+                            self.last_log_index = len(logs)
+                        elapsed = status_data.get("elapsed_seconds", 0.0)
+                        eta = status_data.get("eta_seconds", 0.0)
+                        pos = status_data.get("queue_position")
+                        is_server_paused = status_data.get("is_server_paused", False)
+                        
+                        # Отображение статуса
+                        if status == "PENDING":
+                            pause_prefix = " [СЕРВЕР НА ПАУЗЕ]" if is_server_paused else ""
+                            self.step_signal.emit(f"В очереди (Позиция: {pos}){pause_prefix}...")
+                            self.progress_signal.emit(15)
+                        elif status == "PROCESSING":
+                            self.step_signal.emit(step)
+                            self.progress_signal.emit(progress)
+                            self.eta_signal.emit(elapsed, eta)
+                        elif status == "SUCCESS":
+                            # Извлекаем количество добавленных ИИ структур из current_step
+                            if "создано oar:" in step.lower():
+                                try:
+                                    server_added_count = int(step.lower().split("создано oar:")[-1].strip())
+                                except ValueError:
+                                    server_added_count = 0
+                            server_elapsed_seconds = elapsed
+                            break
+                        elif status == "FAILED":
+                            raise RuntimeError(status_data.get("error_message") or "Сбой вычислений на сервере.")
+                        elif status == "CANCELLED":
+                            raise RuntimeError("Операция отменена на сервере.")
+                    except requests.exceptions.RequestException as re_err:
+                        # Временный сбой связи в локальной сети: не паникуем, ждем
+                        logger.warning(f"Микросбой локальной сети при опросе: {re_err}. Повторная попытка...")
+                        self.step_signal.emit("Соединение с сервером потеряно... Попытка переподключения...")
+                        time.sleep(3)
+                
+                if self.is_cancelled:
+                    raise RuntimeError("Операция отменена пользователем.")
+                    
+                # Скачиваем результат
+                self.step_signal.emit("Шаг 5 из 5: Скачивание результатов разметки...")
+                self.progress_signal.emit(95)
+                
+                download_url = f"{self.server_url.rstrip('/')}/api/jobs/{job_id}/download"
+                dl_res = requests.get(download_url, timeout=60)
+                if dl_res.status_code != 200:
+                    raise RuntimeError(f"Не удалось скачать файл разметки: {dl_res.text}")
+                    
+                # Сохраняем и распаковываем
+                temp_result_zip = temp_dir / f"client_result_{job_id[:8]}.zip"
+                with open(temp_result_zip, "wb") as f:
+                    f.write(dl_res.content)
+                    
+                # Распаковываем воркспейс в выходной каталог
+                out_path = Path(self.output_dir)
+                out_path.mkdir(parents=True, exist_ok=True)
+                
+                with zipfile.ZipFile(temp_result_zip, 'r') as zip_ref:
+                    zip_ref.extractall(out_path)
+                    
+                # Чистим временный ZIP
+                if temp_result_zip.exists():
+                    temp_result_zip.unlink()
+                    
+                self.step_signal.emit("Готово! Контуры успешно импортированы.")
+                self.progress_signal.emit(100)
+                
+                self.finished_signal.emit(True, f"Пайплайн успешно завершен! Добавлено структур: {server_added_count}. Общее время работы: {server_elapsed_seconds:.1f} сек.")
+                
             except Exception as e:
+                # В случае отмены посылаем DELETE на сервер
+                if self.is_cancelled and job_id:
+                    try:
+                        logger.info(f"Отправка запроса на отмену задачи {job_id} на сервер...")
+                        cancel_url = f"{self.server_url.rstrip('/')}/api/jobs/{job_id}/cancel"
+                        requests.delete(cancel_url, timeout=5)
+                    except Exception as ce:
+                        logger.error(f"Не удалось отменить задачу на сервере: {ce}")
+                
                 self.finished_signal.emit(False, str(e))
+                
+            finally:
+                if temp_zip and temp_zip.exists():
+                    try:
+                        temp_zip.unlink()
+                    except Exception:
+                        pass
 
     # Стилизация премиальной темной темы QSS
     DARK_QSS = """
@@ -1430,7 +1670,7 @@ if PYQT_AVAILABLE:
         """Главное окно графического интерфейса приложения."""
         def __init__(self):
             super().__init__()
-            self.setWindowTitle("AI Contour - Автооконтурирование КТ органов риска")
+            self.setWindowTitle("AI Contour — Сервер + Локальный клиент 🖥️🧠")
             self.setMinimumSize(960, 760)
             self.showMaximized()
             self.existing_rtstruct_path = None
@@ -1462,6 +1702,11 @@ if PYQT_AVAILABLE:
             self.scan_timer.setInterval(15000)
             self.scan_timer.timeout.connect(self.start_background_scan)
 
+            # Инициализируем переменные состояния сервера
+            self.server_is_paused = False
+            self.server_process = None
+            self.start_server_process()
+
             self.init_ui()
             
             # Выведем лог стартапа, если есть буферизованные записи
@@ -1471,6 +1716,32 @@ if PYQT_AVAILABLE:
                 del self._startup_log_buffer
 
             self.load_settings()
+
+            # Таймер для обновления состояния сервера и очереди задач
+            self.server_ui_timer = QTimer(self)
+            self.server_ui_timer.setInterval(1000)
+            self.server_ui_timer.timeout.connect(self.update_server_ui)
+            self.server_ui_timer.start()
+
+        def start_server_process(self):
+            import subprocess
+            import sys
+            logging.info("Запуск фонового процесса FastAPI бэкенда...")
+            try:
+                creation_flags = 0
+                if os.name == 'nt':
+                    creation_flags = subprocess.CREATE_NO_WINDOW
+                    
+                self.server_process = subprocess.Popen(
+                    [sys.executable, "server/main.py"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    creationflags=creation_flags
+                )
+                logging.info("Процесс FastAPI сервера успешно запущен.")
+            except Exception as e:
+                logging.error(f"Не удалось запустить процесс сервера: {e}")
+                QMessageBox.critical(self, "Ошибка сервера", f"Не удалось запустить серверный процесс: {e}")
 
         def init_ui(self):
             # Установка премиальной иконки приложения
@@ -1498,6 +1769,33 @@ if PYQT_AVAILABLE:
             self.left_card.setMaximumWidth(480)
             left_layout = QVBoxLayout(self.left_card)
             left_layout.setContentsMargins(5, 5, 5, 5)
+
+            # Панель управления сервером (кнопка паузы + адрес API)
+            server_header_widget = QWidget()
+            server_header_layout = QVBoxLayout(server_header_widget)
+            server_header_layout.setContentsMargins(10, 5, 10, 5)
+            server_header_layout.setSpacing(4)
+            
+            self.btn_pause_toggle = QPushButton("СЕРВЕР АКТИВЕН 🟢")
+            self.btn_pause_toggle.setObjectName("btnPauseActive")
+            self.btn_pause_toggle.setStyleSheet("""
+                QPushButton#btnPauseActive {
+                    background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #27ae60, stop: 1 #1e8449);
+                    border: 1px solid #2ecc71;
+                    color: #ffffff;
+                    padding: 8px 18px;
+                    font-size: 13px;
+                    font-weight: bold;
+                }
+            """)
+            self.btn_pause_toggle.clicked.connect(self.toggle_pause)
+            
+            self.lbl_server_address = QLabel("Инициализация сервера...")
+            self.lbl_server_address.setStyleSheet("font-size: 12px; color: #3498db; font-weight: 500;")
+            
+            server_header_layout.addWidget(self.btn_pause_toggle)
+            server_header_layout.addWidget(self.lbl_server_address)
+            left_layout.addWidget(server_header_widget)
 
             self.tab_widget = QTabWidget()
             self.tab_widget.currentChanged.connect(self.on_tab_changed)
@@ -1622,12 +1920,9 @@ if PYQT_AVAILABLE:
             self.radio_cpu = QRadioButton("CPU (Центральный процессор)")
             self.radio_gpu = QRadioButton("GPU CUDA (Рекомендуется)")
             
-            if gpu_available:
-                self.radio_gpu.setChecked(True)
-            else:
-                self.radio_gpu.setEnabled(False)
-                self.radio_gpu.setToolTip("CUDA-совместимая видеокарта не найдена или PyTorch не поддерживает её.")
-                self.radio_cpu.setChecked(True)
+            # На клиенте обе опции (GPU/CPU) всегда доступны для выбора, так как вычисления идут на сервере
+            self.radio_gpu.setChecked(True)
+            self.radio_gpu.setEnabled(True)
                 
             device_group_layout.addWidget(self.radio_gpu)
             device_group_layout.addWidget(self.radio_cpu)
@@ -1705,41 +2000,38 @@ if PYQT_AVAILABLE:
             color_group_layout.addWidget(self.color_preset_combo)
             tab2_layout.addWidget(color_group)
 
-            # Группа 5: Лицензия для суб-моделей
-            license_group = QGroupBox("Лицензия для суб-моделей 🔑")
-            license_group_layout = QVBoxLayout(license_group)
+            # Группа 5: Параметры соединения с сервером AI Contour 🌐
+            conn_group = QGroupBox("Соединение с сервером AI Contour 🌐")
+            conn_group_layout = QVBoxLayout(conn_group)
+            conn_group_layout.setSpacing(10)
             
-            lbl_license_descr = QLabel("Некоторые суб-модели могут требовать дополнительную лицензию.")
-            lbl_license_descr.setWordWrap(True)
-            lbl_license_descr.setStyleSheet("color: #888888; font-size: 11px;")
+            lbl_server_url = QLabel("Адрес сервера (IP и Порт):")
+            self.server_url_edit = QLineEdit("http://127.0.0.1:8000")
+            self.server_url_edit.setPlaceholderText("http://192.168.1.100:8000")
             
-            self.btn_manage_licenses = QPushButton("🔑 Управление лицензиями")
-            self.btn_manage_licenses.setObjectName("btnAction")
-            self.btn_manage_licenses.clicked.connect(self.show_licenses_dialog)
+            lbl_client_name = QLabel("Идентификатор клиента (Имя ПК):")
+            import socket
+            try:
+                default_client_name = socket.gethostname()
+            except Exception:
+                default_client_name = "Клиент ПК"
+            self.client_name_edit = QLineEdit(default_client_name)
+            self.client_name_edit.setPlaceholderText("Введите имя или кабинет...")
             
-            self.lbl_license_status = QLabel("Загружено лицензий: 0")
-            self.lbl_license_status.setStyleSheet("color: #a0a0a0; font-size: 11px;")
+            self.btn_test_conn = QPushButton("⚡ Проверить подключение")
+            self.btn_test_conn.setObjectName("btnAction")
+            self.btn_test_conn.clicked.connect(self.test_server_connection)
             
-            license_group_layout.addWidget(lbl_license_descr)
-            license_group_layout.addWidget(self.btn_manage_licenses)
-            license_group_layout.addWidget(self.lbl_license_status)
-            tab2_layout.addWidget(license_group)
-
-            # Группа 6: Управление моделями ИИ
-            models_group = QGroupBox("Управление моделями ИИ 📦")
-            models_group_layout = QVBoxLayout(models_group)
+            self.lbl_conn_status = QLabel("Статус: не проверено ⚪")
+            self.lbl_conn_status.setStyleSheet("color: #bdc3c7; font-weight: bold;")
             
-            lbl_models_descr = QLabel("Вы можете предварительно скачать необходимые модели ИИ на локальный диск для ускорения работы или удалить их.")
-            lbl_models_descr.setWordWrap(True)
-            lbl_models_descr.setStyleSheet("color: #888888; font-size: 11px;")
-            
-            self.btn_manage_models = QPushButton("📦 Модели")
-            self.btn_manage_models.setObjectName("btnAction")
-            self.btn_manage_models.clicked.connect(self.show_models_dialog)
-            
-            models_group_layout.addWidget(lbl_models_descr)
-            models_group_layout.addWidget(self.btn_manage_models)
-            tab2_layout.addWidget(models_group)
+            conn_group_layout.addWidget(lbl_server_url)
+            conn_group_layout.addWidget(self.server_url_edit)
+            conn_group_layout.addWidget(lbl_client_name)
+            conn_group_layout.addWidget(self.client_name_edit)
+            conn_group_layout.addWidget(self.btn_test_conn)
+            conn_group_layout.addWidget(self.lbl_conn_status)
+            tab2_layout.addWidget(conn_group)
 
             # Звук в конце
             self.sound_check = QCheckBox("🔔 Звук при завершении автооконтуривания")
@@ -1855,7 +2147,7 @@ if PYQT_AVAILABLE:
             <li>На вкладке <b>«⚙️ Настройки»</b> выберите папку с КТ-снимками DICOM и нажмите <b>«📂 Источник»</b>.</li>
             <li>На вкладке <b>«🎯 Контуры»</b> выберите пресет органов и пациента в таблице.</li>
             <li>Настройте режим расчёта (CPU/GPU), точность ИИ и постобработку.</li>
-            <li>Нажмите <b>«ЗАПУСТИТЬ АВТООКОНТУРИРОВАНИЕ»</b> и дождитесь завершения.</li>
+            <li>Нажмите <b>«ОТПРАВИТЬ В ОЧЕРЕДЬ НА СЕРВЕР 🚀»</b> и дождитесь завершения.</li>
             <li>После завершения включите <b>«Отобразить структуры»</b> для просмотра результатов.</li>
         </ul>
     </div>
@@ -1954,7 +2246,7 @@ if PYQT_AVAILABLE:
             self.eta_label = QLabel("")
             self.eta_label.setStyleSheet("color: #888888; font-size: 11px; font-style: italic;")
 
-            self.btn_run = QPushButton("ЗАПУСТИТЬ АВТООКОНТУРИРОВАНИЕ")
+            self.btn_run = QPushButton("ОТПРАВИТЬ В ОЧЕРЕДЬ НА СЕРВЕР 🚀")
             self.btn_run.setObjectName("btnRun")
             self.btn_run.clicked.connect(self.start_segmentation)
 
@@ -2073,6 +2365,31 @@ if PYQT_AVAILABLE:
             bottom_layout.addWidget(self.status_step_label)
             bottom_layout.addWidget(self.progress_bar)
             bottom_layout.addWidget(self.eta_label)
+
+            # Инициализация и добавление компактной таблицы очереди
+            self.table_queue = QTableWidget()
+            self.table_queue.setColumnCount(7)
+            self.table_queue.setHorizontalHeaderLabels([
+                "Клиент", "Пациент", "ID Пациента", "Пресет", "Статус", "Прогресс", "Получено"
+            ])
+            self.table_queue.setFixedHeight(95)  # Идеальный компактный размер для шапки + 2 строк!
+            
+            header = self.table_queue.horizontalHeader()
+            header.setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
+            header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+            header.setSectionResizeMode(2, QHeaderView.ResizeMode.Interactive)
+            header.setSectionResizeMode(3, QHeaderView.ResizeMode.Interactive)
+            header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+            header.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
+            header.setSectionResizeMode(6, QHeaderView.ResizeMode.ResizeToContents)
+            
+            self.table_queue.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+            self.table_queue.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+            self.table_queue.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+            self.table_queue.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+            self.table_queue.customContextMenuRequested.connect(self.show_context_menu)
+
+            bottom_layout.addWidget(self.table_queue)
             bottom_layout.addWidget(self.btn_run)
             
             self.v_splitter.addWidget(top_panel)
@@ -2110,14 +2427,8 @@ if PYQT_AVAILABLE:
             self.splitter.setSizes([430, 490])
 
         def update_license_status_label(self):
-            """Обновляет статус лицензии."""
-            key = getattr(self.engine, "licenses", "").strip()
-            if key:
-                self.lbl_license_status.setText("Лицензия: ✅ Активна")
-                self.lbl_license_status.setStyleSheet("color: #00ffd0; font-weight: bold;")
-            else:
-                self.lbl_license_status.setText("Лицензия: ❌ Отсутствует")
-                self.lbl_license_status.setStyleSheet("color: #ff6b6b; font-weight: bold;")
+            """Обновляет статус лицензии (заглушка на клиенте)."""
+            pass
 
         def show_licenses_dialog(self):
             """Открывает окно управления лицензиями суб-моделей ИИ."""
@@ -2359,6 +2670,14 @@ if PYQT_AVAILABLE:
                     self.input_edit.setText(input_dir)
                 self.last_alternative_output_dir = self.settings.value("alternative_output_dir", "")
 
+                # Параметры соединения с сервером
+                server_url = self.settings.value("server_url", "http://127.0.0.1:8000")
+                self.server_url_edit.setText(server_url)
+                
+                client_name = self.settings.value("client_name", "")
+                if client_name:
+                    self.client_name_edit.setText(client_name)
+
                 # При старте комбобокс ВСЕГДА в положении заглушки.
                 # Сохранённое имя пресета используется только для подбора текста в комбо
                 # ПОСЛЕ того как органы восстановлены из checked_organs.
@@ -2389,11 +2708,8 @@ if PYQT_AVAILABLE:
 
                 # Загружаем выбранные ресурсы
                 use_gpu = self.settings.value("use_gpu", True, type=bool)
-                if self.radio_gpu.isEnabled():
-                    self.radio_gpu.setChecked(use_gpu)
-                    self.radio_cpu.setChecked(not use_gpu)
-                else:
-                    self.radio_cpu.setChecked(True)
+                self.radio_gpu.setChecked(use_gpu)
+                self.radio_cpu.setChecked(not use_gpu)
 
                 # Восстанавливаем галочки органов (без сигналов)
                 checked_organs = self.settings.value("checked_organs", None)
@@ -2432,6 +2748,8 @@ if PYQT_AVAILABLE:
         def save_settings(self):
             """Сохраняет состояние интерфейса в QSettings."""
             self.settings.setValue("input_dir", self.input_edit.text().strip())
+            self.settings.setValue("server_url", self.server_url_edit.text().strip())
+            self.settings.setValue("client_name", self.client_name_edit.text().strip())
             if hasattr(self, "last_alternative_output_dir") and self.last_alternative_output_dir:
                 self.settings.setValue("alternative_output_dir", self.last_alternative_output_dir)
             current_preset = self.preset_combo.currentText()
@@ -2457,6 +2775,39 @@ if PYQT_AVAILABLE:
                     if organ_name not in checked_organs:
                         checked_organs.append(organ_name)
             self.settings.setValue("checked_organs", checked_organs)
+
+        def test_server_connection(self):
+            """Проверяет подключение к указанному FastAPI серверу."""
+            import requests
+            server_url = self.server_url_edit.text().strip()
+            if not server_url:
+                QMessageBox.warning(self, "Ошибка", "Укажите адрес сервера!")
+                return
+                
+            self.lbl_conn_status.setText("Проверка связи...")
+            self.lbl_conn_status.setStyleSheet("color: #f1c40f; font-weight: bold;")
+            QApplication.processEvents() # Обновить UI
+            
+            try:
+                # Отсылаем GET запрос на корень API
+                r = requests.get(server_url, timeout=5)
+                if r.status_code == 200:
+                    self.lbl_conn_status.setText("Статус: подключено 🟢")
+                    self.lbl_conn_status.setStyleSheet("color: #2ecc71; font-weight: bold;")
+                    QMessageBox.information(
+                        self, "Успех", 
+                        f"Успешное соединение с сервером AI Contour!\n\n"
+                        f"Версия API: {r.json().get('version', 'Неизвестно')}\n"
+                        f"Статус паузы очереди: {'Приостановлена' if r.json().get('is_paused') else 'Активна'}"
+                    )
+                else:
+                    self.lbl_conn_status.setText("Статус: ошибка API 🔴")
+                    self.lbl_conn_status.setStyleSheet("color: #e74c3c; font-weight: bold;")
+                    QMessageBox.warning(self, "Ошибка соединения", f"Сервер ответил кодом {r.status_code}.")
+            except Exception as e:
+                self.lbl_conn_status.setText("Статус: нет связи 🔴")
+                self.lbl_conn_status.setStyleSheet("color: #e74c3c; font-weight: bold;")
+                QMessageBox.critical(self, "Сбой подключения", f"Не удалось связаться с сервером:\n{e}")
 
         def select_input_dir(self):
             dir_path = QFileDialog.getExistingDirectory(self, "Выберите папку с КТ-снимками DICOM")
@@ -2605,7 +2956,7 @@ if PYQT_AVAILABLE:
             
         def update_run_button(self, is_patient_selected: bool, custom_text: str = None):
             if hasattr(self, 'worker') and self.worker and self.worker.isRunning():
-                target_text = "Отменить автооконтуривание"
+                target_text = "ОТМЕНИТЬ РАСЧЕТ ❌"
                 target_enabled = True
                 if self.btn_run.text() != target_text:
                     self.btn_run.setText(target_text)
@@ -2635,7 +2986,7 @@ if PYQT_AVAILABLE:
                 target_text = "ВЫЙТИ ИЗ РЕЖИМА ПРОСМОТРА"
                 target_enabled = True
             else:
-                target_text = custom_text if custom_text else ("ЗАПУСТИТЬ АВТООКОНТУРИРОВАНИЕ" if is_patient_selected else "ВЫБЕРИТЕ ПАЦИЕНТА В ТАБЛИЦЕ")
+                target_text = custom_text if custom_text else ("ОТПРАВИТЬ В ОЧЕРЕДЬ НА СЕРВЕР 🚀" if is_patient_selected else "ВЫБЕРИТЕ ПАЦИЕНТА В ТАБЛИЦЕ")
                 target_enabled = is_patient_selected if custom_text != "КТ-СЕРИИ НЕ НАЙДЕНЫ" else False
             
             if self.btn_run.text() != target_text:
@@ -2665,7 +3016,7 @@ if PYQT_AVAILABLE:
         def on_series_selected(self):
             selected = self.series_table.selectedItems()
             if selected:
-                self.update_run_button(True, "ЗАПУСТИТЬ АВТООКОНТУРИРОВАНИЕ")
+                self.update_run_button(True, "ОТПРАВИТЬ В ОЧЕРЕДЬ НА СЕРВЕР 🚀")
                 row = selected[0].row()
                 selected_path = self.series_table.item(row, 6).text()
                 
@@ -4051,72 +4402,6 @@ if PYQT_AVAILABLE:
                 if hasattr(self, 'merge_rtstruct_combo') and self.merge_rtstruct_combo.count() > 0:
                     self.existing_rtstruct_path = self.merge_rtstruct_combo.currentData()
 
-            # ---- ПРОВЕРКА ЛИЦЕНЗИЙ ПЕРЕД ПЕРВЫМ СКАЧИВАНИЕМ И ЗАПУСКОМ ----
-            required_tasks = set()
-            for organ in selected_organs:
-                task = ROI_TO_TASK_MAP.get(organ, 'total')
-                required_tasks.add(task)
-                
-            for task in required_tasks:
-                if task in LICENSED_TASKS:
-                    from totalsegmentator.config import get_weights_dir, is_valid_license
-                    weights_dir = get_weights_dir()
-                    
-                    TASK_WEIGHTS_DIRS = {
-                        "brain_structures": "Dataset409_neuro_550subj"
-                    }
-                    
-                    weights_folder = TASK_WEIGHTS_DIRS.get(task)
-                    is_downloaded = False
-                    if weights_folder:
-                        is_downloaded = (weights_dir / weights_folder).exists()
-                        
-                    if not is_downloaded:
-                        # Модель используется впервые и будет скачиваться!
-                        display_name = LICENSED_TASKS[task]
-                        license_key = self.engine.licenses.strip() if hasattr(self.engine, "licenses") and isinstance(self.engine.licenses, str) else ""
-                        
-                        if not license_key:
-                            QMessageBox.critical(
-                                self,
-                                "Требуется лицензия 🔑",
-                                f"Выбранные структуры требуют суб-модель ИИ '{display_name}'.\n\n"
-                                "Поскольку эта модель используется впервые, требуется её первоначальное скачивание.\n"
-                                "Для скачивания необходимо активировать лицензионный ключ.\n\n"
-                                "Пожалуйста, перейдите во вкладку 'Настройки' -> 'Управление лицензиями' и введите действующий ключ."
-                            )
-                            return
-                            
-                        # Выполняем онлайн-валидацию перед скачиванием
-                        self.append_log(f"Проверка лицензии для '{display_name}' перед скачиванием...", "#3498db")
-                        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-                        try:
-                            valid = is_valid_license(license_key)
-                        except Exception as e:
-                            QApplication.restoreOverrideCursor()
-                            reply = QMessageBox.question(
-                                self,
-                                "Проверка лицензии: ошибка сети",
-                                f"Не удалось связаться с сервером валидации лицензий для проверки ключа ({e}).\n\n"
-                                "Попытаться продолжить скачивание без предварительной проверки?",
-                                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                                QMessageBox.StandardButton.No
-                            )
-                            if reply != QMessageBox.StandardButton.Yes:
-                                return
-                            valid = True
-                            
-                        QApplication.restoreOverrideCursor()
-                        
-                        if not valid:
-                            QMessageBox.critical(
-                                self,
-                                "Недействительный ключ ❌",
-                                f"Введенный лицензионный ключ для '{display_name}' отклонен сервером проверки.\n\n"
-                                "Скачивание весов ИИ заблокировано. Пожалуйста, введите корректный ключ в настройках."
-                            )
-                            return
-
             # Блокируем интерфейс
             self.set_ui_enabled(False)
             self.log_edit.clear()
@@ -4146,9 +4431,13 @@ if PYQT_AVAILABLE:
                 smoothing_sigmas = [0.5, 1.0, 1.5, 2.0]
                 smoothing_sigma = smoothing_sigmas[self.smoothing_combo.currentIndex()] if self.smoothing_check.isChecked() else 0.0
 
+                server_url = self.server_url_edit.text().strip()
+                client_name = self.client_name_edit.text().strip()
+
                 # Создаем и запускаем поток вычислений
                 self.worker = SegmentationWorker(
-                    engine=self.engine,
+                    server_url=server_url,
+                    client_name=client_name,
                     dicom_dir=dicom_dir,
                     output_dir=output_dir,
                     preset_name=preset_key,
@@ -4164,8 +4453,9 @@ if PYQT_AVAILABLE:
                 self.worker.step_signal.connect(self.on_step_changed)
                 self.worker.progress_signal.connect(self.progress_bar.setValue)
                 self.worker.eta_signal.connect(self.on_eta_updated)
+                self.worker.log_signal.connect(self.append_log)
                 
-                self.current_step_base_text = "Подготовка пайплайна..."
+                self.current_step_base_text = "Отправка на сервер..."
                 self.spinner_index = 0
                 self.pulse_tick = 0
                 self.activity_timer.start()
@@ -4200,7 +4490,7 @@ if PYQT_AVAILABLE:
             
             # Блокировка переключателей устройства
             self.radio_cpu.setEnabled(enabled)
-            self.radio_gpu.setEnabled(enabled and self.engine.is_gpu_available())
+            self.radio_gpu.setEnabled(enabled)
             
             # Блокировка/восстановление переключателей слияния RTSTRUCT
             if enabled:
@@ -4223,10 +4513,10 @@ if PYQT_AVAILABLE:
             
             self.btn_run.setEnabled(True)
             if enabled:
-                self.btn_run.setText("ЗАПУСТИТЬ АВТООКОНТУРИРОВАНИЕ")
+                self.btn_run.setText("ОТПРАВИТЬ В ОЧЕРЕДЬ НА СЕРВЕР 🚀")
                 self.btn_run.setStyleSheet("")
             else:
-                self.btn_run.setText("Отменить автооконтуривание")
+                self.btn_run.setText("ОТМЕНИТЬ РАСЧЕТ ❌")
                 self.btn_run.setStyleSheet("""
                     QPushButton#btnRun {
                         background-color: #c0392b;
@@ -4770,9 +5060,292 @@ if PYQT_AVAILABLE:
                 QMessageBox.StandardButton.No
             )
             if reply == QMessageBox.StandardButton.Yes:
+                logging.info("Закрытие панели управления сервером...")
+                if hasattr(self, "server_process") and self.server_process:
+                    logging.info("Останавливаем фоновый процесс бэкенда сервера...")
+                    self.server_process.terminate()
+                    try:
+                        self.server_process.wait(timeout=2)
+                    except Exception:
+                        self.server_process.kill()
                 event.accept()
             else:
                 event.ignore()
+
+        def get_local_ip(self) -> str:
+            """Получает локальный IP адрес сервера в сети."""
+            import socket
+            try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                s.connect(("8.8.8.8", 80))
+                ip = s.getsockname()[0]
+                s.close()
+                return ip
+            except Exception:
+                return "127.0.0.1"
+
+        def toggle_pause(self):
+            """Переключает статус паузы очереди на сервере."""
+            import requests
+            try:
+                if self.server_is_paused:
+                    res = requests.post("http://127.0.0.1:8000/api/server/resume", timeout=3)
+                    if res.status_code == 200:
+                        self.server_is_paused = False
+                        self.btn_pause_toggle.setText("СЕРВЕР АКТИВЕН 🟢")
+                        self.btn_pause_toggle.setStyleSheet("""
+                            QPushButton#btnPauseActive {
+                                background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #27ae60, stop: 1 #1e8449);
+                                border: 1px solid #2ecc71;
+                                color: #ffffff;
+                                padding: 8px 18px;
+                                font-size: 13px;
+                                font-weight: bold;
+                            }
+                        """)
+                else:
+                    res = requests.post("http://127.0.0.1:8000/api/server/pause", timeout=3)
+                    if res.status_code == 200:
+                        self.server_is_paused = True
+                        self.btn_pause_toggle.setText("СЕРВЕР НА ПАУЗЕ ⏸️")
+                        self.btn_pause_toggle.setStyleSheet("""
+                            QPushButton#btnPauseActive {
+                                background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #d35400, stop: 1 #a04000);
+                                border: 1px solid #e67e22;
+                                color: #ffffff;
+                                padding: 8px 18px;
+                                font-size: 13px;
+                                font-weight: bold;
+                            }
+                        """)
+            except Exception as e:
+                logger.error(f"Не удалось переключить паузу сервера: {e}")
+                QMessageBox.warning(self, "Ошибка связи", f"Не удалось переключить состояние паузы сервера: {e}")
+
+        def update_server_ui(self):
+            """Вызывается по таймеру раз в секунду: запрашивает статус через REST API и обновляет интерфейс."""
+            import requests
+            try:
+                response = requests.get("http://127.0.0.1:8000/api/server/status", timeout=0.8)
+                if response.status_code != 200:
+                    raise RuntimeError(f"Код ответа {response.status_code}")
+                
+                data = response.json()
+                is_paused = data.get("is_paused", False)
+                info_list = data.get("jobs", [])
+                
+                # Обновляем локальное состояние паузы
+                self.server_is_paused = is_paused
+                if is_paused:
+                    self.btn_pause_toggle.setText("СЕРВЕР НА ПАУЗЕ ⏸️")
+                    self.btn_pause_toggle.setStyleSheet("""
+                        QPushButton#btnPauseActive {
+                            background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #d35400, stop: 1 #a04000);
+                            border: 1px solid #e67e22;
+                            color: #ffffff;
+                            padding: 8px 18px;
+                            font-size: 13px;
+                            font-weight: bold;
+                        }
+                    """)
+                else:
+                    self.btn_pause_toggle.setText("СЕРВЕР АКТИВЕН 🟢")
+                    self.btn_pause_toggle.setStyleSheet("""
+                        QPushButton#btnPauseActive {
+                            background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #27ae60, stop: 1 #1e8449);
+                            border: 1px solid #2ecc71;
+                            color: #ffffff;
+                            padding: 8px 18px;
+                            font-size: 13px;
+                            font-weight: bold;
+                        }
+                    """)
+                    
+                self.lbl_server_address.setText(f"API запущен: http://{self.get_local_ip()}:8000")
+                
+            except Exception as e:
+                # Сервер оффлайн или запускается
+                self.lbl_server_address.setText("Подключение к API серверу... (Запуск/Оффлайн)")
+                self.table_queue.setRowCount(0)
+                return
+
+            # Обновление таблицы очереди
+            self.table_queue.setRowCount(len(info_list))
+            from PyQt6.QtGui import QBrush, QColor, QFont
+            for row, item in enumerate(info_list):
+                # Клиент
+                self.table_queue.setItem(row, 0, self.create_table_item(item["client_name"]))
+                
+                # Пациент
+                self.table_queue.setItem(row, 1, self.create_table_item(item["patient_name"]))
+                
+                # ID
+                self.table_queue.setItem(row, 2, self.create_table_item(item["patient_id"]))
+                
+                # Пресет
+                self.table_queue.setItem(row, 3, self.create_table_item(item["preset"]))
+                
+                # Статус
+                status_item = self.create_table_item(item["status"], centered=True)
+                if item["status"] == "SUCCESS":
+                    status_item.setForeground(QBrush(QColor("#2ecc71"))) # Зеленый
+                elif item["status"] == "FAILED":
+                    status_item.setForeground(QBrush(QColor("#e74c3c"))) # Красный
+                elif item["status"] == "CANCELLED":
+                    status_item.setForeground(QBrush(QColor("#f39c12"))) # Оранжевый
+                elif item["status"] == "PROCESSING":
+                    status_item.setForeground(QBrush(QColor("#3498db"))) # Синий
+                    status_item.setFont(QFont("Segoe UI", weight=QFont.Weight.Bold))
+                self.table_queue.setItem(row, 4, status_item)
+                
+                # Прогресс
+                prog_text = f"{item['progress']}%" if item["status"] in ["PROCESSING", "SUCCESS"] else "-"
+                self.table_queue.setItem(row, 5, self.create_table_item(prog_text, centered=True))
+                
+                # Время
+                self.table_queue.setItem(row, 6, self.create_table_item(item["created_at"], centered=True))
+                
+                # Сохраняем job_id в кастомную роль
+                self.table_queue.item(row, 0).setData(Qt.ItemDataRole.UserRole, item["job_id"])
+
+            # Driving the main progress bar from active remote processing job
+            local_running = hasattr(self, 'worker') and self.worker and self.worker.isRunning()
+            if not local_running:
+                processing_job = None
+                for item in info_list:
+                    if item.get("status") == "PROCESSING":
+                        processing_job = item
+                        break
+                
+                if processing_job:
+                    # Update progress bar
+                    prog_val = int(processing_job.get("progress", 0))
+                    self.progress_bar.setValue(prog_val)
+                    self.progress_bar.setRange(0, 100)
+                    
+                    # Update status step label
+                    step_text = processing_job.get("current_step", "Выполнение...")
+                    self.status_step_label.setText(f"Текущий шаг (Сеть): {step_text}")
+                    self.status_step_label.setStyleSheet("color: #3498db; font-weight: bold; font-style: italic;")
+                    
+                    # Update ETA label
+                    elapsed = processing_job.get("elapsed", 0.0)
+                    eta = processing_job.get("eta", 0.0)
+                    def fmt(s: float) -> str:
+                        m = int(s // 60)
+                        sec = int(s % 60)
+                        return f"{m} мин {sec:02d} сек" if m > 0 else f"{sec} сек"
+                    txt = f"⏱ Прошло (Сеть): {fmt(elapsed)}"
+                    if eta > 0:
+                        txt += f"  |  Ожидается ещё: ~{fmt(eta)}"
+                    self.eta_label.setText(txt)
+
+                    # Подгружаем сетевые логи реального времени в GUI сервера
+                    active_job_id = processing_job.get("job_id")
+                    if not hasattr(self, '_current_active_job_id') or self._current_active_job_id != active_job_id:
+                        self._current_active_job_id = active_job_id
+                        self.last_server_log_index = 0
+                        patient_name = processing_job.get("patient_name", "Неизвестный")
+                        self.append_log(f"<br><span style='background-color: #34495e; color: white; font-weight: bold; padding: 6px;'>=== Логи автооконтурирования: {patient_name} ===</span><br>", "#3498db")
+                    
+                    try:
+                        job_status_res = requests.get(f"http://127.0.0.1:8000/api/jobs/{active_job_id}/status", timeout=0.5)
+                        if job_status_res.status_code == 200:
+                            job_status_data = job_status_res.json()
+                            logs = job_status_data.get("logs", [])
+                            if len(logs) > self.last_server_log_index:
+                                for new_line in logs[self.last_server_log_index:]:
+                                    color = "#a0a0a2"
+                                    if "ERROR" in new_line or "Exception" in new_line or "failed" in new_line.lower():
+                                        color = "#ff6b6b"
+                                    elif "WARNING" in new_line:
+                                        color = "#f1c40f"
+                                    elif "шаг" in new_line.lower() or "---" in new_line:
+                                        color = "#3498db"
+                                    elif "totalsegmentator" in new_line.lower():
+                                        color = "#2ecc71"
+                                    self.append_log(new_line, color)
+                                self.last_server_log_index = len(logs)
+                    except Exception as e:
+                        pass
+                else:
+                    # Reset UI if a network task has finished
+                    if "(Сеть)" in self.status_step_label.text():
+                        self.progress_bar.setValue(0)
+                        self.status_step_label.setText("Текущий шаг: Ожидание запуска...")
+                        self.status_step_label.setStyleSheet("color: #007acc; font-weight: bold; font-style: italic;")
+                        self.eta_label.setText("")
+                        
+                        if hasattr(self, '_current_active_job_id') and self._current_active_job_id:
+                            final_log = "[INFO]: Сетевой пайплайн успешно завершен!"
+                            self.log_edit.append(f"<br><span style='background-color: #107c41; color: white; font-weight: bold; padding: 4px;'>{final_log}</span><br>")
+                            self._current_active_job_id = None
+                            self.last_server_log_index = 0
+
+                        # Dynamically refresh statistics UI on task completion
+                        self.update_statistics_ui()
+
+        def create_table_item(self, text: str, centered: bool = False) -> QTableWidgetItem:
+            item = QTableWidgetItem(text)
+            if centered:
+                item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            return item
+
+        def show_context_menu(self, pos):
+            """Отображает контекстное меню для управления задачами в очереди."""
+            row = self.table_queue.currentRow()
+            if row < 0:
+                return
+                
+            # Извлекаем job_id задачи
+            job_id = self.table_queue.item(row, 0).data(Qt.ItemDataRole.UserRole)
+            status_text = self.table_queue.item(row, 4).text()
+                
+            menu = QMenu(self)
+            
+            # Настройка действий
+            cancel_action = menu.addAction("Отменить задачу ❌")
+            cancel_action.setEnabled(status_text in ["PENDING", "PROCESSING"])
+            
+            # Приоритет
+            prioritize_action = menu.addAction("Поднять в начало очереди ⬆️")
+            is_pending = (status_text == "PENDING")
+            prioritize_action.setEnabled(is_pending and row > 0)
+            
+            # Действия
+            action = menu.exec(self.table_queue.mapToGlobal(pos))
+            if action == cancel_action:
+                self.cancel_job_by_id(job_id)
+            elif action == prioritize_action:
+                self.prioritize_job(job_id)
+
+        def cancel_job_by_id(self, job_id: str):
+            reply = QMessageBox.question(
+                self, "Подтверждение отмены",
+                f"Вы действительно хотите отменить выбранную задачу?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            if reply == QMessageBox.StandardButton.Yes:
+                try:
+                    import requests
+                    res = requests.delete(f"http://127.0.0.1:8000/api/jobs/{job_id}/cancel", timeout=3)
+                    if res.status_code != 200:
+                        raise RuntimeError(res.text)
+                except Exception as e:
+                    logger.error(f"Не удалось отменить задачу {job_id}: {e}")
+                    QMessageBox.warning(self, "Ошибка отмены", f"Не удалось отменить выбранную задачу: {e}")
+
+        def prioritize_job(self, job_id: str):
+            """Поднимает задачу на самый верх очереди (показывает приоритет)."""
+            try:
+                import requests
+                res = requests.post(f"http://127.0.0.1:8000/api/jobs/{job_id}/prioritize", timeout=3)
+                if res.status_code != 200:
+                    raise RuntimeError(res.text)
+                logger.info(f"Задача {job_id} успешно приоритезирована.")
+            except Exception as e:
+                logger.error(f"Не удалось изменить приоритет задачи {job_id}: {e}")
+                QMessageBox.warning(self, "Ошибка изменения приоритета", f"Не удалось изменить приоритет: {e}")
 
 
 # ==============================================================================
@@ -4799,7 +5372,7 @@ if __name__ == "__main__":
     # Защита от запуска второй копии программы (используем мьютекс Windows)
     try:
         import ctypes
-        mutex_name = "AIContourAppMutex_1.0"
+        mutex_name = "AIContourServerMutex_1.0"
         mutex = ctypes.windll.kernel32.CreateMutexW(None, False, mutex_name)
         last_error = ctypes.windll.kernel32.GetLastError()
         if last_error == 183:  # ERROR_ALREADY_EXISTS
