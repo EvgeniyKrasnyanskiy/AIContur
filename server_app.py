@@ -1767,7 +1767,6 @@ if PYQT_AVAILABLE:
             self.left_card = QFrame()
             self.left_card.setObjectName("card")
             self.left_card.setMinimumWidth(400)
-            self.left_card.setMaximumWidth(480)
             left_layout = QVBoxLayout(self.left_card)
             left_layout.setContentsMargins(5, 5, 5, 5)
 
@@ -2032,6 +2031,26 @@ if PYQT_AVAILABLE:
             conn_group_layout.addWidget(self.client_name_edit)
             conn_group_layout.addWidget(self.btn_test_conn)
             conn_group_layout.addWidget(self.lbl_conn_status)
+            conn_group.setVisible(False)
+            
+            self.btn_show_conn_settings = QPushButton("🔑 Настройки соединения (Администратор)")
+            self.btn_show_conn_settings.setObjectName("btnBrowse")
+            
+            def toggle_conn_settings():
+                from PyQt6.QtWidgets import QInputDialog, QLineEdit, QMessageBox
+                ok_text, ok = QInputDialog.getText(
+                    self, "Доступ ограничен 🔒", "Введите пароль администратора для изменения настроек соединения:", 
+                    QLineEdit.EchoMode.Password
+                )
+                if ok and ok_text == "rtp":
+                    conn_group.setVisible(True)
+                    self.btn_show_conn_settings.setVisible(False)
+                elif ok:
+                    QMessageBox.critical(self, "Ошибка доступа ❌", "Неверный пароль!")
+            
+            self.btn_show_conn_settings.clicked.connect(toggle_conn_settings)
+            
+            tab2_layout.addWidget(self.btn_show_conn_settings)
             tab2_layout.addWidget(conn_group)
 
             # Звук в конце
@@ -2373,7 +2392,7 @@ if PYQT_AVAILABLE:
             self.table_queue.setHorizontalHeaderLabels([
                 "Клиент", "Пациент", "ID Пациента", "Пресет", "Статус", "Прогресс", "Получено"
             ])
-            self.table_queue.setFixedHeight(95)  # Идеальный компактный размер для шапки + 2 строк!
+            self.table_queue.setMinimumHeight(95)  # Идеальный минимальный компактный размер для шапки + 2 строк!
             
             header = self.table_queue.horizontalHeader()
             header.setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
@@ -2426,6 +2445,12 @@ if PYQT_AVAILABLE:
             self.color_preset_combo.currentIndexChanged.connect(self.save_settings)
             
             self.splitter.setSizes([430, 490])
+
+        def resizeEvent(self, event):
+            """Динамическое ограничение максимальной ширины левой панели до 50% ширины окна."""
+            super().resizeEvent(event)
+            max_w = max(400, int(self.width() * 0.5))
+            self.left_card.setMaximumWidth(max_w)
 
         def update_license_status_label(self):
             """Обновляет статус лицензии (заглушка на клиенте)."""
@@ -4697,17 +4722,17 @@ if PYQT_AVAILABLE:
             
             widget = QWidget()
             layout = QVBoxLayout(widget)
-            layout.setContentsMargins(10, 10, 10, 10)
-            layout.setSpacing(12)
+            layout.setContentsMargins(6, 6, 6, 6)
+            layout.setSpacing(6)
             
             header = QLabel("📊 Статистика автооконтурирований")
             header.setStyleSheet("font-size: 16px; font-weight: bold; color: #ffffff;")
             layout.addWidget(header)
             
             grid_widget = QWidget()
-            grid_layout = QHBoxLayout(grid_widget)
+            grid_layout = QGridLayout(grid_widget)
             grid_layout.setContentsMargins(0, 0, 0, 0)
-            grid_layout.setSpacing(8)
+            grid_layout.setSpacing(6)
             
             def create_stat_card(title: str, val: str, color: str = "#ffffff"):
                 card = QFrame()
@@ -4716,17 +4741,17 @@ if PYQT_AVAILABLE:
                         background-color: #242424;
                         border: 1px solid #333333;
                         border-radius: 6px;
-                        padding: 8px;
+                        padding: 4px;
                     }
                 """)
                 card_lay = QVBoxLayout(card)
-                card_lay.setContentsMargins(6, 6, 6, 6)
-                card_lay.setSpacing(3)
+                card_lay.setContentsMargins(4, 4, 4, 4)
+                card_lay.setSpacing(2)
                 
                 title_lbl = QLabel(title)
-                title_lbl.setStyleSheet("font-size: 10px; color: #888888; font-weight: bold;")
+                title_lbl.setStyleSheet("font-size: 9px; color: #888888; font-weight: bold;")
                 val_lbl = QLabel(val)
-                val_lbl.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {color};")
+                val_lbl.setStyleSheet(f"font-size: 13px; font-weight: bold; color: {color};")
                 
                 card_lay.addWidget(title_lbl)
                 card_lay.addWidget(val_lbl)
@@ -4737,10 +4762,10 @@ if PYQT_AVAILABLE:
             self.card_fail, self.lbl_stat_fail = create_stat_card("СБОЕВ / ОТМЕН", "0 / 0", "#e74c3c")
             self.card_organs, self.lbl_stat_organs = create_stat_card("ОКОНТУРЕНО OAR", "0", "#3498db")
             
-            grid_layout.addWidget(self.card_total)
-            grid_layout.addWidget(self.card_success)
-            grid_layout.addWidget(self.card_fail)
-            grid_layout.addWidget(self.card_organs)
+            grid_layout.addWidget(self.card_total, 0, 0)
+            grid_layout.addWidget(self.card_success, 0, 1)
+            grid_layout.addWidget(self.card_fail, 1, 0)
+            grid_layout.addWidget(self.card_organs, 1, 1)
             layout.addWidget(grid_widget)
             
             time_widget = QFrame()

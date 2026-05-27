@@ -1858,12 +1858,13 @@ if PYQT_AVAILABLE:
             self.radio_cpu = QRadioButton("CPU (Центральный процессор)")
             self.radio_gpu = QRadioButton("GPU CUDA (Рекомендуется)")
             
-            # На клиенте обе опции (GPU/CPU) всегда доступны для выбора, так как вычисления идут на сервере
+            # На клиенте обе опции (GPU/CPU) всегда доступны для выбора, так как вычисления идут на сервере, но группа скрыта из интерфейса
             self.radio_gpu.setChecked(True)
             self.radio_gpu.setEnabled(True)
                 
             device_group_layout.addWidget(self.radio_gpu)
             device_group_layout.addWidget(self.radio_cpu)
+            device_group.setVisible(False)
             tab2_layout.addWidget(device_group)
 
             # Группа 2: Режимы точности TotalSegmentator
@@ -1969,6 +1970,26 @@ if PYQT_AVAILABLE:
             conn_group_layout.addWidget(self.client_name_edit)
             conn_group_layout.addWidget(self.btn_test_conn)
             conn_group_layout.addWidget(self.lbl_conn_status)
+            conn_group.setVisible(False)
+            
+            self.btn_show_conn_settings = QPushButton("🔑 Настройки соединения (Администратор)")
+            self.btn_show_conn_settings.setObjectName("btnBrowse")
+            
+            def toggle_conn_settings():
+                from PyQt6.QtWidgets import QInputDialog, QLineEdit, QMessageBox
+                ok_text, ok = QInputDialog.getText(
+                    self, "Доступ ограничен 🔒", "Введите пароль администратора для изменения настроек соединения:", 
+                    QLineEdit.EchoMode.Password
+                )
+                if ok and ok_text == "rtp":
+                    conn_group.setVisible(True)
+                    self.btn_show_conn_settings.setVisible(False)
+                elif ok:
+                    QMessageBox.critical(self, "Ошибка доступа ❌", "Неверный пароль!")
+            
+            self.btn_show_conn_settings.clicked.connect(toggle_conn_settings)
+            
+            tab2_layout.addWidget(self.btn_show_conn_settings)
             tab2_layout.addWidget(conn_group)
 
             # Звук в конце
@@ -2261,9 +2282,37 @@ if PYQT_AVAILABLE:
             self.rtstruct_combo.setEnabled(False)
             self.rtstruct_combo.currentIndexChanged.connect(self.on_viewer_rtstruct_changed)
             
+            # Кнопки приближения и отдаления 🔍+ / 🔍-
+            self.btn_zoom_in = QPushButton("🔍+")
+            self.btn_zoom_in.setToolTip("Приблизить КТ-снимок (Zoom In)")
+            self.btn_zoom_in.setFixedWidth(40)
+            self.btn_zoom_in.setObjectName("btnBrowse")
+            
+            self.btn_zoom_out = QPushButton("🔍-")
+            self.btn_zoom_out.setToolTip("Отдалить КТ-снимок (Zoom Out)")
+            self.btn_zoom_out.setFixedWidth(40)
+            self.btn_zoom_out.setObjectName("btnBrowse")
+            
+            def zoom_in():
+                try:
+                    self.dicom_viewer.getView().scaleBy((0.85, 0.85))
+                except Exception:
+                    pass
+            
+            def zoom_out():
+                try:
+                    self.dicom_viewer.getView().scaleBy((1.18, 1.18))
+                except Exception:
+                    pass
+                    
+            self.btn_zoom_in.clicked.connect(zoom_in)
+            self.btn_zoom_out.clicked.connect(zoom_out)
+
             viewer_tools_layout.addWidget(self.chk_show_structures)
             viewer_tools_layout.addWidget(QLabel("Файл:"))
             viewer_tools_layout.addWidget(self.rtstruct_combo, 1)
+            viewer_tools_layout.addWidget(self.btn_zoom_in)
+            viewer_tools_layout.addWidget(self.btn_zoom_out)
             viewer_layout.addWidget(viewer_tools_panel)
             
             self.dicom_viewer = pg.ImageView()
