@@ -2437,7 +2437,7 @@ if PYQT_AVAILABLE:
             headers_layout.setSpacing(10)
             
             # Создаем и стилизуем заголовок вьюера
-            viewer_section_header = QLabel("Просмотр КТ-снимков")
+            viewer_section_header = QLabel("Просмотр КТ-снимков:")
             viewer_section_header.setStyleSheet("font-weight: bold; color: #ffffff;")
             
             headers_layout.addWidget(table_header, 6)
