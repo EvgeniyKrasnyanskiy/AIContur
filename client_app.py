@@ -1975,16 +1975,20 @@ if PYQT_AVAILABLE:
             self.btn_show_conn_settings.setObjectName("btnBrowse")
             
             def toggle_conn_settings():
-                from PyQt6.QtWidgets import QInputDialog, QLineEdit, QMessageBox
-                ok_text, ok = QInputDialog.getText(
-                    self, "Доступ ограничен 🔒", "Введите пароль администратора для изменения настроек соединения:", 
-                    QLineEdit.EchoMode.Password
-                )
-                if ok and ok_text == "rtp":
-                    conn_group.setVisible(True)
-                    self.btn_show_conn_settings.setVisible(False)
-                elif ok:
-                    QMessageBox.critical(self, "Ошибка доступа ❌", "Неверный пароль!")
+                if conn_group.isVisible():
+                    conn_group.setVisible(False)
+                    self.btn_show_conn_settings.setText("🔑 Настройки соединения (Администратор)")
+                else:
+                    from PyQt6.QtWidgets import QInputDialog, QLineEdit, QMessageBox
+                    ok_text, ok = QInputDialog.getText(
+                        self, "Доступ ограничен 🔒", "Введите пароль администратора для изменения настроек соединения:", 
+                        QLineEdit.EchoMode.Password
+                    )
+                    if ok and ok_text == "rtp":
+                        conn_group.setVisible(True)
+                        self.btn_show_conn_settings.setText("🔒 Скрыть настройки соединения")
+                    elif ok:
+                        QMessageBox.critical(self, "Ошибка доступа ❌", "Неверный пароль!")
             
             self.btn_show_conn_settings.clicked.connect(toggle_conn_settings)
             
@@ -2281,16 +2285,18 @@ if PYQT_AVAILABLE:
             self.rtstruct_combo.setEnabled(False)
             self.rtstruct_combo.currentIndexChanged.connect(self.on_viewer_rtstruct_changed)
             
-            # Кнопки приближения и отдаления 🔍+ / 🔍-
-            self.btn_zoom_in = QPushButton("🔍+")
+            # Кнопки приближения и отдаления + / -
+            self.btn_zoom_in = QPushButton("+")
             self.btn_zoom_in.setToolTip("Приблизить КТ-снимок (Zoom In)")
             self.btn_zoom_in.setFixedWidth(40)
             self.btn_zoom_in.setObjectName("btnBrowse")
+            self.btn_zoom_in.setStyleSheet("font-weight: bold; font-size: 14px;")
             
-            self.btn_zoom_out = QPushButton("🔍-")
+            self.btn_zoom_out = QPushButton("-")
             self.btn_zoom_out.setToolTip("Отдалить КТ-снимок (Zoom Out)")
             self.btn_zoom_out.setFixedWidth(40)
             self.btn_zoom_out.setObjectName("btnBrowse")
+            self.btn_zoom_out.setStyleSheet("font-weight: bold; font-size: 14px;")
             
             def zoom_in():
                 try:
@@ -2433,6 +2439,11 @@ if PYQT_AVAILABLE:
             self.color_preset_combo.currentIndexChanged.connect(self.save_settings)
             
             self.splitter.setSizes([430, 490])
+
+            # Инициализация постоянного индикатора состояния сервера в статус-баре
+            self.lbl_server_status_indicator = QLabel("Сервер: Недоступен 🔴")
+            self.lbl_server_status_indicator.setStyleSheet("font-weight: bold; color: #ff6b6b; margin-right: 15px; font-size: 12px;")
+            self.statusBar().addPermanentWidget(self.lbl_server_status_indicator)
 
         def resizeEvent(self, event):
             """Динамическое ограничение максимальной ширины левой панели до 50% ширины окна."""
@@ -4568,8 +4579,19 @@ if PYQT_AVAILABLE:
                 is_paused = data.get("is_paused", False)
                 info_list = data.get("jobs", [])
                 
+                # Обновление постоянного индикатора состояния сервера
+                if is_paused:
+                    self.lbl_server_status_indicator.setText("Сервер: На паузе ⏸️")
+                    self.lbl_server_status_indicator.setStyleSheet("font-weight: bold; color: #f39c12; margin-right: 15px; font-size: 12px;")
+                else:
+                    self.lbl_server_status_indicator.setText("Сервер: Активен 🟢")
+                    self.lbl_server_status_indicator.setStyleSheet("font-weight: bold; color: #2ecc71; margin-right: 15px; font-size: 12px;")
+                
             except Exception as e:
                 self.table_queue.setRowCount(0)
+                # Обновление индикатора в случае недоступности сервера
+                self.lbl_server_status_indicator.setText("Сервер: Недоступен 🔴")
+                self.lbl_server_status_indicator.setStyleSheet("font-weight: bold; color: #ff6b6b; margin-right: 15px; font-size: 12px;")
                 return
 
             # Обновление таблицы очереди

@@ -2057,16 +2057,20 @@ if PYQT_AVAILABLE:
             self.btn_show_conn_settings.setObjectName("btnBrowse")
             
             def toggle_conn_settings():
-                from PyQt6.QtWidgets import QInputDialog, QLineEdit, QMessageBox
-                ok_text, ok = QInputDialog.getText(
-                    self, "Доступ ограничен 🔒", "Введите пароль администратора для изменения настроек соединения:", 
-                    QLineEdit.EchoMode.Password
-                )
-                if ok and ok_text == "rtp":
-                    conn_group.setVisible(True)
-                    self.btn_show_conn_settings.setVisible(False)
-                elif ok:
-                    QMessageBox.critical(self, "Ошибка доступа ❌", "Неверный пароль!")
+                if conn_group.isVisible():
+                    conn_group.setVisible(False)
+                    self.btn_show_conn_settings.setText("🔑 Настройки соединения (Администратор)")
+                else:
+                    from PyQt6.QtWidgets import QInputDialog, QLineEdit, QMessageBox
+                    ok_text, ok = QInputDialog.getText(
+                        self, "Доступ ограничен 🔒", "Введите пароль администратора для изменения настроек соединения:", 
+                        QLineEdit.EchoMode.Password
+                    )
+                    if ok and ok_text == "rtp":
+                        conn_group.setVisible(True)
+                        self.btn_show_conn_settings.setText("🔒 Скрыть настройки соединения")
+                    elif ok:
+                        QMessageBox.critical(self, "Ошибка доступа ❌", "Неверный пароль!")
             
             self.btn_show_conn_settings.clicked.connect(toggle_conn_settings)
             
@@ -2366,16 +2370,18 @@ if PYQT_AVAILABLE:
             self.rtstruct_combo.setEnabled(False)
             self.rtstruct_combo.currentIndexChanged.connect(self.on_viewer_rtstruct_changed)
             
-            # Кнопки приближения и отдаления 🔍+ / 🔍-
-            self.btn_zoom_in = QPushButton("🔍+")
+            # Кнопки приближения и отдаления + / -
+            self.btn_zoom_in = QPushButton("+")
             self.btn_zoom_in.setToolTip("Приблизить КТ-снимок (Zoom In)")
             self.btn_zoom_in.setFixedWidth(40)
             self.btn_zoom_in.setObjectName("btnBrowse")
+            self.btn_zoom_in.setStyleSheet("font-weight: bold; font-size: 14px;")
             
-            self.btn_zoom_out = QPushButton("🔍-")
+            self.btn_zoom_out = QPushButton("-")
             self.btn_zoom_out.setToolTip("Отдалить КТ-снимок (Zoom Out)")
             self.btn_zoom_out.setFixedWidth(40)
             self.btn_zoom_out.setObjectName("btnBrowse")
+            self.btn_zoom_out.setStyleSheet("font-weight: bold; font-size: 14px;")
             
             def zoom_in():
                 try:
@@ -5211,7 +5217,7 @@ if PYQT_AVAILABLE:
                 url = "http://127.0.0.1:8000/api/server/resume" if current_paused else "http://127.0.0.1:8000/api/server/pause"
                 success = False
                 try:
-                    res = requests.post(url, timeout=0.8)
+                    res = requests.post(url, timeout=2.5)
                     if res.status_code == 200:
                         success = True
                 except Exception as e:
@@ -5248,9 +5254,34 @@ if PYQT_AVAILABLE:
                             """)
                     else:
                         self.server_is_paused = current_paused
-                        QMessageBox.warning(self, "Ошибка связи", "Не удалось изменить состояние паузы сервера. Проверьте подключение бэкенда.")
+                        # Бесшумный откат состояния кнопки при ошибке
+                        if self.server_is_paused:
+                            self.btn_pause_toggle.setText("СЕРВЕР НА ПАУЗЕ ⏸️")
+                            self.btn_pause_toggle.setStyleSheet("""
+                                QPushButton#btnPauseActive {
+                                    background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #d35400, stop: 1 #a04000);
+                                    border: 1px solid #e67e22;
+                                    color: #ffffff;
+                                    padding: 8px 18px;
+                                    font-size: 13px;
+                                    font-weight: bold;
+                                }
+                            """)
+                        else:
+                            self.btn_pause_toggle.setText("СЕРВЕР АКТИВЕН 🟢")
+                            self.btn_pause_toggle.setStyleSheet("""
+                                QPushButton#btnPauseActive {
+                                    background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #27ae60, stop: 1 #1e8449);
+                                    border: 1px solid #2ecc71;
+                                    color: #ffffff;
+                                    padding: 8px 18px;
+                                    font-size: 13px;
+                                    font-weight: bold;
+                                }
+                            """)
                         self.update_server_ui()
                         
+                from PyQt6.QtCore import QTimer
                 QTimer.singleShot(0, update_gui)
                 
             import threading
