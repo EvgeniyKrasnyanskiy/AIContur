@@ -3138,7 +3138,9 @@ if PYQT_AVAILABLE:
                         area_lower = area_text.lower()
                         matched_preset = None
                         
-                        if any(x in area_lower for x in ["head", "neck", "голова", "шея", "brain", "мозг", "larynx", "гортан"]):
+                        if any(x in area_lower for x in ["brain", "мозг"]):
+                            matched_preset = "Отделы головного мозга (Brain Structures)"
+                        elif any(x in area_lower for x in ["head", "neck", "голова", "шея", "larynx", "гортан"]):
                             matched_preset = "Голова и шея (Head & Neck)"
                         elif any(x in area_lower for x in ["thorax", "chest", "lung", "груд", "легк", "кост", "rib"]):
                             matched_preset = "Грудная клетка (Thorax)"
@@ -3623,11 +3625,6 @@ if PYQT_AVAILABLE:
             
             progress_dialog = None
             try:
-                # Всегда меняем курсор на WaitCursor для предупреждения о процессе отрисовки
-                QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-                self.status_step_label.setText("⏳ Отрисовка 3D-структур...")
-                QApplication.processEvents()
-
                 # Избегаем повторного тяжелого парсинга RTSTRUCT с диска
                 if not getattr(self, "_cached_rtstruct", None) or getattr(self, "_cached_rtstruct_path", None) != rtstruct_path:
                     self.status_step_label.setText("⏳ Подготовка 3D-сцены: чтение DICOM RTSTRUCT файла...")
@@ -3852,6 +3849,11 @@ if PYQT_AVAILABLE:
                 all_cached = all(roi in self._loaded_roi_masks for roi, _ in rois_to_draw)
 
                 if not all_cached:
+                    # Включаем WaitCursor и обновляем статус только при первом медленном чтении масок с диска
+                    QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+                    self.status_step_label.setText("⏳ Отрисовка 3D-структур...")
+                    QApplication.processEvents()
+                    
                     # Создаем красивое модальное окно прогресса при первом чтении масок
                     progress_dialog = QProgressDialog("⏳ Инициализация 3D-структур...", None, 0, len(rois_to_draw), self)
                     progress_dialog.setWindowTitle("Загрузка 3D-контуров")
@@ -3939,7 +3941,7 @@ if PYQT_AVAILABLE:
             finally:
                 if progress_dialog:
                     progress_dialog.close()
-                QApplication.restoreOverrideCursor()
+                    QApplication.restoreOverrideCursor()
 
         def _get_roi_mask_safe(
             self,
@@ -4334,6 +4336,11 @@ if PYQT_AVAILABLE:
             role = item.data(Qt.ItemDataRole.UserRole)
             if role == "header":
                 self.toggle_group_collapse(item)
+            else:
+                if item.flags() & Qt.ItemFlag.ItemIsUserCheckable:
+                    current_state = item.checkState()
+                    new_state = Qt.CheckState.Unchecked if current_state == Qt.CheckState.Checked else Qt.CheckState.Checked
+                    item.setCheckState(new_state)
 
         def toggle_group_collapse(self, header_item: QListWidgetItem):
             """Сворачивает или разворачивает группу органов."""
@@ -5156,6 +5163,7 @@ if PYQT_AVAILABLE:
                             # Автоматически активируем галочку и отрисовываем контуры во вьюере
                             if hasattr(self, 'chk_show_structures') and self.chk_show_structures.isEnabled():
                                 self.chk_show_structures.setChecked(True)
+                                self.on_show_structures_changed()
                     
                     QTimer.singleShot(100, lambda: QMessageBox.information(self, "Успех", "Автоматическое оконтурирование завершено успешно!"))
                     # Сбрасываем прогресс-бар до 0 через 5 секунд, чтобы не висел при просмотре снимков

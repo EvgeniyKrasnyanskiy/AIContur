@@ -82,6 +82,20 @@ async def upload_job(
         job = queue_manager.get_job(job_id)
         pos = len(queue_manager.pending_queue)
         
+        # Асинхронно воспроизводим короткий звуковой сигнал на сервере при новой задаче
+        try:
+            import winsound
+            import threading
+            def play_alert():
+                try:
+                    winsound.Beep(880, 100)
+                    winsound.Beep(1109, 120)
+                except Exception:
+                    pass
+            threading.Thread(target=play_alert, daemon=True).start()
+        except Exception:
+            pass
+
         return {
             "job_id": job_id,
             "status": "PENDING",

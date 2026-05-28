@@ -16,10 +16,6 @@ ROI_TO_TASK_MAP = {
     'cerebellum': 'brain_structures',
     'thalamus_left': 'brain_structures',
     'thalamus_right': 'brain_structures',
-    'hippocampus_left': 'brain_structures',
-    'hippocampus_right': 'brain_structures',
-    'amygdala_left': 'brain_structures',
-    'amygdala_right': 'brain_structures',
     'caudate_left': 'brain_structures',
     'caudate_right': 'brain_structures',
     'putamen_left': 'brain_structures',
@@ -32,7 +28,6 @@ ROI_TO_TASK_MAP = {
     'insular_cortex': 'brain_structures',
     'internal_capsule': 'brain_structures',
     'ventricle': 'brain_structures',
-    'central_sulcus': 'brain_structures',
     'frontal_lobe': 'brain_structures',
     'parietal_lobe': 'brain_structures',
     'occipital_lobe': 'brain_structures',
@@ -107,11 +102,11 @@ ORGAN_GROUPS = {
         "gluteus_minimus_left", "gluteus_minimus_right"
     ],
     "Отделы головного мозга (Brain Structures)": [
-        "brain_stem", "cerebellum", "thalamus_left", "thalamus_right", "hippocampus_left", "hippocampus_right",
-        "amygdala_left", "amygdala_right", "caudate_left", "caudate_right", "putamen_left", "putamen_right",
+        "brain_stem", "cerebellum", "thalamus_left", "thalamus_right",
+        "caudate_left", "caudate_right", "putamen_left", "putamen_right",
         "pallidum_left", "pallidum_right", "ventricle", "subarachnoid_space", "venous_sinuses",
         "septum_pellucidum", "internal_capsule", "frontal_lobe", "parietal_lobe", "occipital_lobe",
-        "temporal_lobe", "insular_cortex", "central_sulcus"
+        "temporal_lobe", "insular_cortex"
     ]
 }
 
