@@ -47,6 +47,7 @@ try:
     from PyQt6.QtGui import QTextCursor, QBrush, QColor, QFont, QIcon, QPixmap, QPalette
     PYQT_AVAILABLE = True
     from src.ui.styles import StyleManager
+    from src.network.api_client import NetworkStatusWorker
     
     class OrganIndentDelegate(QStyledItemDelegate):
         """Делегат для смещения не-header элементов (чекбокс + иконка + текст) списка органов вправо."""
@@ -4374,15 +4375,19 @@ if PYQT_AVAILABLE:
             return item
 
         def update_client_queue_ui(self):
-            """Вызывается по таймеру раз в секунду: запрашивает статус через REST API сервера и обновляет интерфейс очереди и логов."""
-            import requests
-            server_url = self.get_server_url()
-            try:
-                response = requests.get(f"{server_url}/api/server/status", timeout=0.8)
-                if response.status_code != 200:
-                    raise RuntimeError(f"Код ответа {response.status_code}")
+            """Вызывается по таймеру раз в секунду: запускает фоновый опрос статуса сервера через QThread."""
+            if hasattr(self, 'status_worker') and self.status_worker and self.status_worker.isRunning():
+                return
                 
-                data = response.json()
+            server_url = self.get_server_url()
+            self.status_worker = NetworkStatusWorker(server_url, timeout=0.8)
+            self.status_worker.status_received.connect(self.on_status_received)
+            self.status_worker.error_occurred.connect(self.on_status_error)
+            self.status_worker.start()
+
+        def on_status_received(self, data: dict):
+            """Слот обработки успешно полученного статуса сервера из фонового потока."""
+            try:
                 is_paused = data.get("is_paused", False)
                 info_list = data.get("jobs", [])
                 
@@ -4394,134 +4399,139 @@ if PYQT_AVAILABLE:
                     self.lbl_server_status_indicator.setText("Сервер: ✅")
                     self.lbl_server_status_indicator.setStyleSheet("font-weight: bold; color: #2ecc71; margin-right: 10px; margin-bottom: 7px; font-size: 12px;")
                 
-            except Exception as e:
-                self.table_queue.setRowCount(0)
-                # Обновление индикатора в случае недоступности сервера
-                self.lbl_server_status_indicator.setText("Сервер: ❌")
-                self.lbl_server_status_indicator.setStyleSheet("font-weight: bold; color: #ff6b6b; margin-right: 10px; margin-bottom: 7px; font-size: 12px;")
-                return
-
-            # Обновление таблицы очереди (только задачи данного клиента)
-            my_client_name = self.client_name_edit.text().strip()
-            filtered_list = [item for item in info_list if item.get("client_name", "") == my_client_name]
-            self.table_queue.setRowCount(len(filtered_list))
-            from PyQt6.QtGui import QBrush, QColor, QFont
-            for row, item in enumerate(filtered_list):
-                # Клиент
-                self.table_queue.setItem(row, 0, self.create_table_item(item["client_name"]))
-                
-                # Пациент
-                self.table_queue.setItem(row, 1, self.create_table_item(item["patient_name"]))
-                
-                # ID
-                self.table_queue.setItem(row, 2, self.create_table_item(item["patient_id"]))
-                
-                # Пресет
-                self.table_queue.setItem(row, 3, self.create_table_item(item["preset"]))
-                
-                # Статус
-                status_item = self.create_table_item(item["status"], centered=True)
-                if item["status"] == "SUCCESS":
-                    status_item.setForeground(QBrush(QColor("#2ecc71"))) # Зеленый
-                elif item["status"] == "FAILED":
-                    status_item.setForeground(QBrush(QColor("#e74c3c"))) # Красный
-                elif item["status"] == "CANCELLED":
-                    status_item.setForeground(QBrush(QColor("#f39c12"))) # Оранжевый
-                elif item["status"] == "PROCESSING":
-                    status_item.setForeground(QBrush(QColor("#3498db"))) # Синий
-                    status_item.setFont(QFont("Segoe UI", weight=QFont.Weight.Bold))
-                self.table_queue.setItem(row, 4, status_item)
-                
-                # Прогресс
-                prog_text = f"{item['progress']}%" if item["status"] in ["PROCESSING", "SUCCESS"] else "-"
-                self.table_queue.setItem(row, 5, self.create_table_item(prog_text, centered=True))
-                
-                # Время
-                self.table_queue.setItem(row, 6, self.create_table_item(item["created_at"], centered=True))
-                
-                # Сохраняем job_id в кастомную роль
-                self.table_queue.item(row, 0).setData(Qt.ItemDataRole.UserRole, item["job_id"])
-
-            # Обновление прогресс-бара и логов для активной PROCESSING задачи ЭТОГО клиента
-            processing_job = None
-            for item in filtered_list:
-                if item.get("status") == "PROCESSING":
-                    processing_job = item
-                    break
-            
-            if processing_job:
-                # Обновляем прогресс-бар
-                prog_val = int(processing_job.get("progress", 0))
-                self.progress_bar.setValue(prog_val)
-                self.progress_bar.setRange(0, 100)
-                
-                # Обновляем метку шага
-                step_text = processing_job.get("current_step", "Выполнение...")
-                self.current_step_base_text = f"Текущий шаг (Сеть): {step_text}"
-                self.status_step_label.setStyleSheet("color: #3498db; font-weight: bold; font-style: italic;")
-                if not self.activity_timer.isActive():
-                    self.spinner_index = 0
-                    self.pulse_tick = 0
-                    self.activity_timer.start()
-                
-                # Обновляем ETA
-                elapsed = processing_job.get("elapsed", 0.0)
-                eta = processing_job.get("eta", 0.0)
-                def fmt(s: float) -> str:
-                    m = int(s // 60)
-                    sec = int(s % 60)
-                    return f"{m} мин {sec:02d} сек" if m > 0 else f"{sec} сек"
-                txt = f"⏱ Прошло (Сеть): {fmt(elapsed)}"
-                if eta > 0:
-                    txt += f"  |  Ожидается ещё: ~{fmt(eta)}"
-                self.eta_label.setText(txt)
-
-                # Подгружаем логи реального времени для активной PROCESSING задачи
-                active_job_id = processing_job.get("job_id")
-                if not hasattr(self, '_current_active_job_id') or self._current_active_job_id != active_job_id:
-                    self._current_active_job_id = active_job_id
-                    self.last_client_log_index = 0
-                    patient_name = processing_job.get("patient_name", "Неизвестный")
-                    self.append_log(f"<br><span style='background-color: #34495e; color: white; font-weight: bold; padding: 6px;'>=== Логи автооконтурирования: {patient_name} ===</span><br>", "#3498db")
-                
-                try:
-                    job_status_res = requests.get(f"{server_url}/api/jobs/{active_job_id}/status", timeout=0.5)
-                    if job_status_res.status_code == 200:
-                        job_status_data = job_status_res.json()
-                        logs = job_status_data.get("logs", [])
-                        if len(logs) > self.last_client_log_index:
-                            for new_line in logs[self.last_client_log_index:]:
-                                color = "#a0a0a2"
-                                if "ERROR" in new_line or "Exception" in new_line or "failed" in new_line.lower():
-                                    color = "#ff6b6b"
-                                elif "WARNING" in new_line:
-                                    color = "#f1c40f"
-                                elif "шаг" in new_line.lower() or "---" in new_line:
-                                    color = "#3498db"
-                                elif "totalsegmentator" in new_line.lower():
-                                    color = "#2ecc71"
-                                self.append_log(new_line, color)
-                            self.last_client_log_index = len(logs)
-                except Exception:
-                    pass
-            else:
-                # Сброс UI, если сетевая задача завершилась
-                if "(Сеть)" in self.status_step_label.text():
-                    self.progress_bar.setValue(0)
-                    self.status_step_label.setText("Текущий шаг: Ожидание запуска...")
-                    self.status_step_label.setStyleSheet("color: #007acc; font-weight: bold; font-style: italic;")
-                    self.eta_label.setText("")
-                    if self.activity_timer.isActive():
-                        self.activity_timer.stop()
+                # Обновление таблицы очереди (только задачи данного клиента)
+                my_client_name = self.client_name_edit.text().strip()
+                filtered_list = [item for item in info_list if item.get("client_name", "") == my_client_name]
+                self.table_queue.setRowCount(len(filtered_list))
+                from PyQt6.QtGui import QBrush, QColor, QFont
+                for row, item in enumerate(filtered_list):
+                    # Клиент
+                    self.table_queue.setItem(row, 0, self.create_table_item(item["client_name"]))
                     
-                    if hasattr(self, '_current_active_job_id') and self._current_active_job_id:
-                        final_log = "[INFO]: Сетевой пайплайн успешно завершен!"
-                        self.log_edit.append(f"<br><span style='background-color: #107c41; color: white; font-weight: bold; padding: 4px;'>{final_log}</span><br>")
-                        self._current_active_job_id = None
-                        self.last_client_log_index = 0
+                    # Пациент
+                    self.table_queue.setItem(row, 1, self.create_table_item(item["patient_name"]))
+                    
+                    # ID
+                    self.table_queue.setItem(row, 2, self.create_table_item(item["patient_id"]))
+                    
+                    # Пресет
+                    self.table_queue.setItem(row, 3, self.create_table_item(item["preset"]))
+                    
+                    # Статус
+                    status_item = self.create_table_item(item["status"], centered=True)
+                    if item["status"] == "SUCCESS":
+                        status_item.setForeground(QBrush(QColor("#2ecc71"))) # Зеленый
+                    elif item["status"] == "FAILED":
+                        status_item.setForeground(QBrush(QColor("#e74c3c"))) # Красный
+                    elif item["status"] == "CANCELLED":
+                        status_item.setForeground(QBrush(QColor("#f39c12"))) # Оранжевый
+                    elif item["status"] == "PROCESSING":
+                        status_item.setForeground(QBrush(QColor("#3498db"))) # Синий
+                        status_item.setFont(QFont("Segoe UI", weight=QFont.Weight.Bold))
+                    self.table_queue.setItem(row, 4, status_item)
+                    
+                    # Прогресс
+                    prog_text = f"{item['progress']}%" if item["status"] in ["PROCESSING", "SUCCESS"] else "-"
+                    self.table_queue.setItem(row, 5, self.create_table_item(prog_text, centered=True))
+                    
+                    # Время
+                    self.table_queue.setItem(row, 6, self.create_table_item(item["created_at"], centered=True))
+                    
+                    # Сохраняем job_id в кастомную роль
+                    self.table_queue.item(row, 0).setData(Qt.ItemDataRole.UserRole, item["job_id"])
 
-                    if hasattr(self, 'update_statistics_ui'):
-                        self.update_statistics_ui()
+                # Обновление прогресс-бара и логов для активной PROCESSING задачи ЭТОГО клиента
+                processing_job = None
+                for item in filtered_list:
+                    if item.get("status") == "PROCESSING":
+                        processing_job = item
+                        break
+                
+                if processing_job:
+                    # Обновляем прогресс-бар
+                    prog_val = int(processing_job.get("progress", 0))
+                    self.progress_bar.setValue(prog_val)
+                    self.progress_bar.setRange(0, 100)
+                    
+                    # Обновляем метку шага
+                    step_text = processing_job.get("current_step", "Выполнение...")
+                    self.current_step_base_text = f"Текущий шаг (Сеть): {step_text}"
+                    self.status_step_label.setStyleSheet("color: #3498db; font-weight: bold; font-style: italic;")
+                    if not self.activity_timer.isActive():
+                        self.spinner_index = 0
+                        self.pulse_tick = 0
+                        self.activity_timer.start()
+                    
+                    # Обновляем ETA
+                    elapsed = processing_job.get("elapsed", 0.0)
+                    eta = processing_job.get("eta", 0.0)
+                    def fmt(s: float) -> str:
+                        m = int(s // 60)
+                        sec = int(s % 60)
+                        return f"{m} мин {sec:02d} сек" if m > 0 else f"{sec} сек"
+                    txt = f"⏱ Прошло (Сеть): {fmt(elapsed)}"
+                    if eta > 0:
+                        txt += f"  |  Ожидается ещё: ~{fmt(eta)}"
+                    self.eta_label.setText(txt)
+
+                    # Подгружаем логи реального времени для активной PROCESSING задачи
+                    active_job_id = processing_job.get("job_id")
+                    if not hasattr(self, '_current_active_job_id') or self._current_active_job_id != active_job_id:
+                        self._current_active_job_id = active_job_id
+                        self.last_client_log_index = 0
+                        patient_name = processing_job.get("patient_name", "Неизвестный")
+                        self.append_log(f"<br><span style='background-color: #34495e; color: white; font-weight: bold; padding: 6px;'>=== Логи автооконтурирования: {patient_name} ===</span><br>", "#3498db")
+                    
+                    # Запрос логов делаем с микро-таймаутом, но в идеале его тоже вынести, однако пока оставляем безопасную обратную совместимость
+                    import requests
+                    server_url = self.get_server_url()
+                    try:
+                        job_status_res = requests.get(f"{server_url}/api/jobs/{active_job_id}/status", timeout=0.3)
+                        if job_status_res.status_code == 200:
+                            job_status_data = job_status_res.json()
+                            logs = job_status_data.get("logs", [])
+                            if len(logs) > self.last_client_log_index:
+                                for new_line in logs[self.last_client_log_index:]:
+                                    color = "#a0a0a2"
+                                    if "ERROR" in new_line or "Exception" in new_line or "failed" in new_line.lower():
+                                        color = "#ff6b6b"
+                                    elif "WARNING" in new_line:
+                                        color = "#f1c40f"
+                                    elif "шаг" in new_line.lower() or "---" in new_line:
+                                        color = "#3498db"
+                                    elif "totalsegmentator" in new_line.lower():
+                                        color = "#2ecc71"
+                                    self.append_log(new_line, color)
+                                self.last_client_log_index = len(logs)
+                    except Exception:
+                        pass
+                else:
+                    # Сброс UI, если сетевая задача завершилась
+                    if "(Сеть)" in self.status_step_label.text():
+                        self.progress_bar.setValue(0)
+                        self.status_step_label.setText("Текущий шаг: Ожидание запуска...")
+                        self.status_step_label.setStyleSheet("color: #007acc; font-weight: bold; font-style: italic;")
+                        self.eta_label.setText("")
+                        if self.activity_timer.isActive():
+                            self.activity_timer.stop()
+                        
+                        if hasattr(self, '_current_active_job_id') and self._current_active_job_id:
+                            final_log = "[INFO]: Сетевой пайплайн успешно завершен!"
+                            self.log_edit.append(f"<br><span style='background-color: #107c41; color: white; font-weight: bold; padding: 4px;'>{final_log}</span><br>")
+                            self._current_active_job_id = None
+                            self.last_client_log_index = 0
+
+                        if hasattr(self, 'update_statistics_ui'):
+                            self.update_statistics_ui()
+            except Exception as ex:
+                logger.error(f"Ошибка обновления UI в слоте status_received: {ex}")
+
+        def on_status_error(self, err_msg: str):
+            """Слот обработки сетевой ошибки фонового воркера."""
+            self.table_queue.setRowCount(0)
+            # Обновление индикатора в случае недоступности сервера
+            self.lbl_server_status_indicator.setText("Сервер: ❌")
+            self.lbl_server_status_indicator.setStyleSheet("font-weight: bold; color: #ff6b6b; margin-right: 10px; margin-bottom: 7px; font-size: 12px;")
 
         def show_context_menu(self, pos):
             """Отображает контекстное меню для управления задачами в очереди."""
