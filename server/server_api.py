@@ -57,14 +57,20 @@ class BlacklistManager:
                 "last_activity": "Заблокирован",
                 "status": "Заблокирован"
             })
-        # Затем активные
+        
+        current_time = time.time()
+        # Затем активные/офлайн
         for cid in sorted(self.active_clients.keys()):
             t = self.active_clients[cid]
             dt = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(t))
+            if current_time - t > 10.0:
+                status = "Офлайн"
+            else:
+                status = "Активен"
             info.append({
                 "client_id": cid,
                 "last_activity": dt,
-                "status": "Активен"
+                "status": status
             })
         return info
 

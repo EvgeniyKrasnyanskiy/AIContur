@@ -1155,6 +1155,8 @@ if PYQT_AVAILABLE:
                 item_status = QTableWidgetItem(status)
                 if status == "Заблокирован":
                     item_status.setForeground(QBrush(QColor("#ff6b6b")))
+                elif status == "Офлайн":
+                    item_status.setForeground(QBrush(QColor("#888888")))
                 else:
                     item_status.setForeground(QBrush(QColor("#2ecc71")))
                 self.table.setItem(row, 2, item_status)
