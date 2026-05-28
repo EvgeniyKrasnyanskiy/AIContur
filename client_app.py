@@ -4819,8 +4819,12 @@ if PYQT_AVAILABLE:
                 
                 # Обновляем метку шага
                 step_text = processing_job.get("current_step", "Выполнение...")
-                self.status_step_label.setText(f"Текущий шаг (Сеть): {step_text}")
+                self.current_step_base_text = f"Текущий шаг (Сеть): {step_text}"
                 self.status_step_label.setStyleSheet("color: #3498db; font-weight: bold; font-style: italic;")
+                if not self.activity_timer.isActive():
+                    self.spinner_index = 0
+                    self.pulse_tick = 0
+                    self.activity_timer.start()
                 
                 # Обновляем ETA
                 elapsed = processing_job.get("elapsed", 0.0)
@@ -4869,6 +4873,8 @@ if PYQT_AVAILABLE:
                     self.status_step_label.setText("Текущий шаг: Ожидание запуска...")
                     self.status_step_label.setStyleSheet("color: #007acc; font-weight: bold; font-style: italic;")
                     self.eta_label.setText("")
+                    if self.activity_timer.isActive():
+                        self.activity_timer.stop()
                     
                     if hasattr(self, '_current_active_job_id') and self._current_active_job_id:
                         final_log = "[INFO]: Сетевой пайплайн успешно завершен!"
