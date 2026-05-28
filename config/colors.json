@@ -141,8 +141,8 @@
   ],
   "spinal_cord": [
     116,
-    0,
-    104
+    98,
+    57
   ],
   "thyroid_gland": [
     113,
@@ -640,19 +640,19 @@
     0
   ],
   "eye_right": [
-    26,
+    234,
     255,
     0
   ],
   "lens_left": [
-    238,
-    0,
-    255
+    26,
+    255,
+    0
   ],
   "lens_right": [
+    1,
     255,
-    0,
-    4
+    103
   ],
   "brain_stem": [
     139,
@@ -662,12 +662,12 @@
   "optic_nerve_left": [
     0,
     255,
-    247
+    255
   ],
   "optic_nerve_right": [
+    255,
     0,
-    17,
-    255
+    251
   ],
   "abdominal_cavity": [
     227,

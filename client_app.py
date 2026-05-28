@@ -3935,6 +3935,20 @@ if PYQT_AVAILABLE:
                     else:
                         matched = "Пользовательский (Custom)"
 
+            # Подтягиваем индивидуальные цвета для пользовательского пресета при автоподборе
+            if matched in self.engine.preset_colors:
+                preset_colors = self.engine.preset_colors[matched]
+                for org, rgb in preset_colors.items():
+                    self.engine.colors[org] = rgb
+                self.engine.save_presets_config()
+                
+                # Обновляем все иконки цветов в списке self.organs_list
+                for i in range(self.organs_list.count()):
+                    item = self.organs_list.item(i)
+                    organ_name = item.data(Qt.ItemDataRole.UserRole)
+                    if organ_name != "header" and organ_name in preset_colors:
+                        self.update_item_color_icon(item, organ_name)
+
             self.preset_combo.blockSignals(True)
             self.preset_combo.setCurrentText(matched)
             self.preset_combo.blockSignals(False)
