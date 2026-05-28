@@ -1405,8 +1405,13 @@ if PYQT_AVAILABLE:
             self.btn_deselect_all.setObjectName("btnAction")
             self.btn_deselect_all.clicked.connect(self.deselect_all_organs)
             
+            self.btn_save_preset = QPushButton("💾 Сохранить пресет")
+            self.btn_save_preset.setObjectName("btnAction")
+            self.btn_save_preset.clicked.connect(self.save_current_preset_dialog)
+            
             selection_layout.addWidget(self.btn_select_all)
             selection_layout.addWidget(self.btn_deselect_all)
+            selection_layout.addWidget(self.btn_save_preset)
             tab1_layout.addLayout(selection_layout)
 
             # Список OAR с чек-боксами
@@ -2117,9 +2122,27 @@ if PYQT_AVAILABLE:
 
             # Первый элемент — пустая строка-подсказка (ничего не выделяет)
             self.preset_combo.addItem("— Выберите пресет —")
-            # Добавляем пресеты из движка
+            
+            # Разделяем дефолтные и пользовательские пресеты
+            DEFAULT_PRESET_NAMES = [
+                "Голова и шея (Head & Neck)",
+                "Грудная клетка (Thorax)",
+                "Брюшная полость (Abdomen)",
+                "Малый таз (Pelvis)",
+                "Отделы головного мозга (Brain Structures)"
+            ]
+            
             presets_keys = list(self.engine.presets.keys())
-            self.preset_combo.addItems(presets_keys)
+            default_presets = [p for p in presets_keys if p in DEFAULT_PRESET_NAMES]
+            user_presets = [p for p in presets_keys if p not in DEFAULT_PRESET_NAMES]
+            
+            self.preset_combo.addItems(default_presets)
+            
+            if user_presets:
+                self.preset_combo.insertSeparator(self.preset_combo.count())
+                self.preset_combo.addItems(user_presets)
+                
+            self.preset_combo.insertSeparator(self.preset_combo.count())
             self.preset_combo.addItem("Пользовательский (Custom)")
 
             # Использование глобального ORGAN_GROUPS из config.py
@@ -3159,6 +3182,8 @@ if PYQT_AVAILABLE:
                     self.btn_select_all.setEnabled(True)
                 if hasattr(self, 'btn_deselect_all'):
                     self.btn_deselect_all.setEnabled(True)
+                if hasattr(self, 'btn_save_preset'):
+                    self.btn_save_preset.setEnabled(True)
                 
                 # Сворачиваем обратно группы по умолчанию ("Остальное" и "Отделы головного мозга")
                 self.collapsed_groups = {"Остальное": True, "Отделы головного мозга (Brain Structures)": True}
@@ -3209,6 +3234,8 @@ if PYQT_AVAILABLE:
                 self.btn_select_all.setEnabled(False)
             if hasattr(self, 'btn_deselect_all'):
                 self.btn_deselect_all.setEnabled(False)
+            if hasattr(self, 'btn_save_preset'):
+                self.btn_save_preset.setEnabled(False)
                 
             # Автоматически раскрываем все группы списков органов
             self.expand_all_groups()
@@ -3736,6 +3763,72 @@ if PYQT_AVAILABLE:
             
             if hasattr(self, 'chk_show_structures') and self.chk_show_structures.isChecked():
                 self.on_show_structures_changed()
+
+        def save_current_preset_dialog(self):
+            """Открывает диалог для ввода имени нового пресета и сохраняет отмеченные OAR в конфигурацию."""
+            from PyQt6.QtWidgets import QInputDialog, QMessageBox
+            
+            # 1. Получаем список отмеченных органов
+            checked_organs = []
+            for i in range(self.organs_list.count()):
+                item = self.organs_list.item(i)
+                org = item.data(Qt.ItemDataRole.UserRole)
+                if org != "header" and item.checkState() == Qt.CheckState.Checked:
+                    if org not in checked_organs:
+                        checked_organs.append(org)
+
+            if not checked_organs:
+                QMessageBox.warning(self, "Предупреждение", "Не выбрано ни одной структуры для сохранения в пресет.")
+                return
+
+            # 2. Запрашиваем имя пресета через QInputDialog
+            name, ok = QInputDialog.getText(
+                self, 
+                "💾 Сохранение пресета", 
+                "Введите название пресета (разрешена кириллица):"
+            )
+            
+            if not ok or not name.strip():
+                return
+
+            preset_name = name.strip()
+            
+            # Проверяем зарезервированные имена
+            from config import ORGAN_GROUPS
+            if preset_name in ORGAN_GROUPS or preset_name in [
+                "Голова и шея (Head & Neck)",
+                "Грудная клетка (Thorax)",
+                "Брюшная полость (Abdomen)",
+                "Малый таз (Pelvis)",
+                "Отделы головного мозга (Brain Structures)",
+                "— Выберите пресет —",
+                "Пользовательский (Custom)"
+            ]:
+                QMessageBox.critical(
+                    self, 
+                    "Ошибка", 
+                    f"Название '{preset_name}' зарезервировано для стандартного пресета.\nПожалуйста, выберите другое название."
+                )
+                return
+
+            # 3. Сохраняем в presets движка
+            self.engine.presets[preset_name] = checked_organs
+            self.engine.save_presets_config()
+
+            # 4. Обновляем выпадающий список пресетов и выставляем сохраненный пресет активным
+            self.init_presets_and_organs()
+            
+            idx = self.preset_combo.findText(preset_name)
+            if idx >= 0:
+                self.preset_combo.blockSignals(True)
+                self.preset_combo.setCurrentIndex(idx)
+                self.preset_combo.blockSignals(False)
+                
+            QMessageBox.information(
+                self, 
+                "Успех", 
+                f"Пользовательский пресет '{preset_name}' успешно сохранен! ✅"
+            )
 
         def _sync_preset_combo_to_organs(self):
             """Подбирает и устанавливает в комбобоксе пресет, соответствующий текущим выбранным органам.
@@ -4318,6 +4411,8 @@ if PYQT_AVAILABLE:
             is_view_mode = hasattr(self, 'chk_show_structures') and self.chk_show_structures.isChecked()
             self.btn_select_all.setEnabled(enabled and not is_view_mode)
             self.btn_deselect_all.setEnabled(enabled and not is_view_mode)
+            if hasattr(self, 'btn_save_preset'):
+                self.btn_save_preset.setEnabled(enabled and not is_view_mode)
             self.preset_combo.setEnabled(enabled and not is_view_mode)
             self.organs_list.setEnabled(enabled)
             self.precision_combo.setEnabled(enabled)
