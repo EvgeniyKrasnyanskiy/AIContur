@@ -4723,6 +4723,9 @@ if PYQT_AVAILABLE:
                 new_rgb = [new_color.red(), new_color.green(), new_color.blue()]
                 self.engine.colors[organ_name] = new_rgb
                 
+                # Принудительно отмечаем этот орган галочкой, так как пользователь настраивает его цвет!
+                item.setCheckState(Qt.CheckState.Checked)
+                
                 # Запоминаем в текущем пресете, если он пользовательский
                 current_preset = self.preset_combo.currentText().strip()
                 DEFAULT_PRESET_NAMES = [
@@ -4751,6 +4754,7 @@ if PYQT_AVAILABLE:
                     itm = self.organs_list.item(i)
                     if itm.data(Qt.ItemDataRole.UserRole) == organ_name:
                         self.update_item_color_icon(itm, organ_name)
+                        itm.setCheckState(Qt.CheckState.Checked)
                         
                 logger.info(f"Цвет органа {organ_name} успешно изменен на {new_rgb}")
                 
