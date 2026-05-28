@@ -23,11 +23,84 @@ from server.queue_manager import QueueManager
 
 logger = logging.getLogger("ServerAPI")
 
+import time
+from starlette.middleware.base import BaseHTTPMiddleware
+from fastapi import Request
+from fastapi.responses import JSONResponse
+
+class BlacklistManager:
+    def __init__(self):
+        self.active_clients = {}  # client_id -> last_activity_timestamp
+        self.blacklisted_ids = set()
+        
+    def register_activity(self, client_id: str):
+        if client_id and client_id not in self.blacklisted_ids:
+            self.active_clients[client_id] = time.time()
+            
+    def block(self, client_id: str):
+        if client_id:
+            self.blacklisted_ids.add(client_id)
+            if client_id in self.active_clients:
+                del self.active_clients[client_id]
+            
+    def unblock(self, client_id: str):
+        if client_id:
+            self.blacklisted_ids.discard(client_id)
+            self.active_clients[client_id] = time.time()
+        
+    def get_clients_info(self):
+        info = []
+        # Сначала заблокированные
+        for cid in sorted(self.blacklisted_ids):
+            info.append({
+                "client_id": cid,
+                "last_activity": "Заблокирован",
+                "status": "Заблокирован"
+            })
+        # Затем активные
+        for cid in sorted(self.active_clients.keys()):
+            t = self.active_clients[cid]
+            dt = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(t))
+            info.append({
+                "client_id": cid,
+                "last_activity": dt,
+                "status": "Активен"
+            })
+        return info
+
+blacklist_manager = BlacklistManager()
+
+class ClientTrackerMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        # 1. Извлекаем X-Client-ID из заголовков
+        client_id = request.headers.get("X-Client-ID")
+        
+        # 2. Если заголовок отсутствует, проверяем также параметры формы или URL (на всякий случай)
+        if not client_id:
+            # Пытаемся взять из query параметров или form
+            client_id = request.query_params.get("client_name") or request.query_params.get("client_id")
+            
+        if not client_id:
+            client_id = "Неизвестный клиент"
+            
+        # 3. Проверяем черный список
+        if client_id in blacklist_manager.blacklisted_ids:
+            return JSONResponse(status_code=403, content={"detail": f"Forbidden: Client '{client_id}' is blocked."})
+            
+        # 4. Регистрируем активность
+        if client_id != "Неизвестный клиент":
+            blacklist_manager.register_activity(client_id)
+            
+        response = await call_next(request)
+        return response
+
 app = FastAPI(
     title="AI Contour API Server",
     description="REST API для автоматического оконтуривания критических органов на КТ",
     version="2.0.0"
 )
+
+app.add_middleware(ClientTrackerMiddleware)
 
 # Инициализируем глобальный менеджер очереди
 queue_manager = QueueManager(jobs_root="jobs")
@@ -267,3 +340,19 @@ def resume_server():
 def uuid_str() -> str:
     import uuid
     return str(uuid.uuid4())
+
+@app.get("/api/server/clients")
+def get_clients():
+    return blacklist_manager.get_clients_info()
+
+@app.post("/api/server/clients/{client_id}/block")
+def block_client(client_id: str):
+    blacklist_manager.block(client_id)
+    logger.info(f"Клиент '{client_id}' успешно заблокирован.")
+    return {"status": "success", "message": f"Клиент '{client_id}' заблокирован."}
+
+@app.post("/api/server/clients/{client_id}/unblock")
+def unblock_client(client_id: str):
+    blacklist_manager.unblock(client_id)
+    logger.info(f"Клиент '{client_id}' успешно разблокирован.")
+    return {"status": "success", "message": f"Клиент '{client_id}' разблокирован."}

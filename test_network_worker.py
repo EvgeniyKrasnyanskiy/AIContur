@@ -44,7 +44,7 @@ class TestNetworkStatusWorker(unittest.TestCase):
         app.processEvents()  # Ждем до 2 сек завершения потока
 
         # 4. Проверяем корректность вызовов
-        mock_get.assert_called_once_with("http://fake-server-url/api/server/status", timeout=1.0)
+        mock_get.assert_called_once_with("http://fake-server-url/api/server/status", timeout=1.0, headers={"X-Client-ID": "Неизвестный клиент"})
         self.assertEqual(len(received_data), 1)
         self.assertEqual(received_data[0]["is_paused"], False)
         self.assertEqual(len(received_data[0]["jobs"]), 1)

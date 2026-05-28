@@ -553,7 +553,8 @@ if PYQT_AVAILABLE:
                         })
                     }
                     
-                    response = requests.post(upload_url, files=files, data=data, timeout=60)
+                    headers = {"X-Client-ID": self.client_name}
+                    response = requests.post(upload_url, files=files, data=data, headers=headers, timeout=60)
                 
                 if response.status_code != 200:
                     raise RuntimeError(f"Сервер отклонил запрос: {response.text}")
@@ -575,7 +576,8 @@ if PYQT_AVAILABLE:
                     time.sleep(2)
                     
                     try:
-                        status_res = requests.get(status_url, timeout=10)
+                        headers = {"X-Client-ID": self.client_name}
+                        status_res = requests.get(status_url, headers=headers, timeout=10)
                         if status_res.status_code != 200:
                             raise RuntimeError(f"Ошибка получения статуса: {status_res.text}")
                             
@@ -624,15 +626,16 @@ if PYQT_AVAILABLE:
                 self.progress_signal.emit(95)
                 
                 download_url = f"{self.server_url.rstrip('/')}/api/jobs/{job_id}/download"
-                dl_res = requests.get(download_url, timeout=60)
+                headers = {"X-Client-ID": self.client_name}
+                dl_res = requests.get(download_url, headers=headers, timeout=60)
                 if dl_res.status_code != 200:
                     raise RuntimeError(f"Не удалось скачать файл разметки: {dl_res.text}")
                     
                 # Сохраняем и распаковываем
                 temp_result_zip = temp_dir / f"client_result_{job_id[:8]}.zip"
                 with open(temp_result_zip, "wb") as f:
-                    f.write(dl_res.content)
-                    
+                     f.write(dl_res.content)
+                     
                 # Распаковываем воркспейс в выходной каталог
                 out_path = Path(self.output_dir)
                 out_path.mkdir(parents=True, exist_ok=True)
@@ -655,7 +658,8 @@ if PYQT_AVAILABLE:
                     try:
                         logger.info(f"Отправка запроса на отмену задачи {job_id} на сервер...")
                         cancel_url = f"{self.server_url.rstrip('/')}/api/jobs/{job_id}/cancel"
-                        requests.delete(cancel_url, params={"client_name": self.client_name}, timeout=5)
+                        headers = {"X-Client-ID": self.client_name}
+                        requests.delete(cancel_url, params={"client_name": self.client_name}, headers=headers, timeout=5)
                     except Exception as ce:
                         logger.error(f"Не удалось отменить задачу на сервере: {ce}")
                 
@@ -2454,7 +2458,8 @@ if PYQT_AVAILABLE:
             
             try:
                 # Отсылаем GET запрос на корень API
-                r = requests.get(server_url, timeout=5)
+                client_id = self.client_name_edit.text().strip()
+                r = requests.get(server_url, timeout=5, headers={"X-Client-ID": client_id})
                 if r.status_code == 200:
                     self.lbl_conn_status.setText("Статус: подключено 🟢")
                     self.lbl_conn_status.setStyleSheet("color: #2ecc71; font-weight: bold;")
@@ -2671,14 +2676,18 @@ if PYQT_AVAILABLE:
             if self.btn_run.isEnabled() != target_enabled:
                 self.btn_run.setEnabled(target_enabled)
                 
-            current_style = self.btn_run.styleSheet()
             if getattr(self, 'chk_show_structures', None) and self.chk_show_structures.isChecked():
-                self.btn_run.setStyleSheet("background-color: #d87a00; color: white; font-weight: bold; border-radius: 4px; border: none;")
-            else:
-                if is_patient_selected and "background-color: #0078d7" not in current_style:
-                    self.btn_run.setStyleSheet("background-color: #0078d7; color: white; font-weight: bold;")
-                elif not is_patient_selected and current_style != "":
+                if self.btn_run.objectName() != "btnExitPreview":
+                    self.btn_run.setObjectName("btnExitPreview")
                     self.btn_run.setStyleSheet("")
+                    self.btn_run.style().unpolish(self.btn_run)
+                    self.btn_run.style().polish(self.btn_run)
+            else:
+                if self.btn_run.objectName() != "btnRun":
+                    self.btn_run.setObjectName("btnRun")
+                    self.btn_run.setStyleSheet("")
+                    self.btn_run.style().unpolish(self.btn_run)
+                    self.btn_run.style().polish(self.btn_run)
 
         def on_scan_finished(self):
             if self.series_table.rowCount() == 0:
@@ -4381,7 +4390,8 @@ if PYQT_AVAILABLE:
                 return
                 
             server_url = self.get_server_url()
-            self.status_worker = NetworkStatusWorker(server_url, timeout=0.8)
+            client_id = self.client_name_edit.text().strip()
+            self.status_worker = NetworkStatusWorker(server_url, timeout=0.8, client_id=client_id)
             self.status_worker.status_received.connect(self.on_status_received)
             self.status_worker.error_occurred.connect(self.on_status_error)
             self.status_worker.start()
@@ -4487,7 +4497,8 @@ if PYQT_AVAILABLE:
                     import requests
                     server_url = self.get_server_url()
                     try:
-                        job_status_res = requests.get(f"{server_url}/api/jobs/{active_job_id}/status", timeout=0.3)
+                        client_id = self.client_name_edit.text().strip()
+                        job_status_res = requests.get(f"{server_url}/api/jobs/{active_job_id}/status", timeout=0.3, headers={"X-Client-ID": client_id})
                         if job_status_res.status_code == 200:
                             job_status_data = job_status_res.json()
                             logs = job_status_data.get("logs", [])
@@ -4586,7 +4597,8 @@ if PYQT_AVAILABLE:
             try:
                 import requests
                 server_url = self.get_server_url()
-                res = requests.post(f"{server_url}/api/jobs/{job_id}/prioritize", timeout=3)
+                client_id = self.client_name_edit.text().strip()
+                res = requests.post(f"{server_url}/api/jobs/{job_id}/prioritize", headers={"X-Client-ID": client_id}, timeout=3)
                 if res.status_code != 200:
                     raise RuntimeError(res.text)
                 logger.info(f"Задача {job_id} успешно приоритезирована.")

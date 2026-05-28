@@ -1052,6 +1052,181 @@ if PYQT_AVAILABLE:
                     pass
                 self.finished.emit(False, str(e))
 
+    class ConnectedClientsDialog(QDialog):
+        """Диалоговое окно мониторинга подключенных клиентов и управления черным списком."""
+        def __init__(self, server_url: str, parent=None):
+            super().__init__(parent)
+            self.server_url = server_url.rstrip('/')
+            self.setWindowTitle("👥 Подключенные клиенты и блокировка")
+            self.setMinimumSize(650, 400)
+            self.init_ui()
+            
+            # Таймер для автообновления
+            self.timer = QTimer(self)
+            self.timer.timeout.connect(self.refresh_clients)
+            self.timer.start(3000) # каждые 3 секунды
+            
+            self.refresh_clients()
+            
+        def init_ui(self):
+            self.setStyleSheet(DARK_QSS)
+            layout = QVBoxLayout(self)
+            layout.setContentsMargins(15, 15, 15, 15)
+            layout.setSpacing(12)
+            
+            title = QLabel("👥 Мониторинг подключенных ПК")
+            title.setStyleSheet("font-size: 16px; font-weight: bold; color: #ffffff;")
+            layout.addWidget(title)
+            
+            desc = QLabel("Список ПК, отправлявших запросы к серверу. Блокировка производится по уникальному имени ПК (Client ID).")
+            desc.setWordWrap(True)
+            desc.setStyleSheet("color: #a0a0a0; font-size: 11px;")
+            layout.addWidget(desc)
+            
+            # Таблица клиентов
+            self.table = QTableWidget()
+            self.table.setColumnCount(4)
+            self.table.setHorizontalHeaderLabels(["Client ID (Имя ПК)", "Последняя активность", "Статус", "Действие"])
+            self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+            self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+            self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+            self.table.setStyleSheet("""
+                QTableWidget {
+                    background-color: #1e1e1e;
+                    border: 1px solid #2d2d2d;
+                    gridline-color: #333333;
+                }
+                QHeaderView::section {
+                    background-color: #2c2c2c;
+                    color: #ffffff;
+                    padding: 6px;
+                    border: 1px solid #333333;
+                    font-weight: bold;
+                }
+            """)
+            layout.addWidget(self.table)
+            
+            # Кнопки внизу
+            btn_layout = QHBoxLayout()
+            self.btn_refresh = QPushButton("🔄 Обновить")
+            self.btn_refresh.setObjectName("btnAction")
+            self.btn_refresh.clicked.connect(self.refresh_clients)
+            
+            self.btn_close = QPushButton("Закрыть")
+            self.btn_close.clicked.connect(self.close)
+            
+            btn_layout.addWidget(self.btn_refresh)
+            btn_layout.addStretch()
+            btn_layout.addWidget(self.btn_close)
+            layout.addLayout(btn_layout)
+            
+        def refresh_clients(self):
+            import requests
+            try:
+                url = f"{self.server_url}/api/server/clients"
+                headers = {"X-Client-ID": "ServerAdmin"}
+                r = requests.get(url, headers=headers, timeout=3)
+                if r.status_code == 200:
+                    clients = r.json()
+                    self.populate_table(clients)
+                else:
+                    logger.warning(f"Не удалось получить список клиентов: {r.status_code}")
+            except Exception as e:
+                logger.error(f"Ошибка при обновлении списка клиентов: {e}")
+                
+        def populate_table(self, clients):
+            self.table.setRowCount(0)
+            self.table.setRowCount(len(clients))
+            
+            for row, client in enumerate(clients):
+                client_id = client.get("client_id", "Неизвестно")
+                last_act = client.get("last_activity", "—")
+                status = client.get("status", "Активен")
+                
+                # Колонки
+                item_id = QTableWidgetItem(client_id)
+                item_id.setForeground(QBrush(QColor("#ffffff")))
+                self.table.setItem(row, 0, item_id)
+                
+                item_act = QTableWidgetItem(last_act)
+                item_act.setForeground(QBrush(QColor("#a0a0a0")))
+                self.table.setItem(row, 1, item_act)
+                
+                item_status = QTableWidgetItem(status)
+                if status == "Заблокирован":
+                    item_status.setForeground(QBrush(QColor("#ff6b6b")))
+                else:
+                    item_status.setForeground(QBrush(QColor("#2ecc71")))
+                self.table.setItem(row, 2, item_status)
+                
+                # Кнопка действия
+                btn_action = QPushButton()
+                btn_action.setCursor(Qt.CursorShape.PointingHandCursor)
+                if status == "Заблокирован":
+                    btn_action.setText("Разблокировать")
+                    btn_action.setStyleSheet("""
+                        QPushButton {
+                            background-color: #27ae60;
+                            color: white;
+                            border: none;
+                            border-radius: 4px;
+                            padding: 4px 8px;
+                            font-size: 11px;
+                        }
+                        QPushButton:hover {
+                            background-color: #2ecc71;
+                        }
+                    """)
+                    btn_action.clicked.connect(lambda checked, cid=client_id: self.unblock_client(cid))
+                else:
+                    btn_action.setText("Блокировать")
+                    btn_action.setStyleSheet("""
+                        QPushButton {
+                            background-color: #c0392b;
+                            color: white;
+                            border: none;
+                            border-radius: 4px;
+                            padding: 4px 8px;
+                            font-size: 11px;
+                        }
+                        QPushButton:hover {
+                            background-color: #e74c3c;
+                        }
+                    """)
+                    btn_action.clicked.connect(lambda checked, cid=client_id: self.block_client(cid))
+                    
+                self.table.setCellWidget(row, 3, btn_action)
+                
+        def block_client(self, client_id):
+            import requests
+            try:
+                url = f"{self.server_url}/api/server/clients/{client_id}/block"
+                headers = {"X-Client-ID": "ServerAdmin"}
+                r = requests.post(url, headers=headers, timeout=3)
+                if r.status_code == 200:
+                    self.refresh_clients()
+                else:
+                    QMessageBox.warning(self, "Ошибка", f"Не удалось заблокировать клиента: {r.text}")
+            except Exception as e:
+                QMessageBox.critical(self, "Ошибка", f"Произошла ошибка: {e}")
+                
+        def unblock_client(self, client_id):
+            import requests
+            try:
+                url = f"{self.server_url}/api/server/clients/{client_id}/unblock"
+                headers = {"X-Client-ID": "ServerAdmin"}
+                r = requests.post(url, headers=headers, timeout=3)
+                if r.status_code == 200:
+                    self.refresh_clients()
+                else:
+                    QMessageBox.warning(self, "Ошибка", f"Не удалось разблокировать клиента: {r.text}")
+            except Exception as e:
+                QMessageBox.critical(self, "Ошибка", f"Произошла ошибка: {e}")
+                
+        def closeEvent(self, event):
+            self.timer.stop()
+            super().closeEvent(event)
+
     class ModelsDialog(QDialog):
         """Диалоговое окно управления моделями ИИ TotalSegmentator."""
         def __init__(self, parent=None, engine=None):
@@ -1760,6 +1935,12 @@ if PYQT_AVAILABLE:
             color_group_layout.addWidget(self.color_preset_combo)
             tab2_layout.addWidget(color_group)
 
+            # Группы 5 и 6: Настройки администратора ⚙️
+            self.admin_settings_widget = QWidget()
+            admin_settings_layout = QVBoxLayout(self.admin_settings_widget)
+            admin_settings_layout.setContentsMargins(0, 0, 0, 0)
+            admin_settings_layout.setSpacing(12)
+            
             # Группа 5: Лицензирование суб-моделей ИИ 🔑
             license_group = QGroupBox("Лицензирование суб-моделей ИИ 🔑")
             license_group_layout = QVBoxLayout(license_group)
@@ -1783,8 +1964,8 @@ if PYQT_AVAILABLE:
             license_group_layout.addWidget(lbl_license_descr)
             license_group_layout.addWidget(self.btn_manage_licenses)
             license_group_layout.addWidget(self.lbl_license_status)
-            tab2_layout.addWidget(license_group)
-
+            admin_settings_layout.addWidget(license_group)
+ 
             # Группа 6: Параметры соединения с сервером AI Contour 🌐
             conn_group = QGroupBox("Соединение с сервером AI Contour 🌐")
             conn_group_layout = QVBoxLayout(conn_group)
@@ -1816,31 +1997,48 @@ if PYQT_AVAILABLE:
             conn_group_layout.addWidget(self.client_name_edit)
             conn_group_layout.addWidget(self.btn_test_conn)
             conn_group_layout.addWidget(self.lbl_conn_status)
-            conn_group.setVisible(False)
+            admin_settings_layout.addWidget(conn_group)
             
-            self.btn_show_conn_settings = QPushButton("🔑 Настройки соединения (Администратор)")
-            self.btn_show_conn_settings.setObjectName("btnBrowse")
+            # Кнопка просмотра подключенных клиентов
+            self.btn_connected_clients = QPushButton("👥 Подключенные клиенты")
+            self.btn_connected_clients.setObjectName("btnAction")
+            self.btn_connected_clients.setCursor(Qt.CursorShape.PointingHandCursor)
             
-            def toggle_conn_settings():
-                if conn_group.isVisible():
-                    conn_group.setVisible(False)
-                    self.btn_show_conn_settings.setText("🔑 Настройки соединения (Администратор)")
+            def show_connected_clients():
+                url = self.server_url_edit.text().strip()
+                dialog = ConnectedClientsDialog(url, self)
+                dialog.exec()
+                
+            self.btn_connected_clients.clicked.connect(show_connected_clients)
+            admin_settings_layout.addWidget(self.btn_connected_clients)
+            
+            # По умолчанию скрываем весь виджет настроек администратора
+            self.admin_settings_widget.setVisible(False)
+            
+            self.btn_admin_login = QPushButton("⚙️ Настройки администратора")
+            self.btn_admin_login.setObjectName("btnBrowse")
+            self.btn_admin_login.setCursor(Qt.CursorShape.PointingHandCursor)
+            
+            def toggle_admin_settings():
+                if self.admin_settings_widget.isVisible():
+                    self.admin_settings_widget.setVisible(False)
+                    self.btn_admin_login.setText("⚙️ Настройки администратора")
                 else:
                     from PyQt6.QtWidgets import QInputDialog, QLineEdit, QMessageBox
                     ok_text, ok = QInputDialog.getText(
-                        self, "Доступ ограничен 🔒", "Введите пароль администратора для изменения настроек соединения:", 
+                        self, "Авторизация 🔒", "Введите пароль администратора для изменения настроек соединения:", 
                         QLineEdit.EchoMode.Password
                     )
                     if ok and ok_text == "rtp":
-                        conn_group.setVisible(True)
-                        self.btn_show_conn_settings.setText("🔒 Скрыть настройки соединения")
+                        self.admin_settings_widget.setVisible(True)
+                        self.btn_admin_login.setText("🔒 Закрыть настройки администратора")
                     elif ok:
                         QMessageBox.critical(self, "Ошибка доступа ❌", "Неверный пароль!")
             
-            self.btn_show_conn_settings.clicked.connect(toggle_conn_settings)
+            self.btn_admin_login.clicked.connect(toggle_admin_settings)
             
-            tab2_layout.addWidget(self.btn_show_conn_settings)
-            tab2_layout.addWidget(conn_group)
+            tab2_layout.addWidget(self.btn_admin_login)
+            tab2_layout.addWidget(self.admin_settings_widget)
 
             # Звук в конце
             self.sound_check = QCheckBox("🔔 Звук при завершении автооконтуривания")

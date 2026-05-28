@@ -412,6 +412,25 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
     background: none;
 }
 
+QPushButton#btnExitPreview {
+    background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #d87a00, stop: 1 #b76500);
+    border: 1px solid #d87a00;
+    font-size: 14px;
+    font-weight: bold;
+    padding: 12px;
+    border-radius: 6px;
+    color: #ffffff;
+}
+
+QPushButton#btnExitPreview:hover {
+    background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #f39c12, stop: 1 #d87a00);
+    border: 1px solid #f39c12;
+}
+
+QPushButton#btnExitPreview:pressed {
+    background-color: #9e5100;
+}
+
 QPushButton#btnHelp {
     background-color: #2b2b2b;
     border: 1px solid #3d3d3d;
