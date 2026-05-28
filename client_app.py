@@ -3307,11 +3307,8 @@ if PYQT_AVAILABLE:
                 self._clear_roi_overlay(permanent=True)
                 self._clear_imported_organs()
                 
-                # Принудительно возвращаем видимость всем стандартным органам
-                self.organs_list.blockSignals(True)
-                for i in range(self.organs_list.count()):
-                    self.organs_list.item(i).setHidden(False)
-                self.organs_list.blockSignals(False)
+                # Принудительно возвращаем видимость всем стандартным органам с учетом свертывания
+                self.restore_group_visibilities()
                 
                 # Возвращаем левую панель и сплиттеры к стандартным размерам
                 if hasattr(self, 'left_card') and hasattr(self, 'splitter'):
@@ -3515,12 +3512,8 @@ if PYQT_AVAILABLE:
                 if hasattr(self, 'btn_deselect_all'):
                     self.btn_deselect_all.setEnabled(True)
                 
-                # Возвращаем видимость всем стандартным органам
-                self.organs_list.blockSignals(True)
-                for i in range(self.organs_list.count()):
-                    item = self.organs_list.item(i)
-                    item.setHidden(False)
-                self.organs_list.blockSignals(False)
+                # Возвращаем видимость всем стандартным органам с учетом свертывания
+                self.restore_group_visibilities()
                 
                 # Возвращаем левую панель и сплиттеры к стандартным размерам
                 if hasattr(self, 'left_card') and hasattr(self, 'splitter'):
@@ -4347,6 +4340,20 @@ if PYQT_AVAILABLE:
                 if next_role == "header":
                     break
                 next_item.setHidden(new_collapsed)
+            self.organs_list.blockSignals(False)
+
+        def restore_group_visibilities(self):
+            """Восстанавливает видимость органов в зависимости от состояния свертывания групп."""
+            self.organs_list.blockSignals(True)
+            current_collapsed = False
+            for i in range(self.organs_list.count()):
+                item = self.organs_list.item(i)
+                role = item.data(Qt.ItemDataRole.UserRole)
+                if role == "header":
+                    text = item.text()
+                    current_collapsed = text.startswith("[+]")
+                else:
+                    item.setHidden(current_collapsed)
             self.organs_list.blockSignals(False)
 
         def on_organ_selection_changed(self):
