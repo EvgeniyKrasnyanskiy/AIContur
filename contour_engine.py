@@ -1715,4 +1715,24 @@ class ContourEngine:
                 shutil.rmtree(temp_dir)
                 
         finally:
-            logger.info(f"Пайплайн завершен. Общее время работы: {time.time() - start_time:.2f} сек.")
+            # Очистка ссылок на все тяжелые массивы данных во избежание утечек памяти
+            ct_nii = None
+            ct_data = None
+            body_mask = None
+            filled_mask = None
+            labeled_array = None
+            final_mask = None
+            body_nii_img = None
+            base_nii = None
+            base_data = None
+            part_data = None
+            merged_nii = None
+            nii = None
+            data = None
+            part_nii = None
+            rtstruct = None
+            ref_dcm = None
+            
+            gc.collect()
+            
+            logger.info(f"Пайплайн завершен. Общее время работы: {time.time() - start_time:.2f} сек. Ресурсы памяти очищены.")
