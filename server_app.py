@@ -3377,6 +3377,16 @@ if PYQT_AVAILABLE:
                         self.on_color_preset_changed("Яркий неоновый")
                     finally:
                         self.is_switching_color_preset = False
+                
+                # Увеличиваем вьюер за счет сжатия таблицы КТ и логов (левая панель со структурами сохраняет стандартный размер!)
+                if hasattr(self, 'left_card') and hasattr(self, 'splitter'):
+                    self.left_card.setMinimumWidth(490)
+                    self.left_card.setMaximumWidth(max(490, int(self.width() * 0.5)))
+                    self.splitter.setSizes([490, 430])
+                if hasattr(self, 'main_splitter'):
+                    self.main_splitter.setSizes([150, 850])
+                if hasattr(self, 'v_splitter'):
+                    self.v_splitter.setSizes([850, 150])
             self.on_show_structures_changed()
 
         def on_show_structures_changed(self):
@@ -3497,15 +3507,7 @@ if PYQT_AVAILABLE:
                 self.update_run_button(bool(self.series_table.selectedItems()))
                 return
                 
-            # Увеличиваем вьюер за счет сжатия таблицы КТ и логов (левая панель со структурами сохраняет стандартный размер!)
-            if hasattr(self, 'left_card') and hasattr(self, 'splitter'):
-                self.left_card.setMinimumWidth(490)
-                self.left_card.setMaximumWidth(max(490, int(self.width() * 0.5)))
-                self.splitter.setSizes([490, 430])
-            if hasattr(self, 'main_splitter'):
-                self.main_splitter.setSizes([150, 850])
-            if hasattr(self, 'v_splitter'):
-                self.v_splitter.setSizes([850, 150])
+            
             if hasattr(self, 'dicom_viewer'):
                 try:
                     self.dicom_viewer.getView().autoRange()
