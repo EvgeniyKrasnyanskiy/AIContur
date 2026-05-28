@@ -41,11 +41,30 @@ try:
         QMessageBox, QFrame, QSplitter, QCheckBox, QDialog, QTextBrowser,
         QTabWidget, QColorDialog, QGroupBox,
         QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView, QMenu,
-        QProgressDialog, QScrollArea
+        QProgressDialog, QScrollArea, QStyledItemDelegate, QStyleOptionViewItem
     )
-    from PyQt6.QtCore import QThread, pyqtSignal, Qt, QObject, QSettings, QTimer
+    from PyQt6.QtCore import QThread, pyqtSignal, Qt, QObject, QSettings, QTimer, QModelIndex
     from PyQt6.QtGui import QTextCursor, QBrush, QColor, QFont, QIcon, QPixmap, QPalette
     PYQT_AVAILABLE = True
+    
+    class OrganIndentDelegate(QStyledItemDelegate):
+        """Делегат для смещения не-header элементов (чекбокс + иконка + текст) списка органов вправо."""
+        def __init__(self, parent=None):
+            super().__init__(parent)
+
+        def initStyleOption(self, option: QStyleOptionViewItem, index: QModelIndex):
+            super().initStyleOption(option, index)
+            role = index.data(Qt.ItemDataRole.UserRole)
+            if role != "header":
+                # Сдвигаем всю строку элемента вправо на 20 пикселей
+                option.rect.setLeft(option.rect.left() + 20)
+
+        def editorEvent(self, event, model, option: QStyleOptionViewItem, index: QModelIndex):
+            role = index.data(Qt.ItemDataRole.UserRole)
+            if role != "header":
+                # Сдвигаем интерактивную зону кликов мыши на 20 пикселей
+                option.rect.setLeft(option.rect.left() + 20)
+            return super().editorEvent(event, model, option, index)
 except ImportError:
     PYQT_AVAILABLE = False
 
@@ -1678,6 +1697,7 @@ if PYQT_AVAILABLE:
             self.showMaximized()
             self.existing_rtstruct_path = None
             self.is_updating_presets = False
+            self.collapsed_groups = {"Остальное": True}
             self.worker = None
             self.settings = QSettings("AIContourCorp", "AIContour")
 
@@ -1796,7 +1816,9 @@ if PYQT_AVAILABLE:
             self.organs_header = QLabel("Органы для автооконтурирования: 0 из 0")
             self.organs_header.setStyleSheet("font-weight: bold; color: #ffffff;")
             self.organs_list = QListWidget()
+            self.organs_list.setItemDelegate(OrganIndentDelegate(self))
             self.organs_list.itemChanged.connect(self.on_organ_item_changed)
+            self.organs_list.itemClicked.connect(self.on_organ_item_clicked)
             self.imported_items = []
 
             tab1_layout.addWidget(self.organs_header)
@@ -2536,7 +2558,9 @@ if PYQT_AVAILABLE:
             placed_organs = set()
 
             for group_title, organs in ORGAN_GROUPS.items():
-                header_item = QListWidgetItem(f"{group_title} ({len(organs)})")
+                is_collapsed = self.collapsed_groups.get(group_title, False)
+                prefix = "[+] " if is_collapsed else "[-] "
+                header_item = QListWidgetItem(f"{prefix}{group_title} ({len(organs)})")
                 header_item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsUserCheckable)
                 header_item.setCheckState(Qt.CheckState.Unchecked)
                 header_item.setData(Qt.ItemDataRole.UserRole, "header")
@@ -2572,6 +2596,9 @@ if PYQT_AVAILABLE:
                     # Установка цветного квадратика-иконки для OAR
                     self.update_item_color_icon(item, org)
                     
+                    if is_collapsed:
+                        item.setHidden(True)
+                    
                     self.organs_list.addItem(item)
             
             # Исключаем дубликаты с похожими названиями, чтобы они не засоряли раздел "Остальное"
@@ -2603,7 +2630,9 @@ if PYQT_AVAILABLE:
             ]
             
             if other_organs:
-                other_header = QListWidgetItem(f"━━━ ОСТАЛЬНОЕ ━━━ ({len(other_organs)})")
+                is_other_collapsed = self.collapsed_groups.get("Остальное", True)
+                prefix = "[+] " if is_other_collapsed else "[-] "
+                other_header = QListWidgetItem(f"{prefix}━━━ ОСТАЛЬНОЕ ━━━ ({len(other_organs)})")
                 other_header.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsUserCheckable)
                 other_header.setCheckState(Qt.CheckState.Unchecked)
                 other_header.setData(Qt.ItemDataRole.UserRole, "header")
@@ -2633,6 +2662,10 @@ if PYQT_AVAILABLE:
                         
                     item.setData(Qt.ItemDataRole.UserRole, org)
                     self.update_item_color_icon(item, org)
+                    
+                    if is_other_collapsed:
+                        item.setHidden(True)
+                        
                     self.organs_list.addItem(item)
 
             self.is_updating_presets = False
@@ -3294,11 +3327,8 @@ if PYQT_AVAILABLE:
                 self._clear_roi_overlay(permanent=True)
                 self._clear_imported_organs()
                 
-                # Принудительно возвращаем видимость всем стандартным органам
-                self.organs_list.blockSignals(True)
-                for i in range(self.organs_list.count()):
-                    self.organs_list.item(i).setHidden(False)
-                self.organs_list.blockSignals(False)
+                # Принудительно возвращаем видимость всем стандартным органам с учетом свертывания
+                self.restore_group_visibilities()
                 
                 # Возвращаем левую панель и сплиттеры к стандартным размерам
                 if hasattr(self, 'left_card') and hasattr(self, 'splitter'):
@@ -3502,12 +3532,8 @@ if PYQT_AVAILABLE:
                 if hasattr(self, 'btn_deselect_all'):
                     self.btn_deselect_all.setEnabled(True)
                 
-                # Возвращаем видимость всем стандартным органам
-                self.organs_list.blockSignals(True)
-                for i in range(self.organs_list.count()):
-                    item = self.organs_list.item(i)
-                    item.setHidden(False)
-                self.organs_list.blockSignals(False)
+                # Возвращаем видимость всем стандартным органам с учетом свертывания
+                self.restore_group_visibilities()
                 
                 # Возвращаем левую панель и сплиттеры к стандартным размерам
                 if hasattr(self, 'left_card') and hasattr(self, 'splitter'):
@@ -3777,16 +3803,19 @@ if PYQT_AVAILABLE:
                         group_structures.append((last_header, current_group_items))
                             
                     for header, items in group_structures:
+                        text = header.text()
+                        is_group_collapsed = text.startswith("[+]")
+                        
                         group_visible = False
                         for item in items:
                             if item.data(Qt.ItemDataRole.UserRole + 1) is True:
-                                item.setHidden(False)
+                                item.setHidden(is_group_collapsed)
                                 group_visible = True
                             else:
                                 itm_data = item.data(Qt.ItemDataRole.UserRole)
                                 orig_organ_lower = itm_data.lower() if isinstance(itm_data, str) else ""
                                 if orig_organ_lower in file_supported_organs:
-                                    item.setHidden(False)
+                                    item.setHidden(is_group_collapsed)
                                     group_visible = True
                                 else:
                                     item.setHidden(True)
@@ -4232,6 +4261,7 @@ if PYQT_AVAILABLE:
                     
                 if organ_name == "header":
                     # Это клик по заголовку группы!
+                    self._just_changed_header = True
                     self.is_updating_presets = True
                     new_state = item.checkState()
                     if new_state == Qt.CheckState.PartiallyChecked:
@@ -4293,6 +4323,66 @@ if PYQT_AVAILABLE:
                 QMessageBox.warning(self, "Ошибка выбора", f"Сбой при обработке клика: {e}")
             finally:
                 self.organs_list.blockSignals(False)
+
+        def on_organ_item_clicked(self, item: QListWidgetItem):
+            """Слот для клика по элементу списка органов."""
+            if getattr(self, '_just_changed_header', False):
+                self._just_changed_header = False
+                return
+            role = item.data(Qt.ItemDataRole.UserRole)
+            if role == "header":
+                self.toggle_group_collapse(item)
+
+        def toggle_group_collapse(self, header_item: QListWidgetItem):
+            """Сворачивает или разворачивает группу органов."""
+            role = header_item.data(Qt.ItemDataRole.UserRole)
+            if role != "header":
+                return
+            
+            text = header_item.text()
+            # Определяем текущее состояние по знаку [+] или [-]
+            is_collapsed = text.startswith("[+]")
+            new_collapsed = not is_collapsed
+            
+            new_prefix = "[+] " if new_collapsed else "[-] "
+            clean_text = text
+            if text.startswith("[+] ") or text.startswith("[-] "):
+                clean_text = text[4:]
+            
+            header_item.setText(f"{new_prefix}{clean_text}")
+            
+            # Сохраняем состояние в self.collapsed_groups
+            group_key = clean_text.split(" (")[0]
+            if "ОСТАЛЬНОЕ" in group_key:
+                self.collapsed_groups["Остальное"] = new_collapsed
+            else:
+                self.collapsed_groups[group_key] = new_collapsed
+            
+            # Скрываем/показываем элементы
+            self.organs_list.blockSignals(True)
+            row = self.organs_list.row(header_item)
+            for i in range(row + 1, self.organs_list.count()):
+                next_item = self.organs_list.item(i)
+                next_role = next_item.data(Qt.ItemDataRole.UserRole)
+                if next_role == "header":
+                    break
+                next_item.setHidden(new_collapsed)
+            self.organs_list.blockSignals(False)
+
+        def restore_group_visibilities(self):
+            """Восстанавливает видимость органов в зависимости от состояния свертывания групп."""
+            self.organs_list.blockSignals(True)
+            current_collapsed = False
+            for i in range(self.organs_list.count()):
+                item = self.organs_list.item(i)
+                role = item.data(Qt.ItemDataRole.UserRole)
+                if role == "header":
+                    item.setHidden(False)  # Гарантируем, что сам заголовок виден!
+                    text = item.text()
+                    current_collapsed = text.startswith("[+]")
+                else:
+                    item.setHidden(current_collapsed)
+            self.organs_list.blockSignals(False)
 
         def on_organ_selection_changed(self):
             pass

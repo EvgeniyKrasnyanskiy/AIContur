@@ -41,11 +41,30 @@ try:
         QMessageBox, QFrame, QSplitter, QCheckBox, QDialog, QTextBrowser,
         QTabWidget, QColorDialog, QGroupBox,
         QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView, QMenu,
-        QProgressDialog, QScrollArea, QGridLayout
+        QProgressDialog, QScrollArea, QGridLayout, QStyledItemDelegate, QStyleOptionViewItem
     )
-    from PyQt6.QtCore import QThread, pyqtSignal, Qt, QObject, QSettings, QTimer
+    from PyQt6.QtCore import QThread, pyqtSignal, Qt, QObject, QSettings, QTimer, QModelIndex
     from PyQt6.QtGui import QTextCursor, QBrush, QColor, QFont, QIcon, QPixmap, QPalette
     PYQT_AVAILABLE = True
+    
+    class OrganIndentDelegate(QStyledItemDelegate):
+        """Делегат для смещения не-header элементов (чекбокс + иконка + текст) списка органов вправо."""
+        def __init__(self, parent=None):
+            super().__init__(parent)
+
+        def initStyleOption(self, option: QStyleOptionViewItem, index: QModelIndex):
+            super().initStyleOption(option, index)
+            role = index.data(Qt.ItemDataRole.UserRole)
+            if role != "header":
+                # Сдвигаем всю строку элемента вправо на 20 пикселей
+                option.rect.setLeft(option.rect.left() + 20)
+
+        def editorEvent(self, event, model, option: QStyleOptionViewItem, index: QModelIndex):
+            role = index.data(Qt.ItemDataRole.UserRole)
+            if role != "header":
+                # Сдвигаем интерактивную зону кликов мыши на 20 пикселей
+                option.rect.setLeft(option.rect.left() + 20)
+            return super().editorEvent(event, model, option, index)
 except ImportError:
     PYQT_AVAILABLE = False
 
@@ -1772,7 +1791,9 @@ if PYQT_AVAILABLE:
             self.showMaximized()
             self.existing_rtstruct_path = None
             self.is_updating_presets = False
+            self.collapsed_groups = {"Остальное": True}
             self.worker = None
+            self.active_workers = []
             self.settings = QSettings("AIContourCorp", "AIContour")
 
             # Инициализация вычислительного движка
@@ -1980,7 +2001,9 @@ if PYQT_AVAILABLE:
             self.organs_header = QLabel("Органы для автооконтурирования: 0 из 0")
             self.organs_header.setStyleSheet("font-weight: bold; color: #ffffff;")
             self.organs_list = QListWidget()
+            self.organs_list.setItemDelegate(OrganIndentDelegate(self))
             self.organs_list.itemChanged.connect(self.on_organ_item_changed)
+            self.organs_list.itemClicked.connect(self.on_organ_item_clicked)
             self.imported_items = []
 
             tab1_layout.addWidget(self.organs_header)
@@ -2145,7 +2168,32 @@ if PYQT_AVAILABLE:
             color_group_layout.addWidget(self.color_preset_combo)
             tab2_layout.addWidget(color_group)
 
-            # Группа 5: Параметры соединения с сервером AI Contour 🌐
+            # Группа 5: Лицензирование суб-моделей ИИ 🔑
+            license_group = QGroupBox("Лицензирование суб-моделей ИИ 🔑")
+            license_group_layout = QVBoxLayout(license_group)
+            license_group_layout.setSpacing(10)
+            
+            lbl_license_descr = QLabel(
+                "Некоторые суб-модели (например, структуры головного мозга) требуют активации лицензионных ключей "
+                "TotalSegmentator."
+            )
+            lbl_license_descr.setWordWrap(True)
+            lbl_license_descr.setStyleSheet("color: #888888; font-size: 11px;")
+            
+            self.btn_manage_licenses = QPushButton("🔑 Управление лицензиями")
+            self.btn_manage_licenses.setObjectName("btnAction")
+            self.btn_manage_licenses.setCursor(Qt.CursorShape.PointingHandCursor)
+            self.btn_manage_licenses.clicked.connect(self.show_licenses_dialog)
+            
+            self.lbl_license_status = QLabel("Лицензия: Загрузка...")
+            self.lbl_license_status.setStyleSheet("color: #a0a0a0; font-size: 11px;")
+            
+            license_group_layout.addWidget(lbl_license_descr)
+            license_group_layout.addWidget(self.btn_manage_licenses)
+            license_group_layout.addWidget(self.lbl_license_status)
+            tab2_layout.addWidget(license_group)
+
+            # Группа 6: Параметры соединения с сервером AI Contour 🌐
             conn_group = QGroupBox("Соединение с сервером AI Contour 🌐")
             conn_group_layout = QVBoxLayout(conn_group)
             conn_group_layout.setSpacing(10)
@@ -2676,8 +2724,20 @@ if PYQT_AVAILABLE:
                 self.left_card.setMaximumWidth(max_w)
 
         def update_license_status_label(self):
-            """Обновляет статус лицензии (заглушка на клиенте)."""
-            pass
+            """Обновляет текст статуса количества активных лицензий."""
+            key = getattr(self.engine, "licenses", "").strip() if hasattr(self, "engine") else ""
+            if not hasattr(self, "lbl_license_status"):
+                return
+            if key:
+                # Маскируем ключ для приватности, показывая только начало и конец (например: aca_4HM5...ODB2)
+                masked_key = key
+                if len(key) >= 12:
+                    masked_key = f"{key[:8]}...{key[-4:]}"
+                self.lbl_license_status.setText(f"Лицензия: ✅ Активна ({masked_key})")
+                self.lbl_license_status.setStyleSheet("color: #2ecc71; font-size: 11px; font-weight: bold;")
+            else:
+                self.lbl_license_status.setText("Лицензия: ❌ Отсутствует")
+                self.lbl_license_status.setStyleSheet("color: #e74c3c; font-size: 11px; font-weight: bold;")
 
         def show_licenses_dialog(self):
             """Открывает окно управления лицензиями суб-моделей ИИ."""
@@ -2721,7 +2781,9 @@ if PYQT_AVAILABLE:
             placed_organs = set()
 
             for group_title, organs in ORGAN_GROUPS.items():
-                header_item = QListWidgetItem(f"{group_title} ({len(organs)})")
+                is_collapsed = self.collapsed_groups.get(group_title, False)
+                prefix = "[+] " if is_collapsed else "[-] "
+                header_item = QListWidgetItem(f"{prefix}{group_title} ({len(organs)})")
                 header_item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsUserCheckable)
                 header_item.setCheckState(Qt.CheckState.Unchecked)
                 header_item.setData(Qt.ItemDataRole.UserRole, "header")
@@ -2757,6 +2819,9 @@ if PYQT_AVAILABLE:
                     # Установка цветного квадратика-иконки для OAR
                     self.update_item_color_icon(item, org)
                     
+                    if is_collapsed:
+                        item.setHidden(True)
+                    
                     self.organs_list.addItem(item)
             
             # Исключаем дубликаты с похожими названиями, чтобы они не засоряли раздел "Остальное"
@@ -2788,7 +2853,9 @@ if PYQT_AVAILABLE:
             ]
             
             if other_organs:
-                other_header = QListWidgetItem(f"━━━ ОСТАЛЬНОЕ ━━━ ({len(other_organs)})")
+                is_other_collapsed = self.collapsed_groups.get("Остальное", True)
+                prefix = "[+] " if is_other_collapsed else "[-] "
+                other_header = QListWidgetItem(f"{prefix}━━━ ОСТАЛЬНОЕ ━━━ ({len(other_organs)})")
                 other_header.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsUserCheckable)
                 other_header.setCheckState(Qt.CheckState.Unchecked)
                 other_header.setData(Qt.ItemDataRole.UserRole, "header")
@@ -2818,6 +2885,10 @@ if PYQT_AVAILABLE:
                         
                     item.setData(Qt.ItemDataRole.UserRole, org)
                     self.update_item_color_icon(item, org)
+                    
+                    if is_other_collapsed:
+                        item.setHidden(True)
+                        
                     self.organs_list.addItem(item)
 
             self.is_updating_presets = False
@@ -3203,8 +3274,95 @@ if PYQT_AVAILABLE:
                 self.on_scan_finished()
                 self._is_updating_table = False
             
+        def is_worker_selected(self, worker) -> bool:
+            selected = self.series_table.selectedItems()
+            if not selected:
+                return False
+            row = selected[0].row()
+            path_item = self.series_table.item(row, 6)
+            if not path_item:
+                return False
+            selected_path = os.path.normpath(os.path.abspath(path_item.text())).lower()
+            worker_path = os.path.normpath(os.path.abspath(worker.dicom_dir)).lower()
+            return selected_path == worker_path
+
+        def on_worker_step(self, step_text: str, worker):
+            worker._last_step = step_text
+            if self.is_worker_selected(worker):
+                self.current_step_base_text = step_text
+                self.status_step_label.setText(f"{step_text} {self.SPINNER_FRAMES[self.spinner_index]}")
+
+        def on_worker_progress(self, val: int, worker):
+            worker._last_progress = val
+            if self.is_worker_selected(worker):
+                self.progress_bar.setRange(0, 100)
+                self.progress_bar.setValue(val)
+
+        def on_worker_eta(self, elapsed: float, eta: float, worker):
+            worker._last_eta = eta
+            if self.is_worker_selected(worker):
+                def fmt(s: float) -> str:
+                    m = int(s // 60)
+                    sec = int(s % 60)
+                    return f"{m} мин {sec:02d} сек" if m > 0 else f"{sec} сек"
+                txt = f"⏱ Прошло: {fmt(elapsed)}"
+                if eta > 0:
+                    txt += f"  |  Ожидается ещё: ~{fmt(eta)}"
+                self.eta_label.setText(txt)
+
+        def on_worker_log(self, message: str, color: str, worker):
+            patient_name = getattr(worker, 'patient_name', 'Пациент')
+            if not (message.startswith("<br>") or message.startswith("<span") or "style=" in message):
+                message = f"[{patient_name}]: {message}"
+            self.append_log(message, color)
+
+        def update_progress_for_selected_patient(self, selected_path: str):
+            active_worker = None
+            if hasattr(self, 'active_workers'):
+                selected_path_norm = os.path.normpath(os.path.abspath(selected_path)).lower()
+                for w in self.active_workers:
+                    w_path_norm = os.path.normpath(os.path.abspath(w.dicom_dir)).lower()
+                    if w_path_norm == selected_path_norm and w.isRunning():
+                        active_worker = w
+                        break
+            
+            if active_worker:
+                self.progress_bar.setRange(0, 100)
+                progress_val = getattr(active_worker, '_last_progress', 0)
+                step_text = getattr(active_worker, '_last_step', "Выполнение...")
+                self.progress_bar.setValue(progress_val)
+                self.status_step_label.setText(f"{step_text} {self.SPINNER_FRAMES[self.spinner_index]}")
+                
+                elapsed = time.time() - getattr(active_worker, '_start_time', time.time())
+                eta = getattr(active_worker, '_last_eta', 0.0)
+                def fmt(s: float) -> str:
+                    m = int(s // 60)
+                    sec = int(s % 60)
+                    return f"{m} мин {sec:02d} сек" if m > 0 else f"{sec} сек"
+                txt = f"⏱ Прошло: {fmt(elapsed)}"
+                if eta > 0:
+                    txt += f"  |  Ожидается ещё: ~{fmt(eta)}"
+                self.eta_label.setText(txt)
+            else:
+                self.progress_bar.setValue(0)
+                self.status_step_label.setText("Текущий шаг: Ожидание запуска...")
+                self.status_step_label.setStyleSheet("color: #007acc; font-weight: bold; font-style: italic;")
+                self.eta_label.setText("")
+
         def update_run_button(self, is_patient_selected: bool, custom_text: str = None):
-            if hasattr(self, 'worker') and self.worker and self.worker.isRunning():
+            # Поиск активного воркера для выделенного в таблице пациента
+            active_worker = None
+            selected = self.series_table.selectedItems()
+            if selected and hasattr(self, 'active_workers'):
+                row = selected[0].row()
+                selected_path = self.series_table.item(row, 6).text() if self.series_table.item(row, 6) else None
+                if selected_path:
+                    for w in self.active_workers:
+                        if w.dicom_dir == selected_path and w.isRunning():
+                            active_worker = w
+                            break
+
+            if active_worker:
                 target_text = "ОТМЕНИТЬ РАСЧЕТ ❌"
                 target_enabled = True
                 if self.btn_run.text() != target_text:
@@ -3271,6 +3429,7 @@ if PYQT_AVAILABLE:
                 
                 # Меняем UI и обновляем вьюер ТОЛЬКО при ручном клике пользователя
                 if not getattr(self, "_is_updating_table", False):
+                    self.update_progress_for_selected_patient(selected_path)
                     # Автоматический выбор пресета на основе области сканирования
                     area_item = self.series_table.item(row, 3)
                     area_text = area_item.text().strip() if area_item else ""
@@ -3467,11 +3626,8 @@ if PYQT_AVAILABLE:
                 self._clear_roi_overlay(permanent=True)
                 self._clear_imported_organs()
                 
-                # Принудительно возвращаем видимость всем стандартным органам
-                self.organs_list.blockSignals(True)
-                for i in range(self.organs_list.count()):
-                    self.organs_list.item(i).setHidden(False)
-                self.organs_list.blockSignals(False)
+                # Принудительно возвращаем видимость всем стандартным органам с учетом свертывания
+                self.restore_group_visibilities()
                 
                 # Возвращаем левую панель и сплиттеры к стандартным размерам
                 if hasattr(self, 'left_card') and hasattr(self, 'splitter'):
@@ -3594,7 +3750,7 @@ if PYQT_AVAILABLE:
         def on_show_structures_toggled(self, state: int):
             if state == 2:  # Qt.CheckState.Checked
                 # Предупреждение при просмотре во время сегментации на CPU
-                if (hasattr(self, 'worker') and self.worker and self.worker.isRunning()
+                if (hasattr(self, 'active_workers') and any(w.isRunning() for w in self.active_workers)
                         and hasattr(self, 'radio_cpu') and self.radio_cpu.isChecked()):
                     from PyQt6.QtWidgets import QMessageBox
                     msg = QMessageBox(self)
@@ -3668,12 +3824,8 @@ if PYQT_AVAILABLE:
                 if hasattr(self, 'btn_deselect_all'):
                     self.btn_deselect_all.setEnabled(True)
                 
-                # Возвращаем видимость всем стандартным органам
-                self.organs_list.blockSignals(True)
-                for i in range(self.organs_list.count()):
-                    item = self.organs_list.item(i)
-                    item.setHidden(False)
-                self.organs_list.blockSignals(False)
+                # Возвращаем видимость всем стандартным органам с учетом свертывания
+                self.restore_group_visibilities()
                 
                 # Возвращаем левую панель и сплиттеры к стандартным размерам
                 if hasattr(self, 'left_card') and hasattr(self, 'splitter'):
@@ -3943,16 +4095,19 @@ if PYQT_AVAILABLE:
                         group_structures.append((last_header, current_group_items))
                             
                     for header, items in group_structures:
+                        text = header.text()
+                        is_group_collapsed = text.startswith("[+]")
+                        
                         group_visible = False
                         for item in items:
                             if item.data(Qt.ItemDataRole.UserRole + 1) is True:
-                                item.setHidden(False)
+                                item.setHidden(is_group_collapsed)
                                 group_visible = True
                             else:
                                 itm_data = item.data(Qt.ItemDataRole.UserRole)
                                 orig_organ_lower = itm_data.lower() if isinstance(itm_data, str) else ""
                                 if orig_organ_lower in file_supported_organs:
-                                    item.setHidden(False)
+                                    item.setHidden(is_group_collapsed)
                                     group_visible = True
                                 else:
                                     item.setHidden(True)
@@ -4398,6 +4553,7 @@ if PYQT_AVAILABLE:
                     
                 if organ_name == "header":
                     # Это клик по заголовку группы!
+                    self._just_changed_header = True
                     self.is_updating_presets = True
                     new_state = item.checkState()
                     if new_state == Qt.CheckState.PartiallyChecked:
@@ -4459,6 +4615,66 @@ if PYQT_AVAILABLE:
                 QMessageBox.warning(self, "Ошибка выбора", f"Сбой при обработке клика: {e}")
             finally:
                 self.organs_list.blockSignals(False)
+
+        def on_organ_item_clicked(self, item: QListWidgetItem):
+            """Слот для клика по элементу списка органов."""
+            if getattr(self, '_just_changed_header', False):
+                self._just_changed_header = False
+                return
+            role = item.data(Qt.ItemDataRole.UserRole)
+            if role == "header":
+                self.toggle_group_collapse(item)
+
+        def toggle_group_collapse(self, header_item: QListWidgetItem):
+            """Сворачивает или разворачивает группу органов."""
+            role = header_item.data(Qt.ItemDataRole.UserRole)
+            if role != "header":
+                return
+            
+            text = header_item.text()
+            # Определяем текущее состояние по знаку [+] или [-]
+            is_collapsed = text.startswith("[+]")
+            new_collapsed = not is_collapsed
+            
+            new_prefix = "[+] " if new_collapsed else "[-] "
+            clean_text = text
+            if text.startswith("[+] ") or text.startswith("[-] "):
+                clean_text = text[4:]
+            
+            header_item.setText(f"{new_prefix}{clean_text}")
+            
+            # Сохраняем состояние в self.collapsed_groups
+            group_key = clean_text.split(" (")[0]
+            if "ОСТАЛЬНОЕ" in group_key:
+                self.collapsed_groups["Остальное"] = new_collapsed
+            else:
+                self.collapsed_groups[group_key] = new_collapsed
+            
+            # Скрываем/показываем элементы
+            self.organs_list.blockSignals(True)
+            row = self.organs_list.row(header_item)
+            for i in range(row + 1, self.organs_list.count()):
+                next_item = self.organs_list.item(i)
+                next_role = next_item.data(Qt.ItemDataRole.UserRole)
+                if next_role == "header":
+                    break
+                next_item.setHidden(new_collapsed)
+            self.organs_list.blockSignals(False)
+
+        def restore_group_visibilities(self):
+            """Восстанавливает видимость органов в зависимости от состояния свертывания групп."""
+            self.organs_list.blockSignals(True)
+            current_collapsed = False
+            for i in range(self.organs_list.count()):
+                item = self.organs_list.item(i)
+                role = item.data(Qt.ItemDataRole.UserRole)
+                if role == "header":
+                    item.setHidden(False)  # Гарантируем, что сам заголовок виден!
+                    text = item.text()
+                    current_collapsed = text.startswith("[+]")
+                else:
+                    item.setHidden(current_collapsed)
+            self.organs_list.blockSignals(False)
 
         def on_organ_selection_changed(self):
             pass
@@ -4562,22 +4778,7 @@ if PYQT_AVAILABLE:
             self.log_edit.moveCursor(QTextCursor.MoveOperation.End)
 
         def start_segmentation(self):
-            """Запускает процесс сегментации или отменяет его."""
-            if hasattr(self, 'worker') and self.worker and self.worker.isRunning():
-                reply = QMessageBox.question(
-                    self, 
-                    "Подтверждение отмены", 
-                    "Вы действительно хотите прервать процесс автоматического оконтурирования?",
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                    QMessageBox.StandardButton.No
-                )
-                if reply == QMessageBox.StandardButton.Yes:
-                    self.status_step_label.setText("Отмена процесса...")
-                    self.status_step_label.setStyleSheet("color: #e74c3c; font-weight: bold;")
-                    self.worker.cancel()
-                    self.scan_timer.start(15000)
-                return
-
+            """Запускает процесс автооконтурирования для выбранного пациента."""
             if getattr(self, 'chk_show_structures', None) and self.chk_show_structures.isChecked():
                 self.chk_show_structures.setChecked(False)
                 return
@@ -4589,9 +4790,30 @@ if PYQT_AVAILABLE:
                 
             row = selected[0].row()
             dicom_dir = self.series_table.item(row, 6).text()
+            patient_name = self.series_table.item(row, 0).text() if self.series_table.item(row, 0) else "Неизвестный"
+
+            # Поиск активного воркера для отмены
+            active_worker = None
+            if dicom_dir and hasattr(self, 'active_workers'):
+                for w in self.active_workers:
+                    if w.dicom_dir == dicom_dir and w.isRunning():
+                        active_worker = w
+                        break
+
+            if active_worker:
+                reply = QMessageBox.question(
+                    self, "Подтверждение отмены расчета",
+                    f"Вы действительно хотите отменить расчет для пациента {patient_name}?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                )
+                if reply == QMessageBox.StandardButton.Yes:
+                    self.append_log(f"[INFO]: Отмена расчета для пациента {patient_name} по запросу пользователя...", "#c0392b")
+                    active_worker.cancel()
+                    self.btn_run.setEnabled(False)
+                return
 
             if not dicom_dir or not os.path.isdir(dicom_dir):
-                QMessageBox.critical(self, "Ошибка", "Путь к DICOM-серии недействителен!")
+                QMessageBox.critical(self, "Ошибка", "Путь к DICOM-серии недействивелен!")
                 return
                 
             # Проверяем доступность папки DICOM на запись (поддержка read-only)
@@ -4651,12 +4873,9 @@ if PYQT_AVAILABLE:
                 if hasattr(self, 'merge_rtstruct_combo') and self.merge_rtstruct_combo.count() > 0:
                     self.existing_rtstruct_path = self.merge_rtstruct_combo.currentData()
 
-            # Блокируем интерфейс
-            self.set_ui_enabled(False)
-            self.log_edit.clear()
-            self.progress_bar.setRange(0, 100)
-            self.progress_bar.setValue(0)
-            self.scan_timer.stop()
+            # Кратковременно блокируем кнопку на 1 секунду для защиты от двойного клика
+            self.btn_run.setEnabled(False)
+            QTimer.singleShot(1000, lambda: self.update_run_button(bool(self.series_table.selectedItems())))
             
             try:
                 preset_name = self.preset_combo.currentText()
@@ -4684,7 +4903,7 @@ if PYQT_AVAILABLE:
                 client_name = self.client_name_edit.text().strip()
 
                 # Создаем и запускаем поток вычислений
-                self.worker = SegmentationWorker(
+                worker = SegmentationWorker(
                     server_url=server_url,
                     client_name=client_name,
                     dicom_dir=dicom_dir,
@@ -4698,23 +4917,39 @@ if PYQT_AVAILABLE:
                     remove_blobs=self.clean_blobs_check.isChecked(),
                     smoothing_sigma=smoothing_sigma
                 )
-                self.worker.finished_signal.connect(self.on_segmentation_finished)
-                self.worker.step_signal.connect(self.on_step_changed)
-                self.worker.progress_signal.connect(self.progress_bar.setValue)
-                self.worker.eta_signal.connect(self.on_eta_updated)
-                self.worker.log_signal.connect(self.append_log)
                 
+                # Подключаем сигналы
+                worker.finished_signal.connect(
+                    lambda success, msg, p_name=patient_name, d_dir=dicom_dir, w=worker:
+                    self.on_segmentation_finished_background(success, msg, p_name, d_dir, w)
+                )
+                worker.step_signal.connect(lambda text, w=worker: self.on_worker_step(text, w))
+                worker.progress_signal.connect(lambda val, w=worker: self.on_worker_progress(val, w))
+                worker.eta_signal.connect(lambda elapsed, eta, w=worker: self.on_worker_eta(elapsed, eta, w))
+                worker.log_signal.connect(lambda msg, color, w=worker: self.on_worker_log(msg, color, w))
+                
+                worker._start_time = time.time()
+                worker.patient_name = patient_name
+                worker._last_progress = 0
+                worker._last_step = "Отправка на сервер..."
+                worker._last_eta = 0.0
+
+                self.active_workers.append(worker)
+                worker.start()
+                
+                self.append_log(f"[INFO]: Пациент {patient_name} успешно отправлен в очередь на автооконтурирование...", "#3498db")
+                
+                # Обновляем кнопку
+                self.update_run_button(True)
+
                 self.current_step_base_text = "Отправка на сервер..."
                 self.spinner_index = 0
                 self.pulse_tick = 0
                 self.activity_timer.start()
-                
-                self.worker.start()
             except Exception as e:
                 logger.exception("Ошибка при запуске сегментации")
                 QMessageBox.critical(self, "Ошибка запуска", f"Не удалось инициализировать сегментацию:\n{e}")
-                self.set_ui_enabled(True)
-                self.scan_timer.start(15000)
+                self.update_run_button(bool(self.series_table.selectedItems()))
 
         def set_ui_enabled(self, enabled: bool):
             self.input_edit.setEnabled(enabled)
@@ -4799,14 +5034,14 @@ if PYQT_AVAILABLE:
                 f"color: rgb(0, {g}, {b}); font-weight: bold; font-style: italic;"
             )
 
-        def on_segmentation_finished(self, success: bool, message: str):
+        def on_segmentation_finished_background(self, success: bool, message: str, patient_name: str, dicom_dir: str, worker):
             try:
                 # Фиксация статистики запуска
                 elapsed = 0.0
-                if self.worker and hasattr(self.worker, "_start_time"):
-                    elapsed = time.time() - self.worker._start_time
+                if worker and hasattr(worker, "_start_time"):
+                    elapsed = time.time() - worker._start_time
 
-                organs = self.worker.selected_organs if self.worker else []
+                organs = worker.selected_organs if worker else []
                 preset = self.preset_combo.currentText()
                 precision = self.precision_combo.currentText()
 
@@ -4820,7 +5055,7 @@ if PYQT_AVAILABLE:
                     )
                 else:
                     is_cancelled = False
-                    if self.worker and getattr(self.worker, "is_cancelled", False):
+                    if worker and getattr(worker, "is_cancelled", False):
                         is_cancelled = True
                     elif "отмен" in message.lower():
                         is_cancelled = True
@@ -4839,12 +5074,23 @@ if PYQT_AVAILABLE:
                     self.update_statistics_ui()
 
                 self.scan_timer.start(15000)
-                self.set_ui_enabled(True)
-                self.progress_bar.setRange(0, 100)
-                self.activity_timer.stop()
-                self.status_step_label.setStyleSheet("color: #007acc; font-weight: bold; font-style: italic;")
-                # Сбрасываем ETA-метку сразу после завершения
-                self.eta_label.setText("")
+                
+                # Проверяем, активен ли еще какой-нибудь воркер
+                has_active = any(w.isRunning() for w in self.active_workers if w != worker)
+                if not has_active:
+                    self.activity_timer.stop()
+                
+                # Удаляем воркер из списка активных
+                if worker in self.active_workers:
+                    self.active_workers.remove(worker)
+                
+                is_selected = self.is_worker_selected(worker)
+                
+                if is_selected:
+                    if not has_active:
+                        self.status_step_label.setStyleSheet("color: #007acc; font-weight: bold; font-style: italic;")
+                    # Сбрасываем ETA-метку сразу после завершения
+                    self.eta_label.setText("")
                 
                 if self.sound_check.isChecked():
                     try:
@@ -4863,8 +5109,10 @@ if PYQT_AVAILABLE:
                         logger.error(f"Не удалось воспроизвести звуковое оповещение: {e}")
                 
                 if success:
-                    self.progress_bar.setValue(100)
-                    self.status_step_label.setText("Текущий шаг: Готово!")
+                    if is_selected:
+                        self.progress_bar.setRange(0, 100)
+                        self.progress_bar.setValue(100)
+                        self.status_step_label.setText("Текущий шаг: Готово!")
                     
                     # Парсинг количества структур (из текста сообщения)
                     count = 0
@@ -4877,62 +5125,71 @@ if PYQT_AVAILABLE:
                     if match_time:
                         time_str = match_time.group(1)
 
-                    final_log = f"[INFO]: Пайплайн успешно завершен! Добавлено структур: {count}. Общее время работы: {time_str} сек."
+                    final_log = f"[INFO] [{patient_name}]: Пайплайн успешно завершен! Добавлено структур: {count}. Общее время работы: {time_str} сек."
                     self.log_edit.append(f"<br><span style='background-color: #107c41; color: white; font-weight: bold; padding: 4px;'>{final_log}</span><br>")
                     
-                    # Немедленно обновляем интерфейс, чтобы подтянуть созданный RTSTRUCT
+                    # Немедленно обновляем интерфейс, чтобы подтянуть созданный RTSTRUCT (если папка совпадает с выбранным)
                     selected = self.series_table.selectedItems()
                     if selected:
                         row = selected[0].row()
                         path_item = self.series_table.item(row, 6)
                         if path_item:
                             selected_path = path_item.text()
-                            # Сканируем RTSTRUCT
-                            self.check_for_rtstruct(selected_path)
-                            
-                            # Обновляем статус структуры в таблице на точное количество найденных файлов
-                            item_str = self.series_table.item(row, 2)
-                            if item_str:
-                                item_str.setText(format_rtstruct_count(len(self.rtstruct_files)))
-                            
-                            # Автоматически активируем галочку и отрисовываем контуры во вьюере
-                            if hasattr(self, 'chk_show_structures') and self.chk_show_structures.isEnabled():
-                                self.chk_show_structures.setChecked(True)
+                            if os.path.normpath(selected_path).lower() == os.path.normpath(dicom_dir).lower():
+                                # Сканируем RTSTRUCT
+                                self.check_for_rtstruct(selected_path)
+                                
+                                # Обновляем статус структуры в таблице на точное количество найденных файлов
+                                item_str = self.series_table.item(row, 2)
+                                if item_str:
+                                    item_str.setText(format_rtstruct_count(len(self.rtstruct_files)))
+                                
+                                # Автоматически активируем галочку и отрисовываем контуры во вьюере
+                                if hasattr(self, 'chk_show_structures') and self.chk_show_structures.isEnabled():
+                                    self.chk_show_structures.setChecked(True)
                     
-                    QTimer.singleShot(100, lambda: QMessageBox.information(self, "Успех", "Автоматическое оконтурирование завершено успешно!"))
-                    # Сбрасываем прогресс-бар до 0 через 5 секунд, чтобы не висел при просмотре снимков
-                    QTimer.singleShot(5000, lambda: self.progress_bar.setValue(0))
+                    QTimer.singleShot(100, lambda: QMessageBox.information(self, "Успех", f"Автоматическое оконтурирование для '{patient_name}' завершено успешно!"))
+                    # Сбрасываем прогресс-бар до 0 через 5 секунд, если пациент все еще выделен
+                    if is_selected:
+                        QTimer.singleShot(5000, lambda: self.progress_bar.setValue(0) if self.is_worker_selected(worker) else None)
                 else:
-                    self.progress_bar.setValue(0)
-                    if "отменена пользователем" in message.lower() or "отменен пользователем" in message.lower():
-                        self.status_step_label.setText("Текущий шаг: Расчет отменен!")
-                        self.status_step_label.setStyleSheet("color: #e74c3c; font-weight: bold;")
-                        QTimer.singleShot(100, lambda: QMessageBox.warning(self, "Предупреждение", "Процесс оконтурирования был прерван."))
+                    if is_selected:
+                        self.progress_bar.setValue(0)
+                    
+                    is_cancelled = False
+                    if worker and getattr(worker, "is_cancelled", False):
+                        is_cancelled = True
+                    elif "отмен" in message.lower():
+                        is_cancelled = True
+                    
+                    if is_cancelled:
+                        if is_selected:
+                            self.status_step_label.setText("Текущий шаг: Расчет отменен!")
+                            self.status_step_label.setStyleSheet("color: #e74c3c; font-weight: bold;")
+                        
+                        final_log = f"[WARN] [{patient_name}]: Расчет отменен пользователем."
+                        self.log_edit.append(f"<br><span style='background-color: #d84315; color: white; font-weight: bold; padding: 4px;'>{final_log}</span><br>")
+                        QTimer.singleShot(100, lambda: QMessageBox.warning(self, "Предупреждение", f"Процесс оконтурирования для '{patient_name}' был прерван."))
                     else:
-                        self.status_step_label.setText("Текущий шаг: Ошибка!")
-                        QTimer.singleShot(100, lambda msg=message: QMessageBox.critical(self, "Критическая ошибка", f"Произошел сбой при сегментации:\n{msg}"))
+                        if is_selected:
+                            self.status_step_label.setText("Текущий шаг: Ошибка!")
+                        
+                        final_log = f"[ERROR] [{patient_name}]: Сбой при сегментации: {message}"
+                        self.log_edit.append(f"<br><span style='background-color: #c62828; color: white; font-weight: bold; padding: 4px;'>{final_log}</span><br>")
+                        QTimer.singleShot(100, lambda msg=message: QMessageBox.critical(self, "Критическая ошибка", f"Произошел сбой при сегментации '{patient_name}':\n{msg}"))
+                    
                     # Сбрасываем прогресс-бар через 3 секунды в обоих случаях (отмена/ошибка)
-                    QTimer.singleShot(3000, lambda: self.progress_bar.setValue(0))
+                    if is_selected:
+                        QTimer.singleShot(3000, lambda: self.progress_bar.setValue(0) if self.is_worker_selected(worker) else None)
+                
+                # Обновляем кнопку запуска
+                self.update_run_button(bool(self.series_table.selectedItems()))
+                
             except Exception as e:
                 import traceback
                 traceback.print_exc()
-                logger.error(f"Критическая ошибка в on_segmentation_finished: {e}")
-                QTimer.singleShot(100, lambda err=e: QMessageBox.critical(self, "Сбой GUI", f"Ошибка в on_segmentation_finished:\n{err}"))
-
-        def on_step_changed(self, step_text: str):
-            self.current_step_base_text = step_text
-            self.status_step_label.setText(f"{step_text} {self.SPINNER_FRAMES[self.spinner_index]}")
-
-        def on_eta_updated(self, elapsed: float, eta: float):
-            """Обновляет метку ETA во время расчёта ИИ."""
-            def fmt(s: float) -> str:
-                m = int(s // 60)
-                sec = int(s % 60)
-                return f"{m} мин {sec:02d} сек" if m > 0 else f"{sec} сек"
-            txt = f"⏱ Прошло: {fmt(elapsed)}"
-            if eta > 0:
-                txt += f"  |  Ожидается ещё: ~{fmt(eta)}"
-            self.eta_label.setText(txt)
+                logger.error(f"Критическая ошибка в on_segmentation_finished_background: {e}")
+                QTimer.singleShot(100, lambda err=e: QMessageBox.critical(self, "Сбой GUI", f"Ошибка в on_segmentation_finished_background:\n{err}"))
 
         def on_tab_changed(self, index):
             if self.tab_widget.tabText(index) == "📊 Статистика":
@@ -5310,6 +5567,14 @@ if PYQT_AVAILABLE:
             )
             if reply == QMessageBox.StandardButton.Yes:
                 logging.info("Закрытие панели управления сервером...")
+                
+                # Останавливаем всех активных воркеров оконтуривания
+                if hasattr(self, 'active_workers'):
+                    for w in list(self.active_workers):
+                        if w.isRunning():
+                            w.cancel()
+                            w.wait()
+
                 if hasattr(self, "server_process") and self.server_process:
                     logging.info("Останавливаем фоновый процесс бэкенда сервера...")
                     pid = self.server_process.pid
@@ -5561,7 +5826,7 @@ if PYQT_AVAILABLE:
                     self.table_queue.item(row, 0).setData(Qt.ItemDataRole.UserRole, item["job_id"])
                     
                 # Прогресс-бар и ETA
-                local_running = hasattr(self, 'worker') and self.worker and self.worker.isRunning()
+                local_running = hasattr(self, 'active_workers') and any(w.isRunning() for w in self.active_workers)
                 if not local_running:
                     processing_job = None
                     for item in info_list:
