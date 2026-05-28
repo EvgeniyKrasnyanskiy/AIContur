@@ -1766,9 +1766,15 @@ if PYQT_AVAILABLE:
             self.btn_save_preset.setObjectName("btnAction")
             self.btn_save_preset.clicked.connect(self.save_current_preset_dialog)
             
+            self.btn_delete_preset = QPushButton("🗑️")
+            self.btn_delete_preset.setObjectName("btnAction")
+            self.btn_delete_preset.setToolTip("Удалить выбранный пресет")
+            self.btn_delete_preset.clicked.connect(self.delete_current_preset_dialog)
+            
             selection_layout.addWidget(self.btn_select_all)
             selection_layout.addWidget(self.btn_deselect_all)
             selection_layout.addWidget(self.btn_save_preset)
+            selection_layout.addWidget(self.btn_delete_preset)
             tab1_layout.addLayout(selection_layout)
 
             # Список OAR с чек-боксами
@@ -3653,6 +3659,8 @@ if PYQT_AVAILABLE:
                     self.btn_deselect_all.setEnabled(True)
                 if hasattr(self, 'btn_save_preset'):
                     self.btn_save_preset.setEnabled(True)
+                if hasattr(self, 'btn_delete_preset'):
+                    self.btn_delete_preset.setEnabled(True)
                 
                 # Сворачиваем обратно группы по умолчанию ("Остальное" и "Отделы головного мозга")
                 self.collapsed_groups = {"Остальное": True, "Отделы головного мозга (Brain Structures)": True}
@@ -3705,6 +3713,8 @@ if PYQT_AVAILABLE:
                 self.btn_deselect_all.setEnabled(False)
             if hasattr(self, 'btn_save_preset'):
                 self.btn_save_preset.setEnabled(False)
+            if hasattr(self, 'btn_delete_preset'):
+                self.btn_delete_preset.setEnabled(False)
                 
             # Автоматически раскрываем все группы списков органов
             self.expand_all_groups()
@@ -4254,7 +4264,7 @@ if PYQT_AVAILABLE:
             name, ok = QInputDialog.getText(
                 self, 
                 "💾 Сохранение пресета", 
-                "Введите название пресета (разрешена кириллица):"
+                "Введите название пресета"
             )
             
             if not ok or not name.strip():
@@ -4298,6 +4308,64 @@ if PYQT_AVAILABLE:
                 "Успех", 
                 f"Пользовательский пресет '{preset_name}' успешно сохранен! ✅"
             )
+
+        def delete_current_preset_dialog(self) -> None:
+            """Запрашивает подтверждение и удаляет выбранный пользовательский пресет."""
+            from PyQt6.QtWidgets import QMessageBox
+            
+            current_preset: str = self.preset_combo.currentText().strip()
+            
+            # Список встроенных (дефолтных) имен пресетов и служебных элементов
+            DEFAULT_PRESET_NAMES: list[str] = [
+                "Голова и шея (Head & Neck)",
+                "Грудная клетка (Thorax)",
+                "Брюшная полость (Abdomen)",
+                "Малый таз (Pelvis)",
+                "Отделы головного мозга (Brain Structures)"
+            ]
+            
+            if current_preset in DEFAULT_PRESET_NAMES or current_preset in [
+                "— Выберите пресет —",
+                "Пользовательский (Custom)",
+                "Все органы (All)"
+            ] or not current_preset:
+                QMessageBox.warning(
+                    self,
+                    "Предупреждение",
+                    "Нельзя удалить стандартный пресет или служебный элемент."
+                )
+                return
+
+            # Запрашиваем подтверждение удаления
+            reply = QMessageBox.question(
+                self,
+                "🗑️ Удаление пресета",
+                f"Вы действительно хотите удалить пресет '{current_preset}'?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
+            
+            if reply == QMessageBox.StandardButton.Yes:
+                try:
+                    # Удаляем из движка
+                    self.engine.presets.pop(current_preset, None)
+                    self.engine.save_presets_config()
+                    
+                    # Обновляем комбобокс и сбрасываем выбор
+                    self.init_presets_and_organs()
+                    
+                    QMessageBox.information(
+                        self,
+                        "Успех",
+                        f"Пользовательский пресет '{current_preset}' успешно удален! ✅"
+                    )
+                except Exception as e:
+                    logger.exception(f"Ошибка при удалении пресета {current_preset}: {e}")
+                    QMessageBox.critical(
+                        self,
+                        "Ошибка",
+                        f"Не удалось удалить пресет '{current_preset}':\n{e}"
+                    )
 
         def _sync_preset_combo_to_organs(self):
             """Подбирает и устанавливает в комбобоксе пресет, соответствующий текущим выбранным органам.
@@ -4900,6 +4968,8 @@ if PYQT_AVAILABLE:
             self.btn_deselect_all.setEnabled(enabled and not is_view_mode)
             if hasattr(self, 'btn_save_preset'):
                 self.btn_save_preset.setEnabled(enabled and not is_view_mode)
+            if hasattr(self, 'btn_delete_preset'):
+                self.btn_delete_preset.setEnabled(enabled and not is_view_mode)
             self.preset_combo.setEnabled(enabled and not is_view_mode)
             self.organs_list.setEnabled(enabled)
             self.precision_combo.setEnabled(enabled)
