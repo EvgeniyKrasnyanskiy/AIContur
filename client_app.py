@@ -2973,7 +2973,6 @@ if PYQT_AVAILABLE:
                     self.chk_show_structures.blockSignals(True)
                     self.chk_show_structures.setChecked(True)
                     self.chk_show_structures.blockSignals(False)
-                    self.on_show_structures_changed()
                 elif self.chk_show_structures.isChecked():
                     self.on_show_structures_changed()
                 else:
