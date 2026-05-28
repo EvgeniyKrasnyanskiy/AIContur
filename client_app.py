@@ -174,7 +174,7 @@ if ContourEngine is None:
             
         def _get_default_color(self, organ_name: str):
             import hashlib
-            h = hashlib.md5(organ_name.encode('utf-8')).digest()
+            h = hashlib.sha256(organ_name.encode('utf-8')).digest()
             return [max(50, int(h[0])), max(50, int(h[1])), max(50, int(h[2]))]
             
     ContourEngine = MockContourEngine

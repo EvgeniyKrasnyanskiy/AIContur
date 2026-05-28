@@ -173,7 +173,7 @@ if ContourEngine is None:
             
         def _get_default_color(self, organ_name: str):
             import hashlib
-            h = hashlib.md5(organ_name.encode('utf-8')).digest()
+            h = hashlib.sha256(organ_name.encode('utf-8')).digest()
             return [max(50, int(h[0])), max(50, int(h[1])), max(50, int(h[2]))]
             
     ContourEngine = MockContourEngine
@@ -1633,7 +1633,7 @@ if PYQT_AVAILABLE:
                                     pids_to_kill.add(pid)
                     for pid in pids_to_kill:
                         logging.info(f"Жесткое завершение старого процесса прослушивания PID {pid}...")
-                        subprocess.run(f"taskkill /F /PID {pid}", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        subprocess.run(["taskkill", "/F", "/PID", pid], shell=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 except Exception as ex:
                     logging.debug(f"Не удалось очистить порт 8000: {ex}")
             
@@ -5389,11 +5389,10 @@ if PYQT_AVAILABLE:
                     logging.info("Останавливаем фоновый процесс бэкенда сервера...")
                     pid = self.server_process.pid
                     if os.name == 'nt':
-                        # На Windows используем taskkill /T для убийства всего дерева процессов (uvicorn + дочерние)
                         import subprocess as sp
                         sp.run(
-                            f"taskkill /F /T /PID {pid}",
-                            shell=True,
+                            ["taskkill", "/F", "/T", "/PID", str(pid)],
+                            shell=False,
                             stdout=sp.DEVNULL,
                             stderr=sp.DEVNULL
                         )
