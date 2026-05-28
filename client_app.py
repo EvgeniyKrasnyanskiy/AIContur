@@ -2490,8 +2490,8 @@ if PYQT_AVAILABLE:
             if hasattr(self, 'scan_worker') and self.scan_worker.isRunning():
                 return
                 
-            self.btn_run.setEnabled(False)
             if is_manual:
+                self.btn_run.setEnabled(False)
                 self.btn_run.setText("СКАНИРОВАНИЕ ПАПОК...")
             
             self.scan_worker = DicomScanWorker(dir_path, is_manual_scan=is_manual)
@@ -2663,7 +2663,20 @@ if PYQT_AVAILABLE:
                 """)
                 return
 
-            if getattr(self, 'chk_show_structures', None) and self.chk_show_structures.isChecked():
+            is_server_online = getattr(self, 'is_server_online', True)
+            is_client_blocked = getattr(self, 'is_client_blocked', False)
+            is_server_paused = getattr(self, 'is_server_paused', False)
+
+            if is_client_blocked:
+                target_text = "ДОСТУП ЗАБЛОКИРОВАН ❌"
+                target_enabled = False
+            elif not is_server_online:
+                target_text = "СЕРВЕР ОФЛАЙН 🔌"
+                target_enabled = False
+            elif is_server_paused:
+                target_text = "СЕРВЕР НА ПАУЗЕ ⏸️"
+                target_enabled = False
+            elif getattr(self, 'chk_show_structures', None) and self.chk_show_structures.isChecked():
                 target_text = "ВЫЙТИ ИЗ РЕЖИМА ПРОСМОТРА"
                 target_enabled = True
             else:
@@ -4400,6 +4413,11 @@ if PYQT_AVAILABLE:
             """Слот обработки успешно полученного статуса сервера из фонового потока."""
             try:
                 is_paused = data.get("is_paused", False)
+                self.is_server_online = True
+                self.is_client_blocked = False
+                self.is_server_paused = is_paused
+                self.update_run_button(bool(self.series_table.selectedItems()))
+                
                 info_list = data.get("jobs", [])
                 
                 # Обновление постоянного индикатора состояния сервера
@@ -4541,9 +4559,16 @@ if PYQT_AVAILABLE:
         def on_status_error(self, err_msg: str):
             """Слот обработки сетевой ошибки фонового воркера."""
             self.table_queue.setRowCount(0)
+            self.is_server_online = False
+            if "403" in err_msg or "blocked" in err_msg.lower() or "forbidden" in err_msg.lower():
+                self.is_client_blocked = True
+            else:
+                self.is_client_blocked = False
+                
             # Обновление индикатора в случае недоступности сервера
             self.lbl_server_status_indicator.setText("Сервер: ❌")
             self.lbl_server_status_indicator.setStyleSheet("font-weight: bold; color: #ff6b6b; margin-right: 10px; margin-bottom: 7px; font-size: 12px;")
+            self.update_run_button(bool(self.series_table.selectedItems()))
 
         def show_context_menu(self, pos):
             """Отображает контекстное меню для управления задачами в очереди."""

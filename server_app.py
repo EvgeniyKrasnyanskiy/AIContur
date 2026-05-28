@@ -2907,8 +2907,8 @@ if PYQT_AVAILABLE:
             if hasattr(self, 'scan_worker') and self.scan_worker.isRunning():
                 return
                 
-            self.btn_run.setEnabled(False)
             if is_manual:
+                self.btn_run.setEnabled(False)
                 self.btn_run.setText("СКАНИРОВАНИЕ ПАПОК...")
             
             self.scan_worker = DicomScanWorker(dir_path, is_manual_scan=is_manual)
