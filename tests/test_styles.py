@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 
 # Добавляем корень проекта в пути импорта
-sys.path.append(str(Path(__file__).resolve().parent))
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 from src.ui.styles import StyleManager
 

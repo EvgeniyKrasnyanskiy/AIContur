@@ -15,7 +15,7 @@ import gc
 
 
 # Добавляем корень проекта в пути импорта
-sys.path.append(str(Path(__file__).resolve().parent))
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 from contour_engine import ContourEngine
 

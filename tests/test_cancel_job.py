@@ -10,7 +10,7 @@ from pathlib import Path
 import psutil
 
 # Добавим корень проекта в пути импорта
-sys.path.append(str(Path(__file__).resolve().parent))
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 from server.queue_manager import QueueManager, ServerJob
 

@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 # Добавляем корень проекта в пути импорта
-sys.path.append(str(Path(__file__).resolve().parent))
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 # Инициализируем QApplication для корректной работы Qt Сигналов в тестах
 from PyQt6.QtWidgets import QApplication
