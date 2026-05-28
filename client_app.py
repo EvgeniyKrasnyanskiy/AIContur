@@ -2563,11 +2563,11 @@ if PYQT_AVAILABLE:
                     has_license = hasattr(self.engine, "licenses") and isinstance(self.engine.licenses, str) and self.engine.licenses.strip()
                     
                     if is_licensed_task and not has_license:
-                        item = QListWidgetItem(f"   [🔒] {ru_name} (Нужна лицензия)")
+                        item = QListWidgetItem(f"        [🔒] {ru_name} (Нужна лицензия)")
                         item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsUserCheckable & ~Qt.ItemFlag.ItemIsEnabled)
                         item.setForeground(QBrush(QColor("#777777")))
                     else:
-                        item = QListWidgetItem(f"   {ru_name}")
+                        item = QListWidgetItem(f"        {ru_name}")
                         item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
                         item.setCheckState(Qt.CheckState.Unchecked)
                         
@@ -2632,11 +2632,11 @@ if PYQT_AVAILABLE:
                     has_license = hasattr(self.engine, "licenses") and isinstance(self.engine.licenses, str) and self.engine.licenses.strip()
                     
                     if is_licensed_task and not has_license:
-                        item = QListWidgetItem(f"   [🔒] {ru_name} (Нужна лицензия)")
+                        item = QListWidgetItem(f"        [🔒] {ru_name} (Нужна лицензия)")
                         item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsUserCheckable & ~Qt.ItemFlag.ItemIsEnabled)
                         item.setForeground(QBrush(QColor("#777777")))
                     else:
-                        item = QListWidgetItem(f"   {ru_name}")
+                        item = QListWidgetItem(f"        {ru_name}")
                         item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
                         item.setCheckState(Qt.CheckState.Unchecked)
                         
@@ -4241,6 +4241,7 @@ if PYQT_AVAILABLE:
                     
                 if organ_name == "header":
                     # Это клик по заголовку группы!
+                    self._just_changed_header = True
                     self.is_updating_presets = True
                     new_state = item.checkState()
                     if new_state == Qt.CheckState.PartiallyChecked:
@@ -4305,6 +4306,9 @@ if PYQT_AVAILABLE:
 
         def on_organ_item_clicked(self, item: QListWidgetItem):
             """Слот для клика по элементу списка органов."""
+            if getattr(self, '_just_changed_header', False):
+                self._just_changed_header = False
+                return
             role = item.data(Qt.ItemDataRole.UserRole)
             if role == "header":
                 self.toggle_group_collapse(item)
