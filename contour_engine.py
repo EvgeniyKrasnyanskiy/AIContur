@@ -70,10 +70,11 @@ DEFAULT_PRESETS_DATA = {
             "gluteus_minimus_left", "gluteus_minimus_right"
         ],
         "Отделы головного мозга (Brain Structures)": [
-            "brain_stem", "cerebellum", "thalamus_left", "thalamus_right", "caudate_left", "caudate_right",
-            "putamen_left", "putamen_right", "pallidum_left", "pallidum_right",
-            "ventricle", "subarachnoid_space", "venous_sinuses", "septum_pellucidum", "internal_capsule",
-            "frontal_lobe", "parietal_lobe", "occipital_lobe", "temporal_lobe", "insular_cortex"
+            "brain_stem", "cerebellum", "thalamus_left", "thalamus_right", "hippocampus_left", "hippocampus_right",
+            "amygdala_left", "amygdala_right", "caudate_left", "caudate_right", "putamen_left", "putamen_right",
+            "pallidum_left", "pallidum_right", "ventricle", "subarachnoid_space", "venous_sinuses",
+            "septum_pellucidum", "internal_capsule", "frontal_lobe", "parietal_lobe", "occipital_lobe",
+            "temporal_lobe", "insular_cortex", "central_sulcus"
         ],
         "Остальное": []
     },
@@ -524,10 +525,11 @@ class ContourEngine:
             "gluteus_minimus_left", "gluteus_minimus_right"
         ]
         brain_structs_base = [
-            "brain_stem", "cerebellum", "thalamus_left", "thalamus_right", "caudate_left", "caudate_right",
-            "putamen_left", "putamen_right", "pallidum_left", "pallidum_right",
-            "ventricle", "subarachnoid_space", "venous_sinuses", "septum_pellucidum", "internal_capsule",
-            "frontal_lobe", "parietal_lobe", "occipital_lobe", "temporal_lobe", "insular_cortex"
+            "brain_stem", "cerebellum", "thalamus_left", "thalamus_right", "hippocampus_left", "hippocampus_right",
+            "amygdala_left", "amygdala_right", "caudate_left", "caudate_right", "putamen_left", "putamen_right",
+            "pallidum_left", "pallidum_right", "ventricle", "subarachnoid_space", "venous_sinuses",
+            "septum_pellucidum", "internal_capsule", "frontal_lobe", "parietal_lobe", "occipital_lobe",
+            "temporal_lobe", "insular_cortex", "central_sulcus"
         ]
 
         # Эвристические списки ключевых слов для автоматического распределения 300+ дополнительных структур

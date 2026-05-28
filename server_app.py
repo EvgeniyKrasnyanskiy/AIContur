@@ -1791,7 +1791,7 @@ if PYQT_AVAILABLE:
             self.showMaximized()
             self.existing_rtstruct_path = None
             self.is_updating_presets = False
-            self.collapsed_groups = {"Остальное": True}
+            self.collapsed_groups = {"Остальное": True, "Отделы головного мозга": True}
             self.worker = None
             self.active_workers = []
             self.settings = QSettings("AIContourCorp", "AIContour")
@@ -5038,38 +5038,8 @@ if PYQT_AVAILABLE:
 
         def on_segmentation_finished_background(self, success: bool, message: str, patient_name: str, dicom_dir: str, worker):
             try:
-                # Фиксация статистики запуска
-                elapsed = 0.0
-                if worker and hasattr(worker, "_start_time"):
-                    elapsed = time.time() - worker._start_time
-
-                organs = worker.selected_organs if worker else []
-                preset = self.preset_combo.currentText()
-                precision = self.precision_combo.currentText()
-
-                if success:
-                    self.stats_manager.record_run(
-                        status="success",
-                        elapsed_seconds=elapsed,
-                        organs_contoured=organs,
-                        preset_name=preset,
-                        precision_mode=precision
-                    )
-                else:
-                    is_cancelled = False
-                    if worker and getattr(worker, "is_cancelled", False):
-                        is_cancelled = True
-                    elif "отмен" in message.lower():
-                        is_cancelled = True
-                    
-                    status_str = "cancelled" if is_cancelled else "failed"
-                    self.stats_manager.record_run(
-                        status=status_str,
-                        elapsed_seconds=elapsed,
-                        organs_contoured=[],
-                        preset_name=preset,
-                        precision_mode=precision
-                    )
+                # Фиксация статистики запуска убрана из GUI сервера во избежание дублирования,
+                # так как все запуски (и локальные, и сетевые) уже логируются бэкендом QueueManager.
                 
                 # Обновляем интерфейс статистики
                 if hasattr(self, "update_statistics_ui"):

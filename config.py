@@ -107,10 +107,11 @@ ORGAN_GROUPS = {
         "gluteus_minimus_left", "gluteus_minimus_right"
     ],
     "Отделы головного мозга (Brain Structures)": [
-        "brain_stem", "cerebellum", "thalamus_left", "thalamus_right", "caudate_left", "caudate_right",
-        "putamen_left", "putamen_right", "pallidum_left", "pallidum_right",
-        "ventricle", "subarachnoid_space", "venous_sinuses", "septum_pellucidum", "internal_capsule",
-        "frontal_lobe", "parietal_lobe", "occipital_lobe", "temporal_lobe", "insular_cortex"
+        "brain_stem", "cerebellum", "thalamus_left", "thalamus_right", "hippocampus_left", "hippocampus_right",
+        "amygdala_left", "amygdala_right", "caudate_left", "caudate_right", "putamen_left", "putamen_right",
+        "pallidum_left", "pallidum_right", "ventricle", "subarachnoid_space", "venous_sinuses",
+        "septum_pellucidum", "internal_capsule", "frontal_lobe", "parietal_lobe", "occipital_lobe",
+        "temporal_lobe", "insular_cortex", "central_sulcus"
     ]
 }
 
@@ -414,11 +415,32 @@ class StatisticsManager:
             # Добавление в список последних запусков
             import datetime
             now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            # Красивый маппинг для пресетов и режимов точности
+            preset_mapping = {
+                "head_neck_oar": "Голова и шея (Head & Neck)",
+                "thoracic_oar": "Грудная клетка (Thorax)",
+                "abdominal_oar": "Брюшная полость (Abdomen)",
+                "pelvis_oar": "Малый таз (Pelvis)",
+                "brain_structures": "Отделы головного мозга (Brain Structures)",
+                "brachytherapy_oar": "Брахитерапия (Brachytherapy)",
+                "all": "Все органы (All)",
+                "custom": "Пользовательский (Custom)"
+            }
+            precision_mapping = {
+                "normal": "Стандартная (1.5 мм)",
+                "fast": "Быстрая (3.0 мм)",
+                "faster": "Очень быстрая (6.0 мм)"
+            }
+            
+            display_preset = preset_mapping.get(preset_name, preset_name)
+            display_precision = precision_mapping.get(precision_mode, precision_mode)
+            
             run_entry = {
                 "timestamp": now_str,
                 "status": status,
-                "preset": preset_name,
-                "precision": precision_mode,
+                "preset": display_preset,
+                "precision": display_precision,
                 "elapsed_seconds": round(elapsed_seconds, 1),
                 "organs_count": len(organs_contoured) if status == "success" else 0
             }
