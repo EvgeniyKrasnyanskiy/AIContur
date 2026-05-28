@@ -4263,8 +4263,10 @@ if PYQT_AVAILABLE:
                     preset_key = "abdominal_oar"
                 elif "Brachytherapy" in preset_name or "Брахитерапия" in preset_name:
                     preset_key = "brachytherapy_oar"
-                else:
+                elif "All" in preset_name or "Все органы" in preset_name:
                     preset_key = "all"
+                else:
+                    preset_key = "custom"
 
                 # Точность
                 precision_modes = ["normal", "fast", "faster"]
