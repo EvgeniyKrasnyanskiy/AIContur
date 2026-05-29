@@ -813,6 +813,7 @@ if PYQT_AVAILABLE:
                     QMessageBox.StandardButton.No
                 )
                 if reply == QMessageBox.StandardButton.Yes:
+                    self.engine.load_presets_config()
                     self.engine.licenses = key
                     self.engine.save_presets_config()
                     self._write_license_to_totalseg_config(key)
@@ -833,6 +834,7 @@ if PYQT_AVAILABLE:
                 return
                 
             # Сохранение валидной лицензии
+            self.engine.load_presets_config()
             self.engine.licenses = key
             self.engine.save_presets_config()
             self._write_license_to_totalseg_config(key)
@@ -854,6 +856,7 @@ if PYQT_AVAILABLE:
                 QMessageBox.StandardButton.No
             )
             if reply == QMessageBox.StandardButton.Yes:
+                self.engine.load_presets_config()
                 self.engine.licenses = ""
                 self.engine.save_presets_config()
                 self._write_license_to_totalseg_config("")
@@ -1762,8 +1765,19 @@ if PYQT_AVAILABLE:
             self.btn_deselect_all.setObjectName("btnAction")
             self.btn_deselect_all.clicked.connect(self.deselect_all_organs)
             
+            self.btn_save_preset = QPushButton("💾 Сохранить пресет")
+            self.btn_save_preset.setObjectName("btnAction")
+            self.btn_save_preset.clicked.connect(self.save_current_preset_dialog)
+            
+            self.btn_delete_preset = QPushButton("🗑️")
+            self.btn_delete_preset.setObjectName("btnAction")
+            self.btn_delete_preset.setToolTip("Удалить выбранный пресет")
+            self.btn_delete_preset.clicked.connect(self.delete_current_preset_dialog)
+            
             selection_layout.addWidget(self.btn_select_all)
             selection_layout.addWidget(self.btn_deselect_all)
+            selection_layout.addWidget(self.btn_save_preset)
+            selection_layout.addWidget(self.btn_delete_preset)
             tab1_layout.addLayout(selection_layout)
 
             # Список OAR с чек-боксами
@@ -2535,9 +2549,27 @@ if PYQT_AVAILABLE:
 
             # Первый элемент — пустая строка-подсказка (ничего не выделяет)
             self.preset_combo.addItem("— Выберите пресет —")
-            # Добавляем пресеты из движка
+            
+            # Разделяем дефолтные и пользовательские пресеты
+            DEFAULT_PRESET_NAMES = [
+                "Голова и шея (Head & Neck)",
+                "Грудная клетка (Thorax)",
+                "Брюшная полость (Abdomen)",
+                "Малый таз (Pelvis)",
+                "Отделы головного мозга (Brain Structures)"
+            ]
+            
             presets_keys = list(self.engine.presets.keys())
-            self.preset_combo.addItems(presets_keys)
+            default_presets = [p for p in presets_keys if p in DEFAULT_PRESET_NAMES]
+            user_presets = [p for p in presets_keys if p not in DEFAULT_PRESET_NAMES]
+            
+            self.preset_combo.addItems(default_presets)
+            
+            if user_presets:
+                self.preset_combo.insertSeparator(self.preset_combo.count())
+                self.preset_combo.addItems(user_presets)
+                
+            self.preset_combo.insertSeparator(self.preset_combo.count())
             self.preset_combo.addItem("Пользовательский (Custom)")
 
             # Использование глобального ORGAN_GROUPS из config.py
@@ -3628,6 +3660,10 @@ if PYQT_AVAILABLE:
                     self.btn_select_all.setEnabled(True)
                 if hasattr(self, 'btn_deselect_all'):
                     self.btn_deselect_all.setEnabled(True)
+                if hasattr(self, 'btn_save_preset'):
+                    self.btn_save_preset.setEnabled(True)
+                if hasattr(self, 'btn_delete_preset'):
+                    self.btn_delete_preset.setEnabled(True)
                 
                 # Сворачиваем обратно группы по умолчанию ("Остальное" и "Отделы головного мозга")
                 self.collapsed_groups = {"Остальное": True, "Отделы головного мозга (Brain Structures)": True}
@@ -3678,6 +3714,10 @@ if PYQT_AVAILABLE:
                 self.btn_select_all.setEnabled(False)
             if hasattr(self, 'btn_deselect_all'):
                 self.btn_deselect_all.setEnabled(False)
+            if hasattr(self, 'btn_save_preset'):
+                self.btn_save_preset.setEnabled(False)
+            if hasattr(self, 'btn_delete_preset'):
+                self.btn_delete_preset.setEnabled(False)
                 
             # Автоматически раскрываем все группы списков органов
             self.expand_all_groups()
@@ -4206,6 +4246,140 @@ if PYQT_AVAILABLE:
             if hasattr(self, 'chk_show_structures') and self.chk_show_structures.isChecked():
                 self.on_show_structures_changed()
 
+        def save_current_preset_dialog(self):
+            """Открывает диалог для ввода имени нового пресета и сохраняет отмеченные OAR в конфигурацию."""
+            from PyQt6.QtWidgets import QInputDialog, QMessageBox
+            
+            # 1. Получаем список отмеченных органов
+            checked_organs = []
+            for i in range(self.organs_list.count()):
+                item = self.organs_list.item(i)
+                org = item.data(Qt.ItemDataRole.UserRole)
+                if org != "header" and item.checkState() == Qt.CheckState.Checked:
+                    if org not in checked_organs:
+                        checked_organs.append(org)
+
+            if not checked_organs:
+                QMessageBox.warning(self, "Предупреждение", "Не выбрано ни одной структуры для сохранения в пресет.")
+                return
+
+            # 2. Запрашиваем имя пресета через QInputDialog
+            name, ok = QInputDialog.getText(
+                self, 
+                "💾 Сохранение пресета", 
+                "Введите название пресета"
+            )
+            
+            if not ok or not name.strip():
+                return
+
+            preset_name = name.strip()
+            
+            # Проверяем зарезервированные имена
+            from config import ORGAN_GROUPS
+            if preset_name in ORGAN_GROUPS or preset_name in [
+                "Голова и шея (Head & Neck)",
+                "Грудная клетка (Thorax)",
+                "Брюшная полость (Abdomen)",
+                "Малый таз (Pelvis)",
+                "Отделы головного мозга (Brain Structures)",
+                "— Выберите пресет —",
+                "Пользовательский (Custom)"
+            ]:
+                QMessageBox.critical(
+                    self, 
+                    "Ошибка", 
+                    f"Название '{preset_name}' зарезервировано для стандартного пресета.\nПожалуйста, выберите другое название."
+                )
+                return
+
+            # 3. Сохраняем в presets движка
+            self.engine.load_presets_config()
+            self.engine.presets[preset_name] = checked_organs
+            
+            preset_colors_dict = {}
+            for org in checked_organs:
+                if org in self.engine.colors:
+                    preset_colors_dict[org] = self.engine.colors[org]
+            self.engine.preset_colors[preset_name] = preset_colors_dict
+            
+            self.engine.save_presets_config()
+
+            # 4. Обновляем выпадающий список пресетов и выставляем сохраненный пресет активным
+            self.init_presets_and_organs()
+            
+            idx = self.preset_combo.findText(preset_name)
+            if idx >= 0:
+                self.preset_combo.blockSignals(True)
+                self.preset_combo.setCurrentIndex(idx)
+                self.preset_combo.blockSignals(False)
+                
+            QMessageBox.information(
+                self, 
+                "Успех", 
+                f"Пользовательский пресет '{preset_name}' успешно сохранен! ✅"
+            )
+
+        def delete_current_preset_dialog(self) -> None:
+            """Запрашивает подтверждение и удаляет выбранный пользовательский пресет."""
+            from PyQt6.QtWidgets import QMessageBox
+            
+            current_preset: str = self.preset_combo.currentText().strip()
+            
+            # Список встроенных (дефолтных) имен пресетов и служебных элементов
+            DEFAULT_PRESET_NAMES: list[str] = [
+                "Голова и шея (Head & Neck)",
+                "Грудная клетка (Thorax)",
+                "Брюшная полость (Abdomen)",
+                "Малый таз (Pelvis)",
+                "Отделы головного мозга (Brain Structures)"
+            ]
+            
+            if current_preset in DEFAULT_PRESET_NAMES or current_preset in [
+                "— Выберите пресет —",
+                "Пользовательский (Custom)",
+                "Все органы (All)"
+            ] or not current_preset:
+                QMessageBox.warning(
+                    self,
+                    "Предупреждение",
+                    "Нельзя удалить стандартный пресет или служебный элемент."
+                )
+                return
+
+            # Запрашиваем подтверждение удаления
+            reply = QMessageBox.question(
+                self,
+                "🗑️ Удаление пресета",
+                f"Вы действительно хотите удалить пресет '{current_preset}'?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
+            
+            if reply == QMessageBox.StandardButton.Yes:
+                try:
+                    # Удаляем из движка
+                    self.engine.load_presets_config()
+                    self.engine.presets.pop(current_preset, None)
+                    self.engine.preset_colors.pop(current_preset, None)
+                    self.engine.save_presets_config()
+                    
+                    # Обновляем комбобокс и сбрасываем выбор
+                    self.init_presets_and_organs()
+                    
+                    QMessageBox.information(
+                        self,
+                        "Успех",
+                        f"Пользовательский пресет '{current_preset}' успешно удален! ✅"
+                    )
+                except Exception as e:
+                    logger.exception(f"Ошибка при удалении пресета {current_preset}: {e}")
+                    QMessageBox.critical(
+                        self,
+                        "Ошибка",
+                        f"Не удалось удалить пресет '{current_preset}':\n{e}"
+                    )
+
         def _sync_preset_combo_to_organs(self):
             """Подбирает и устанавливает в комбобоксе пресет, соответствующий текущим выбранным органам.
             Если точного совпадения нет — оставляет заглушку «— Выберите пресет —»."""
@@ -4236,6 +4410,21 @@ if PYQT_AVAILABLE:
                     else:
                         matched = "Пользовательский (Custom)"
 
+            # Подтягиваем индивидуальные цвета для пользовательского пресета при автоподборе
+            if matched in self.engine.preset_colors:
+                self.engine.load_presets_config()
+                preset_colors = self.engine.preset_colors[matched]
+                for org, rgb in preset_colors.items():
+                    self.engine.colors[org] = rgb
+                self.engine.save_presets_config()
+                
+                # Обновляем все иконки цветов в списке self.organs_list
+                for i in range(self.organs_list.count()):
+                    item = self.organs_list.item(i)
+                    organ_name = item.data(Qt.ItemDataRole.UserRole)
+                    if organ_name != "header" and organ_name in preset_colors:
+                        self.update_item_color_icon(item, organ_name)
+
             self.preset_combo.blockSignals(True)
             self.preset_combo.setCurrentText(matched)
             self.preset_combo.blockSignals(False)
@@ -4244,6 +4433,33 @@ if PYQT_AVAILABLE:
             """Снимает/ставит галочки в списке в соответствии с выбранным пресетом."""
             if preset_name == "Пользовательский (Custom)":
                 return
+
+            DEFAULT_PRESET_NAMES = [
+                "Голова и шея (Head & Neck)",
+                "Грудная клетка (Thorax)",
+                "Брюшная полость (Abdomen)",
+                "Малый таз (Pelvis)",
+                "Отделы головного мозга (Brain Structures)"
+            ]
+
+            # Возвращаем цвета к глобальной палитре при выборе системного пресета
+            if preset_name in DEFAULT_PRESET_NAMES or preset_name in ["— Выберите пресет —", "Все органы (All)"]:
+                if hasattr(self, 'color_preset_combo'):
+                    self.on_color_preset_changed(self.color_preset_combo.currentText())
+            # Подтягиваем индивидуальные цвета для пользовательского пресета
+            elif preset_name in self.engine.preset_colors:
+                self.engine.load_presets_config()
+                preset_colors = self.engine.preset_colors[preset_name]
+                for org, rgb in preset_colors.items():
+                    self.engine.colors[org] = rgb
+                self.engine.save_presets_config()
+                
+                # Обновляем все иконки цветов в списке self.organs_list
+                for i in range(self.organs_list.count()):
+                    item = self.organs_list.item(i)
+                    organ_name = item.data(Qt.ItemDataRole.UserRole)
+                    if organ_name != "header" and organ_name in preset_colors:
+                        self.update_item_color_icon(item, organ_name)
 
             if preset_name in self.engine.presets:
                 target_organs_raw = self.engine.presets.get(preset_name, [])
@@ -4540,6 +4756,29 @@ if PYQT_AVAILABLE:
             if new_color.isValid():
                 new_rgb = [new_color.red(), new_color.green(), new_color.blue()]
                 self.engine.colors[organ_name] = new_rgb
+                
+                # Принудительно отмечаем этот орган галочкой, так как пользователь настраивает его цвет!
+                item.setCheckState(Qt.CheckState.Checked)
+                
+                # Запоминаем в текущем пресете, если он пользовательский
+                current_preset = self.preset_combo.currentText().strip()
+                DEFAULT_PRESET_NAMES = [
+                    "Голова и шея (Head & Neck)",
+                    "Грудная клетка (Thorax)",
+                    "Брюшная полость (Abdomen)",
+                    "Малый таз (Pelvis)",
+                    "Отделы головного мозга (Brain Structures)"
+                ]
+                if current_preset not in DEFAULT_PRESET_NAMES and current_preset not in [
+                    "— Выберите пресет —",
+                    "Пользовательский (Custom)",
+                    "Все органы (All)"
+                ] and current_preset:
+                    if current_preset not in self.engine.preset_colors:
+                        self.engine.preset_colors[current_preset] = {}
+                    self.engine.preset_colors[current_preset][organ_name] = new_rgb
+                
+                self.engine.load_presets_config()
                 self.engine.save_presets_config()
                 
                 # Обновляем иконку
@@ -4550,6 +4789,7 @@ if PYQT_AVAILABLE:
                     itm = self.organs_list.item(i)
                     if itm.data(Qt.ItemDataRole.UserRole) == organ_name:
                         self.update_item_color_icon(itm, organ_name)
+                        itm.setCheckState(Qt.CheckState.Checked)
                         
                 logger.info(f"Цвет органа {organ_name} успешно изменен на {new_rgb}")
                 
@@ -4572,6 +4812,7 @@ if PYQT_AVAILABLE:
                     self.engine.colors[organ] = color
                 
                 # Сохраняем в конфигурационные файлы config/
+                self.engine.load_presets_config()
                 self.engine.save_presets_config()
                 
                 # Обновляем все иконки в списке с временной блокировкой сигналов
@@ -4720,17 +4961,22 @@ if PYQT_AVAILABLE:
             
             try:
                 preset_name = self.preset_combo.currentText()
-                preset_key = "abdominal_oar"
                 if "Thorax" in preset_name or "Грудная" in preset_name:
                     preset_key = "thoracic_oar"
                 elif "Pelvis" in preset_name or "Малый" in preset_name:
                     preset_key = "pelvis_oar"
                 elif "Head & Neck" in preset_name or "Голова" in preset_name:
                     preset_key = "head_neck_oar"
+                elif "Brain Structures" in preset_name or "головного мозга" in preset_name:
+                    preset_key = "brain_structures"
+                elif "Abdomen" in preset_name or "Брюшная" in preset_name:
+                    preset_key = "abdominal_oar"
                 elif "Brachytherapy" in preset_name or "Брахитерапия" in preset_name:
                     preset_key = "brachytherapy_oar"
-                else:
+                elif "All" in preset_name or "Все органы" in preset_name:
                     preset_key = "all"
+                else:
+                    preset_key = "custom"
 
                 # Точность
                 precision_modes = ["normal", "fast", "faster"]
@@ -4800,6 +5046,10 @@ if PYQT_AVAILABLE:
             is_view_mode = hasattr(self, 'chk_show_structures') and self.chk_show_structures.isChecked()
             self.btn_select_all.setEnabled(enabled and not is_view_mode)
             self.btn_deselect_all.setEnabled(enabled and not is_view_mode)
+            if hasattr(self, 'btn_save_preset'):
+                self.btn_save_preset.setEnabled(enabled and not is_view_mode)
+            if hasattr(self, 'btn_delete_preset'):
+                self.btn_delete_preset.setEnabled(enabled and not is_view_mode)
             self.preset_combo.setEnabled(enabled and not is_view_mode)
             self.organs_list.setEnabled(enabled)
             self.precision_combo.setEnabled(enabled)

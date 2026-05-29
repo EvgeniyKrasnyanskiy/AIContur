@@ -44,3 +44,6 @@ config/statistics.json
 config/statistics.json.bak
 jobs/
 
+# Временные отчеты
+changes_today.txt
+
